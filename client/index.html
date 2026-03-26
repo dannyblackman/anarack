@@ -1,0 +1,554 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Airsynth — Prototype</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #0a0a0a;
+      color: #e0e0e0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-height: 100vh;
+      padding: 2rem;
+    }
+
+    h1 {
+      font-size: 1.5rem;
+      font-weight: 600;
+      margin-bottom: 0.25rem;
+    }
+
+    .subtitle {
+      color: #666;
+      font-size: 0.85rem;
+      margin-bottom: 2rem;
+    }
+
+    #status {
+      padding: 0.4rem 0.8rem;
+      border-radius: 4px;
+      font-size: 0.8rem;
+      margin-bottom: 2rem;
+    }
+
+    #status.connected { background: #0a2e0a; color: #4ade80; }
+    #status.disconnected { background: #2e0a0a; color: #f87171; }
+    #status.connecting { background: #2e2a0a; color: #facc15; }
+
+    /* Keyboard */
+    .keyboard {
+      display: flex;
+      position: relative;
+      height: 160px;
+      margin-bottom: 2rem;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    .key {
+      position: relative;
+      border: 1px solid #333;
+      border-radius: 0 0 4px 4px;
+      cursor: pointer;
+      transition: background 0.05s;
+    }
+
+    .key.white {
+      width: 40px;
+      height: 160px;
+      background: #e8e8e8;
+      z-index: 1;
+    }
+
+    .key.black {
+      width: 26px;
+      height: 100px;
+      background: #1a1a1a;
+      margin-left: -13px;
+      margin-right: -13px;
+      z-index: 2;
+    }
+
+    .key.white.active { background: #a5b4fc; }
+    .key.black.active { background: #6366f1; }
+
+    .key .label {
+      position: absolute;
+      bottom: 6px;
+      width: 100%;
+      text-align: center;
+      font-size: 0.6rem;
+      color: #666;
+      pointer-events: none;
+    }
+
+    .key.black .label { color: #888; bottom: 4px; }
+
+    /* CC Sliders */
+    .sliders {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 1.5rem;
+      width: 100%;
+      max-width: 500px;
+      margin-bottom: 2rem;
+    }
+
+    .slider-group {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .slider-group label {
+      font-size: 0.75rem;
+      color: #999;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .slider-group input[type="range"] {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 100%;
+      height: 6px;
+      background: #222;
+      border-radius: 3px;
+      outline: none;
+    }
+
+    .slider-group input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 16px;
+      height: 16px;
+      background: #6366f1;
+      border-radius: 50%;
+      cursor: pointer;
+    }
+
+    .slider-value {
+      font-size: 0.75rem;
+      color: #6366f1;
+      font-variant-numeric: tabular-nums;
+    }
+
+    /* Controls */
+    .controls {
+      display: flex;
+      gap: 1rem;
+      align-items: center;
+      margin-bottom: 1rem;
+    }
+
+    .controls label {
+      font-size: 0.8rem;
+      color: #999;
+    }
+
+    .controls select, .controls input {
+      background: #1a1a1a;
+      color: #e0e0e0;
+      border: 1px solid #333;
+      border-radius: 4px;
+      padding: 0.3rem 0.5rem;
+      font-size: 0.8rem;
+    }
+
+    /* Log */
+    #log {
+      width: 100%;
+      max-width: 500px;
+      height: 120px;
+      background: #111;
+      border: 1px solid #222;
+      border-radius: 4px;
+      padding: 0.5rem;
+      font-family: "SF Mono", "Fira Code", monospace;
+      font-size: 0.7rem;
+      color: #666;
+      overflow-y: auto;
+      margin-top: 1rem;
+    }
+  </style>
+</head>
+<body>
+  <h1>Airsynth</h1>
+  <p class="subtitle">Phase 0 Prototype — Remote Synth Control</p>
+
+  <div id="status" class="disconnected">Disconnected</div>
+
+  <div class="controls">
+    <label>Server:
+      <input type="text" id="ws-host" value="localhost:8765" style="width: 140px">
+    </label>
+    <button id="connect-btn" onclick="toggleConnection()">Connect</button>
+    <label>MIDI Input:
+      <select id="midi-input">
+        <option value="">None (use keyboard fallback)</option>
+      </select>
+    </label>
+  </div>
+
+  <div class="controls">
+    <label>Octave:
+      <select id="octave">
+        <option value="2">2</option>
+        <option value="3" selected>3</option>
+        <option value="4">4</option>
+        <option value="5">5</option>
+      </select>
+    </label>
+    <label>Velocity:
+      <input type="range" id="velocity" min="1" max="127" value="100" style="width: 80px">
+    </label>
+    <span id="midi-input-status" style="font-size: 0.75rem; color: #666;"></span>
+  </div>
+
+  <div class="keyboard" id="keyboard"></div>
+
+  <div class="sliders" id="sliders"></div>
+
+  <div id="log"></div>
+
+  <script>
+    // --- Config ---
+    const SLIDERS = [
+      { label: "Filter Cutoff", cc: 74, default: 64 },
+      { label: "Resonance",     cc: 71, default: 0 },
+      { label: "Attack",        cc: 73, default: 20 },
+      { label: "Decay",         cc: 75, default: 64 },
+      { label: "Sustain",       cc: 79, default: 100 },
+      { label: "Release",       cc: 72, default: 40 },
+    ];
+
+    // Notes in one octave (C to B)
+    const NOTE_NAMES = ["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"];
+    const BLACK_INDICES = new Set([1, 3, 6, 8, 10]);
+    const NUM_OCTAVES = 2;
+
+    // --- State ---
+    let ws = null;
+    let activeNotes = new Set();
+    let midiAccess = null;
+    let activeMidiInput = null;
+
+    // --- WebSocket ---
+    function setStatus(state, text) {
+      const el = document.getElementById("status");
+      el.className = state;
+      el.textContent = text;
+    }
+
+    function toggleConnection() {
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.close();
+        return;
+      }
+      const host = document.getElementById("ws-host").value;
+      setStatus("connecting", "Connecting...");
+      ws = new WebSocket(`ws://${host}`);
+
+      ws.onopen = () => {
+        setStatus("connected", "Connected");
+        document.getElementById("connect-btn").textContent = "Disconnect";
+        log("Connected to " + host);
+      };
+
+      ws.onclose = () => {
+        setStatus("disconnected", "Disconnected");
+        document.getElementById("connect-btn").textContent = "Connect";
+        log("Disconnected");
+      };
+
+      ws.onerror = () => {
+        setStatus("disconnected", "Connection failed");
+        log("Connection error");
+      };
+
+      ws.onmessage = (e) => {
+        const data = JSON.parse(e.data);
+        if (data.error) log("Server error: " + data.error);
+      };
+    }
+
+    function sendMidi(status, data1, data2) {
+      if (!ws || ws.readyState !== WebSocket.OPEN) return;
+      ws.send(JSON.stringify({ status, data1, data2 }));
+    }
+
+    // --- MIDI Helpers ---
+    function noteOn(note, velocity) {
+      sendMidi(0x90, note, velocity);
+      activeNotes.add(note);
+      highlightKey(note, true);
+      log(`Note On: ${noteName(note)} (${note}) vel=${velocity}`);
+    }
+
+    function noteOff(note) {
+      sendMidi(0x80, note, 0);
+      activeNotes.delete(note);
+      highlightKey(note, false);
+      log(`Note Off: ${noteName(note)} (${note})`);
+    }
+
+    function cc(controller, value) {
+      sendMidi(0xB0, controller, value);
+    }
+
+    function noteName(midi) {
+      return NOTE_NAMES[midi % 12] + Math.floor(midi / 12 - 1);
+    }
+
+    function highlightKey(note, on) {
+      const el = document.querySelector(`.key[data-note="${note}"]`);
+      if (el) el.classList.toggle("active", on);
+    }
+
+    // =========================================================
+    // Web MIDI API — primary input
+    // =========================================================
+    async function initWebMidi() {
+      const statusEl = document.getElementById("midi-input-status");
+
+      if (!navigator.requestMIDIAccess) {
+        statusEl.textContent = "Web MIDI not supported — using keyboard fallback";
+        log("Web MIDI API not available in this browser. Use Chrome/Edge/Opera, or fall back to computer keyboard.");
+        return;
+      }
+
+      try {
+        midiAccess = await navigator.requestMIDIAccess({ sysex: false });
+        populateMidiInputs();
+
+        // Re-populate when devices are plugged/unplugged
+        midiAccess.onstatechange = () => populateMidiInputs();
+      } catch (err) {
+        statusEl.textContent = "MIDI access denied — using keyboard fallback";
+        log("MIDI access denied: " + err.message);
+      }
+    }
+
+    function populateMidiInputs() {
+      const select = document.getElementById("midi-input");
+      const current = select.value;
+
+      // Keep the "None" option, clear the rest
+      select.innerHTML = '<option value="">None (use keyboard fallback)</option>';
+
+      for (const [id, input] of midiAccess.inputs) {
+        const opt = document.createElement("option");
+        opt.value = id;
+        opt.textContent = input.name || `MIDI Input ${id}`;
+        select.appendChild(opt);
+      }
+
+      // Auto-select the first real device if nothing was selected yet
+      if (!current && midiAccess.inputs.size > 0) {
+        const firstId = midiAccess.inputs.keys().next().value;
+        select.value = firstId;
+        selectMidiInput(firstId);
+      } else if (current) {
+        // Re-select the previously chosen device if still present
+        select.value = midiAccess.inputs.has(current) ? current : "";
+        selectMidiInput(select.value);
+      }
+
+      const count = midiAccess.inputs.size;
+      document.getElementById("midi-input-status").textContent =
+        count ? `${count} MIDI device${count > 1 ? "s" : ""} found` : "No MIDI devices detected";
+    }
+
+    function selectMidiInput(id) {
+      // Detach previous listener
+      if (activeMidiInput) {
+        activeMidiInput.onmidimessage = null;
+        activeMidiInput = null;
+      }
+
+      if (!id || !midiAccess) return;
+
+      const input = midiAccess.inputs.get(id);
+      if (!input) return;
+
+      input.onmidimessage = onMidiMessage;
+      activeMidiInput = input;
+      log(`MIDI input: ${input.name}`);
+    }
+
+    function onMidiMessage(e) {
+      const [status, data1, data2] = e.data;
+      const type = status & 0xF0;
+
+      // Forward everything to the server
+      sendMidi(status, data1, data2 ?? 0);
+
+      // Visual feedback for notes
+      if (type === 0x90 && data2 > 0) {
+        activeNotes.add(data1);
+        highlightKey(data1, true);
+        log(`Note On: ${noteName(data1)} (${data1}) vel=${data2}`);
+      } else if (type === 0x80 || (type === 0x90 && data2 === 0)) {
+        activeNotes.delete(data1);
+        highlightKey(data1, false);
+        log(`Note Off: ${noteName(data1)} (${data1})`);
+      } else if (type === 0xB0) {
+        // Update slider UI if it matches one of our CC sliders
+        updateSliderFromMidi(data1, data2);
+        log(`CC ${data1}: ${data2}`);
+      } else if (type === 0xE0) {
+        log(`Pitch Bend: ${data1 | (data2 << 7)}`);
+      }
+    }
+
+    function updateSliderFromMidi(ccNum, value) {
+      const idx = SLIDERS.findIndex(s => s.cc === ccNum);
+      if (idx === -1) return;
+      const group = document.querySelectorAll(".slider-group")[idx];
+      if (!group) return;
+      const input = group.querySelector("input");
+      const display = group.querySelector(".slider-value");
+      input.value = value;
+      display.textContent = value;
+    }
+
+    document.getElementById("midi-input").addEventListener("change", (e) => {
+      selectMidiInput(e.target.value);
+    });
+
+    // --- On-screen Keyboard (mouse) ---
+    function buildKeyboard() {
+      const container = document.getElementById("keyboard");
+      const baseOctave = parseInt(document.getElementById("octave").value);
+
+      container.innerHTML = "";
+
+      for (let oct = 0; oct < NUM_OCTAVES; oct++) {
+        for (let i = 0; i < 12; i++) {
+          const isBlack = BLACK_INDICES.has(i);
+          const midiNote = (baseOctave + oct + 1) * 12 + i;
+          const key = document.createElement("div");
+          key.className = `key ${isBlack ? "black" : "white"}`;
+          key.dataset.note = midiNote;
+
+          if (!isBlack) {
+            const label = document.createElement("span");
+            label.className = "label";
+            label.textContent = NOTE_NAMES[i] + (baseOctave + oct);
+            key.appendChild(label);
+          }
+
+          key.addEventListener("mousedown", (e) => {
+            e.preventDefault();
+            const vel = parseInt(document.getElementById("velocity").value);
+            noteOn(midiNote, vel);
+          });
+
+          key.addEventListener("mouseup", () => {
+            noteOff(midiNote);
+          });
+
+          key.addEventListener("mouseleave", () => {
+            if (activeNotes.has(midiNote)) noteOff(midiNote);
+          });
+
+          container.appendChild(key);
+        }
+      }
+    }
+
+    document.addEventListener("mouseup", () => {
+      for (const note of activeNotes) noteOff(note);
+    });
+
+    document.getElementById("octave").addEventListener("change", buildKeyboard);
+
+    // --- Computer Keyboard (fallback) ---
+    const KEY_MAP = {
+      "a": 0, "w": 1, "s": 2, "e": 3, "d": 4, "f": 5,
+      "t": 6, "g": 7, "y": 8, "h": 9, "u": 10, "j": 11,
+      "k": 12, "o": 13, "l": 14, "p": 15,
+    };
+    const keysHeld = new Set();
+
+    document.addEventListener("keydown", (e) => {
+      if (e.repeat || e.target.tagName === "INPUT" || e.target.tagName === "SELECT") return;
+      const offset = KEY_MAP[e.key.toLowerCase()];
+      if (offset === undefined) return;
+      const base = (parseInt(document.getElementById("octave").value) + 1) * 12;
+      const note = base + offset;
+      if (keysHeld.has(e.key)) return;
+      keysHeld.add(e.key);
+      const vel = parseInt(document.getElementById("velocity").value);
+      noteOn(note, vel);
+    });
+
+    document.addEventListener("keyup", (e) => {
+      const offset = KEY_MAP[e.key.toLowerCase()];
+      if (offset === undefined) return;
+      const base = (parseInt(document.getElementById("octave").value) + 1) * 12;
+      const note = base + offset;
+      keysHeld.delete(e.key);
+      noteOff(note);
+    });
+
+    // --- Sliders ---
+    function buildSliders() {
+      const container = document.getElementById("sliders");
+      for (const s of SLIDERS) {
+        const group = document.createElement("div");
+        group.className = "slider-group";
+
+        const label = document.createElement("label");
+        label.textContent = s.label;
+
+        const input = document.createElement("input");
+        input.type = "range";
+        input.min = 0;
+        input.max = 127;
+        input.value = s.default;
+
+        const value = document.createElement("span");
+        value.className = "slider-value";
+        value.textContent = s.default;
+
+        input.addEventListener("input", () => {
+          const val = parseInt(input.value);
+          value.textContent = val;
+          cc(s.cc, val);
+        });
+
+        group.appendChild(label);
+        group.appendChild(input);
+        group.appendChild(value);
+        container.appendChild(group);
+      }
+    }
+
+    // --- Log ---
+    function log(msg) {
+      const el = document.getElementById("log");
+      const line = document.createElement("div");
+      const time = new Date().toLocaleTimeString("en-GB", { hour12: false });
+      line.textContent = `[${time}] ${msg}`;
+      el.appendChild(line);
+      el.scrollTop = el.scrollHeight;
+
+      while (el.children.length > 200) el.removeChild(el.firstChild);
+    }
+
+    // --- Init ---
+    buildKeyboard();
+    buildSliders();
+    initWebMidi();
+    log("Ready. Connect a MIDI keyboard or use computer keys (A-L row) as fallback.");
+  </script>
+</body>
+</html>
