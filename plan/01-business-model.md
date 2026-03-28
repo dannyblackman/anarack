@@ -377,6 +377,88 @@ If 3-5 manufacturers each connect 2-3 synths at £300/month per synth:
 - Minimal additional infrastructure cost — it's the same platform
 - Strengthens manufacturer relationships, which feeds back into the primary business (discounts, endorsements, early access)
 
+## Analogue Effects Rack (Future Phase — Post Proper Launch)
+
+A premium add-on to the synth subscription: access to real analogue and mechanical effects that plugins genuinely can't replicate. Not digital effects pedals (plugins are too close) — only the units where the physical medium *is* the sound.
+
+### Why Only Analogue/Mechanical
+
+The whole pitch mirrors the synth value proposition: "plugins get close, but not close enough." That's only true for effects where the physical process creates the character:
+
+- **A real plate reverb** — metal physically vibrating creates three-dimensionality and harmonic complexity that convolution IRs and algorithms don't capture
+- **A real spring reverb** — splashy, unpredictable behaviour is the whole point
+- **A real tape echo** — tape degradation, wow/flutter, saturation can't be faked
+- **Real tape saturation** — running audio through actual tape adds harmonics plugins approximate but don't match
+
+Digital effects (Strymon, Eventide, Boss) — skip these. The plugins are basically indistinguishable. Nobody's subscribing for a remote Strymon Timeline.
+
+### The Effects Rack
+
+| Unit | Type | Est. price | Remote control | Notes |
+|---|---|---|---|---|
+| Roland Space Echo RE-201 | Tape echo | £2,000-3,000 | Servo-controlled knobs | The hero unit. Iconic sound, impossible to replicate digitally. |
+| EMT 140 (or Plate Reverb Co equivalent) | Plate reverb | £3,000-10,000 | Simple — damping + level (1-2 servos) | 200kg, nobody's putting one at home. Perfect for "access over ownership." |
+| AKG BX20 or Fender spring tank | Spring reverb | £500-2,000 | Minimal — level + EQ | Few parameters, easy to control remotely. |
+| Studer A800 or similar | Tape saturation | £5,000-15,000 | Speed + input level (MIDI or servo) | Running audio through real tape. The ultimate "you can hear the difference." |
+
+### Servo-Controlled Knobs (for units without MIDI)
+
+Most of these vintage units have zero MIDI control — the knobs are purely mechanical. Solution: small servo motors physically turning the knobs, driven by MIDI CC.
+
+**How it works:**
+- Small servo/stepper motor attached to each knob via 3D-printed non-destructive coupler (clamp-on, no drilling into vintage gear)
+- Arduino/Pico microcontroller receives MIDI CC → converts to servo position
+- User turns virtual knob in the UI → servo turns physical knob → effect changes
+- Rotary encoder feedback reads actual knob position back to the UI
+
+**Engineering reality:**
+- Individual components are all solved problems — hobby servos, 3D printing, Arduino, basic code
+- A working prototype for one unit is a weekend or two for a competent maker
+- Production-reliable units running 24/7 need more iteration — quiet servos (digital, £20-30 each), reliable couplers, wear management
+- The Space Echo has ~7 knobs = ~7 servos, one Arduino, ~£100-150 in components per unit
+- Main challenges: servo noise during recording (use quiet motors or only move between takes), physical movement latency (100-500ms for servo to reach position), and long-term reliability
+
+**Plate and spring reverbs are easier** — they have 1-3 parameters each. A plate reverb with one damping servo and a level control is a much simpler build than a full Space Echo retrofit.
+
+### Pricing: Effects as an Add-On
+
+Effects work as a modular upsell on top of the synth subscription:
+
+| Plan | Synths only | Synths + Effects | Effects only |
+|---|---|---|---|
+| Creator | £15/month | £25/month (+£10) | £10/month |
+| Creator Pro | £39/month | £49/month (+£10) | £10/month |
+| Professional | £149/month | £159/month (+£10) | £10/month |
+
+Or flip it — effects at £15, synths as the add-on. Either way, the bundle is where most people land.
+
+**Why a separate add-on rather than bundled:**
+- Not everyone wants effects — some producers only want synths
+- Keeps the base synth price low for conversion
+- Effects users who don't need synths can subscribe too (mixing engineers who just want a real plate reverb on their mixes)
+- Creates another upgrade trigger: "You're already using our synths — add a real Space Echo to your chain for £10/month"
+
+### Audio Routing for Effects
+
+Effects require audio to flow in *both* directions — different from synths (which only send audio back):
+
+1. User's DAW sends audio out to Anarack via the plugin (dry signal)
+2. Server routes audio through the physical effect unit
+3. Wet/processed audio returns to the user's DAW
+
+The plugin would appear as both an instrument (for synths) and an effect (insert or send) in the DAW. JUCE supports both plugin types from the same codebase.
+
+Latency matters more here — effects are processing existing audio, so the round-trip delay is additive. At <50ms it's usable for mixing (not real-time monitoring). Users would likely print/bounce the wet signal rather than monitor through it live.
+
+### Timing
+
+This is firmly post-proper-launch:
+1. Prove the synth business first — effects add complexity
+2. Build the servo-controlled prototype once there's revenue to fund it
+3. Start with the simplest unit (plate or spring reverb — fewest parameters)
+4. Add the Space Echo once the servo engineering is proven
+5. Tape saturation last — most expensive, most complex
+
 ## Revenue Scenarios
 
 Pro-first launch, then widen the funnel. The upgrade ladder means creators naturally move up tiers as they get hooked.
