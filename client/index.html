@@ -325,7 +325,7 @@
     // Gapless audio playback with adaptive buffering
     let nextPlayTime = 0;
     let audioStarted = false;
-    const BUFFER_AHEAD = 0.08; // 80ms buffer — enough to absorb jitter without feeling laggy
+    const BUFFER_AHEAD = 0.03; // 30ms buffer — tighter, may glitch on bad connections but lower latency
 
     function playAudioChunk(arrayBuffer) {
       if (!audioCtx) return;
