@@ -99,7 +99,11 @@ class MidiRouter:
         status = msg["status"]
         data1 = msg.get("data1", 0)
         data2 = msg.get("data2", 0)
-        self.send([status, data1, data2])
+        # Program Change (0xC0) and Channel Pressure (0xD0) are 2-byte messages
+        if (status & 0xF0) in (0xC0, 0xD0):
+            self.send([status, data1])
+        else:
+            self.send([status, data1, data2])
 
 
 class AudioStreamer:
