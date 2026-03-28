@@ -4,7 +4,7 @@
 
 "Real hardware synths, from your laptop."
 
-Airsynth isn't competing with soft synths or sample packs — it's an alternative to buying expensive hardware or hiring a studio. The pitch: get the real sound on your track for less than the cost of a plugin subscription.
+Anarack isn't competing with soft synths or sample packs — it's an alternative to buying expensive hardware or hiring a studio. The pitch: get the real sound on your track for less than the cost of a plugin subscription.
 
 ## Target Audience Segments
 
@@ -21,7 +21,7 @@ Airsynth isn't competing with soft synths or sample packs — it's an alternativ
 - Working on commercial releases
 - Own some hardware but want access to gear they don't have
 - Care about audio quality and session reliability
-- Find Airsynth through word of mouth or industry contacts
+- Find Anarack through word of mouth or industry contacts
 - Higher spend per session, lower volume
 
 ### Tertiary: Content Creators (10% of users)
@@ -29,7 +29,7 @@ Airsynth isn't competing with soft synths or sample packs — it's an alternativ
 - YouTubers, TikTok musicians, streamers
 - Want to demo/showcase real synth sounds
 - Short sessions, high social media reach
-- Organic marketing channel — every video is an ad for Airsynth
+- Organic marketing channel — every video is an ad for Anarack
 
 ## Channels
 
@@ -37,10 +37,10 @@ Airsynth isn't competing with soft synths or sample packs — it's an alternativ
 
 **Content types:**
 - "We recorded this beat using a remote Moog Sub37" — full production videos
-- A/B comparisons: soft synth vs Airsynth (the real hardware)
+- A/B comparisons: soft synth vs Anarack (the real hardware)
 - "First time playing a real Prophet Rev2" — reaction-style content
 - Sound design tutorials using specific synths
-- Studio tour / behind-the-scenes of the Airsynth rack
+- Studio tour / behind-the-scenes of the Anarack rack
 
 **Goal:** build credibility and demonstrate the experience is real and usable.
 
@@ -58,7 +58,7 @@ Short clips: someone tweaking a knob on their phone/laptop and hearing a Moog re
 
 ### 4. Discord / Community
 
-Run an Airsynth Discord server:
+Run an Anarack Discord server:
 - Share presets and recordings
 - Vote on next synth to add to the rack
 - Session scheduling and community

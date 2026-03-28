@@ -104,7 +104,7 @@ We *want* subscribers who don't use all their hours:
 - A Creator pays £15/month for 2 hours. If they use 45 mins, we made £15 for 45 mins of synth time
 - A Creator Pro pays £39/month for 8 hours. Most months they'll use 3-4. That's £10-13 effective hourly rate — but we keep the subscription.
 - A Professional pays £149/month for 30 hours. Most months they'll use 8-12. That's £12-19 effective hourly rate.
-- Their projects depend on Airsynth (project recall), so they all keep paying
+- Their projects depend on Anarack (project recall), so they all keep paying
 - Synth capacity stays available — we never hit a wall where everyone's trying to use their hours at once
 
 Target utilisation: 15-25% of total capacity. Higher than that = time to add more synths.
@@ -196,7 +196,7 @@ With Paddle as Merchant of Record:
 
 ### Digital Services VAT (UK + International)
 
-Digital services (which Airsynth is) have specific VAT rules:
+Digital services (which Anarack is) have specific VAT rules:
 
 **If using Paddle:** Paddle handles all of this. Skip this section.
 
@@ -218,8 +218,8 @@ This is manageable but grows in complexity with each new market. An accountant w
 
 ## Tax Considerations (UK Business)
 
-- Trade under existing company: **Studio Audience Ltd** trading as **Airsynth** (no new company needed)
-- "Airsynth is a trading name of Studio Audience Ltd" in footer/terms
+- Trade under existing company: **Studio Audience Ltd** trading as **Anarack** (no new company needed)
+- "Anarack is a trading name of Studio Audience Ltd" in footer/terms
 - Ensure SIC codes on Companies House cover digital services (free to add if needed)
 - Equipment purchases are capital allowances (tax deductible)
 - Home studio: portion of mortgage/rent, utilities, broadband as business expense

@@ -21,7 +21,7 @@ Step-by-step instructions for getting the Phase 0 prototype running.
    - **OS:** Raspberry Pi OS Lite (64-bit) — under "Raspberry Pi OS (other)"
    - **Storage:** your microSD card
 4. Click the **gear icon** (or "Edit Settings") before writing:
-   - **Set hostname:** `airsynth`
+   - **Set hostname:** `anarack`
    - **Enable SSH:** yes, use password authentication
    - **Set username:** `pi`
    - **Set password:** something you'll remember
@@ -40,7 +40,7 @@ Step-by-step instructions for getting the Phase 0 prototype running.
 From your Mac terminal:
 
 ```bash
-ping airsynth.local
+ping anarack.local
 ```
 
 If that doesn't resolve, check your router's admin page for the Pi's IP address, or:
@@ -52,14 +52,14 @@ dns-sd -B _ssh._tcp
 ## Step 4: SSH In and Run Setup
 
 ```bash
-ssh pi@airsynth.local
+ssh pi@anarack.local
 ```
 
 Then clone the repo and run the setup script:
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/airsynth.git ~/airsynth
-cd ~/airsynth
+git clone https://github.com/dannyblackman/anarack.git ~/anarack
+cd ~/anarack
 bash scripts/setup-pi.sh
 ```
 
@@ -76,7 +76,7 @@ sudo reboot
 After reboot, SSH back in:
 
 ```bash
-ssh pi@airsynth.local
+ssh pi@anarack.local
 sudo tailscale up
 ```
 
@@ -104,8 +104,8 @@ Verify the Pi sees them:
 aplay -l
 
 # Check MIDI devices (activate the Python env first)
-source ~/airsynth/venv/bin/activate
-python ~/airsynth/server/midi_router.py --list-ports
+source ~/anarack/venv/bin/activate
+python ~/anarack/server/midi_router.py --list-ports
 ```
 
 You should see the Scarlett in the audio list and the Rev2 in the MIDI list.
@@ -113,7 +113,7 @@ You should see the Scarlett in the audio list and the Rev2 in the MIDI list.
 ## Step 7: Start the Server on the Pi
 
 ```bash
-cd ~/airsynth
+cd ~/anarack
 ./start.sh
 ```
 
@@ -124,7 +124,7 @@ This starts JACK, the ALSA-MIDI bridge, and the MIDI router. It prints the WebSo
 If you haven't already:
 
 ```bash
-cd ~/path/to/airsynth
+cd ~/path/to/anarack
 bash scripts/setup-mac.sh
 ```
 
@@ -157,7 +157,7 @@ This is the final piece — getting the Rev2's audio back to your Mac over the n
 
 ### Pi doesn't appear on the network
 - Check the ethernet cable is plugged in at both ends
-- Try `ping airsynth.local` — if it doesn't resolve, find the IP from your router's admin page
+- Try `ping anarack.local` — if it doesn't resolve, find the IP from your router's admin page
 
 ### JACK won't start
 - Check the Scarlett is plugged in: `aplay -l`

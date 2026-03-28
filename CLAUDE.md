@@ -1,4 +1,4 @@
-# Airsynth
+# Anarack
 
 Remote hardware synth studio — producers control real synths over the internet, hear near-real-time audio, download lossless recordings.
 

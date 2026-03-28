@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Airsynth — Raspberry Pi 5 setup script
+# Anarack — Raspberry Pi 5 setup script
 # Run on a fresh Raspberry Pi OS Lite (64-bit, Bookworm)
 #
 # Prerequisites:
@@ -9,12 +9,12 @@
 #
 # Usage:
 #   ssh pi@<pi-ip>
-#   git clone <repo> ~/airsynth
-#   cd ~/airsynth && bash scripts/setup-pi.sh
+#   git clone <repo> ~/anarack
+#   cd ~/anarack && bash scripts/setup-pi.sh
 
 set -euo pipefail
 
-echo "=== Airsynth Pi Setup ==="
+echo "=== Anarack Pi Setup ==="
 echo ""
 
 # --- System packages ---
@@ -42,7 +42,7 @@ fi
 
 # --- Python environment ---
 echo "[3/6] Setting up Python environment..."
-VENV_DIR="$HOME/airsynth/venv"
+VENV_DIR="$HOME/anarack/venv"
 python3 -m venv "$VENV_DIR"
 source "$VENV_DIR/bin/activate"
 pip install -q python-rtmidi websockets
@@ -93,9 +93,9 @@ cat > "$HOME/.jackdrc" << EOF
 EOF
 
 # Also write a startup script for clarity
-cat > "$HOME/airsynth/start.sh" << 'SCRIPT'
+cat > "$HOME/anarack/start.sh" << 'SCRIPT'
 #!/usr/bin/env bash
-# Start the Airsynth server stack
+# Start the Anarack server stack
 set -euo pipefail
 
 DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -117,7 +117,7 @@ python "$DIR/server/midi_router.py" "$@" &
 ROUTER_PID=$!
 
 echo ""
-echo "=== Airsynth running ==="
+echo "=== Anarack running ==="
 echo "  JACK PID:     $JACK_PID"
 echo "  a2jmidid PID: $A2J_PID"
 echo "  Router PID:   $ROUTER_PID"
@@ -137,7 +137,7 @@ trap cleanup INT TERM
 
 wait
 SCRIPT
-chmod +x "$HOME/airsynth/start.sh"
+chmod +x "$HOME/anarack/start.sh"
 
 echo ""
 echo "=== Setup complete ==="
@@ -150,8 +150,8 @@ echo "  2. After reboot, authenticate Tailscale:"
 echo "     sudo tailscale up"
 echo ""
 echo "  3. Plug in Scarlett + Rev2, then start everything:"
-echo "     cd ~/airsynth && ./start.sh"
+echo "     cd ~/anarack && ./start.sh"
 echo ""
 echo "  4. Check MIDI ports:"
-echo "     source ~/airsynth/venv/bin/activate"
-echo "     python ~/airsynth/server/midi_router.py --list-ports"
+echo "     source ~/anarack/venv/bin/activate"
+echo "     python ~/anarack/server/midi_router.py --list-ports"

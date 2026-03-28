@@ -1,5 +1,5 @@
 """
-Airsynth MIDI Router — Phase 0 Prototype
+Anarack MIDI Router — Phase 0 Prototype
 
 Receives MIDI messages over UDP and forwards them to a hardware synth via rtmidi.
 Also runs a WebSocket server so the browser demo can send MIDI.
@@ -130,7 +130,7 @@ async def websocket_handler(router: MidiRouter, ws):
 
 
 async def main():
-    parser = argparse.ArgumentParser(description="Airsynth MIDI Router")
+    parser = argparse.ArgumentParser(description="Anarack MIDI Router")
     parser.add_argument("--udp-port", type=int, default=5555, help="UDP port for MIDI input")
     parser.add_argument("--ws-port", type=int, default=8765, help="WebSocket port for browser MIDI")
     parser.add_argument("--host", default="0.0.0.0", help="Listen address")
@@ -156,7 +156,7 @@ async def main():
     )
     print(f"WebSocket MIDI server listening on {args.host}:{args.ws_port}")
 
-    print(f"\nAirsynth MIDI Router running. Ctrl+C to stop.")
+    print(f"\nAnarack MIDI Router running. Ctrl+C to stop.")
     print(f"  MIDI messages sent: check with --list-ports to verify connection\n")
 
     # Run until interrupted

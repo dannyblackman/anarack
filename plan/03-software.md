@@ -12,7 +12,7 @@ Two interfaces, two purposes:
 │                    Producer's DAW                             │
 │                                                               │
 │  ┌─────────────────────────────────────┐                     │
-│  │       Airsynth Plugin (VST3/AU)      │                     │
+│  │       Anarack Plugin (VST3/AU)      │                     │
 │  │                                       │                     │
 │  │  - Appears as a virtual instrument   │                     │
 │  │  - Receives MIDI from DAW            │◄── DAW MIDI track  │
@@ -70,14 +70,14 @@ Two interfaces, two purposes:
 - **Audio return lands on a DAW track** — producers can mix, EQ, add effects, bounce to audio, exactly like any other instrument. No separate recording/download step.
 - **Automation works** — map any synth parameter to a DAW automation lane. Draw filter sweeps, LFO rate changes, etc. in the timeline. This is huge.
 - **Familiar workflow** — zero learning curve. It's just another instrument plugin.
-- **Preset recall** — save/load synth patches from the plugin UI, stored in your Airsynth account.
+- **Preset recall** — save/load synth patches from the plugin UI, stored in your Anarack account.
 
 ## Shared UI — One Codebase, Two Surfaces
 
 The plugin UI and the web app share a single React component library. This is the biggest architectural win for maintainability.
 
 ```
-airsynth/
+anarack/
 ├── packages/
 │   ├── ui/                    ← Shared React component library
 │   │   ├── SynthBrowser/      ← Grid of synths, live status, queue, booking
@@ -103,14 +103,14 @@ airsynth/
 - Design system (colours, fonts, component styles)
 
 **What's different per surface:**
-- **Plugin:** JUCE C++ handles audio I/O, MIDI, and WireGuard. React talks to C++ via a JS bridge (`window.airsynth.sendMidi()`, `window.airsynth.getLatency()`, etc.)
+- **Plugin:** JUCE C++ handles audio I/O, MIDI, and WireGuard. React talks to C++ via a JS bridge (`window.anarack.sendMidi()`, `window.anarack.getLatency()`, etc.)
 - **Web demo:** Browser handles audio via WebRTC and MIDI via WebSocket. Same React components, different transport layer underneath.
 
 **JS Bridge (plugin only):**
 ```typescript
 // React components call these — in the plugin they bridge to C++,
 // on the web they bridge to WebRTC/WebSocket
-interface AirsynthTransport {
+interface AnarackTransport {
   sendMidi(status: number, data1: number, data2: number): void
   getLatency(): number
   getConnectionStatus(): ConnectionStatus

@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
-# Airsynth — Mac client setup
+# Anarack — Mac client setup
 # Installs what you need on your Mac to receive audio from the Pi
 #
 # Prerequisites: Homebrew installed
 
 set -euo pipefail
 
-echo "=== Airsynth Mac Setup ==="
+echo "=== Anarack Mac Setup ==="
 
 # Check for Homebrew
 if ! command -v brew &>/dev/null; then

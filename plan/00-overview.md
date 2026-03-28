@@ -1,8 +1,8 @@
-# Airsynth
+# Anarack
 
 ## Remote Hardware Synth Studio
 
-Airsynth lets music producers record real analog and digital synthesizers remotely over the internet. No gear investment, no studio hire — just book time on a Prophet Rev2, Moog Sub37, or any synth in the rack, tweak sounds in real time, and download pristine 24-bit WAV recordings.
+Anarack lets music producers record real analog and digital synthesizers remotely over the internet. No gear investment, no studio hire — just book time on a Prophet Rev2, Moog Sub37, or any synth in the rack, tweak sounds in real time, and download pristine 24-bit WAV recordings.
 
 ## The Problem
 

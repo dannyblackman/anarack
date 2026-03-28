@@ -81,7 +81,7 @@ Not all synths are available on all subscription tiers. Flagship/rare synths are
 - Creator Pro at £39/month gets you the full synth collection — no restrictions on which synths you can play. At that price point, gating the best gear would feel stingy.
 - Professional tier (£149) differentiates on **capacity and priority**, not synth access: 30 hours vs 8, instant access via reserved pool, multi-synth sessions, 96kHz. These matter to working engineers; the synth catalogue is the same.
 - Flagships available to Creator Pro + Professional (smaller combined pool than all users), so contention stays manageable without duplicating £6k+ synths.
-- Each flagship added to the rack is a marketing event that drives Creator → Creator Pro upgrades: "The Moog One has arrived at Airsynth."
+- Each flagship added to the rack is a marketing event that drives Creator → Creator Pro upgrades: "The Moog One has arrived at Anarack."
 - Creator tier still gets great synths (Prophet, Sub37, OB-6 are world-class instruments). They're not getting a lesser experience — they're just missing the ultra-rare stuff, which is the nudge to upgrade.
 
 ### Flagship Capacity Management
@@ -113,7 +113,7 @@ Start with attainable synths, add flagships as revenue justifies them:
 
 1. **Launch** — synths you already own (Rev2, Sub37) + affordable additions (Minilogue, MiniBrute, Juno). Total investment: ~£1,000-2,000.
 2. **Growth** — add premium synths as Pro subscribers grow (OB-6, Prophet 6, Peak). £800-2,000 each.
-3. **Flagship** — once Professional tier has 20+ subscribers, invest in the first flagship (Moog One or Minimoog). Marketing event: "The Moog One is now on Airsynth." £5,000-8,000 — paid for by ~3-4 months of Pro subscriptions.
+3. **Flagship** — once Professional tier has 20+ subscribers, invest in the first flagship (Moog One or Minimoog). Marketing event: "The Moog One is now on Anarack." £5,000-8,000 — paid for by ~3-4 months of Pro subscriptions.
 4. **Ongoing** — each new flagship is funded by revenue and marketed as an event. The synth collection becomes a growing asset and a reason to stay subscribed ("what's coming next?").
 
 ### Pay-As-You-Go
@@ -139,17 +139,17 @@ This is the core retention mechanism — modelled on how Universal Audio's subsc
 
 ### How It Works
 
-1. Producer uses Airsynth's Moog Sub37 on a track. The plugin saves:
+1. Producer uses Anarack's Moog Sub37 on a track. The plugin saves:
    - Synth ID + patch state (full SysEx dump)
    - All MIDI data and CC automation
    - Session metadata (sample rate, timestamp, etc.)
 
-2. Producer keeps working. The Airsynth track sits in their DAW project as MIDI + plugin state — not bounced audio. They're encouraged to keep it as MIDI because:
+2. Producer keeps working. The Anarack track sits in their DAW project as MIDI + plugin state — not bounced audio. They're encouraged to keep it as MIDI because:
    - They can tweak the sound later without rebooking
    - "Render in place" bounces a pristine WAV through the real synth on demand
    - They might want to try the same part on a different synth later
 
-3. Six months later, they reopen the project to do a remix. The Airsynth plugin loads and shows:
+3. Six months later, they reopen the project to do a remix. The Anarack plugin loads and shows:
    > "This track used **Moog Sub37** — patch 'Thick Bass v2'"
    > [Connect & Recall] [Render Offline]
 
@@ -161,11 +161,11 @@ The plugin still loads (it's installed locally). It shows all the project data �
 
 The producer sees: "Subscribe to reconnect and hear this track."
 
-This creates the UA-style lock-in: cancelling means your projects lose their Airsynth tracks. Most producers won't risk that for £10-20/month.
+This creates the UA-style lock-in: cancelling means your projects lose their Anarack tracks. Most producers won't risk that for £10-20/month.
 
 ### Making It Stickier
 
-- **Preset cloud** — all your custom patches are stored in your Airsynth account. Cancel and you lose access to patches you've spent hours crafting.
+- **Preset cloud** — all your custom patches are stored in your Anarack account. Cancel and you lose access to patches you've spent hours crafting.
 - **Render in place** — the plugin can queue a high-quality offline render (the server records a pristine WAV and sends it back). Producers are incentivised to keep MIDI on the track rather than committing to audio, because they can always re-render with tweaks.
 - **Cross-synth experimentation** — "Try this patch on the Prophet Rev2 instead?" One click to hear your MIDI through a different synth. Only works with a subscription.
 - **Version history** — the plugin keeps a history of patch tweaks per project. Roll back to "how the bass sounded last Tuesday." Stored in the cloud.
@@ -179,7 +179,7 @@ The music industry is squeezing engineers hard. Artist budgets are shrinking, bi
 **Why start here:**
 - They understand the value immediately — no education needed
 - £149/month is a rounding error on a project budget
-- They'll use it on real releases — the best marketing possible ("the synths on this track were recorded via Airsynth")
+- They'll use it on real releases — the best marketing possible ("the synths on this track were recorded via Anarack")
 - Professional word of mouth carries weight
 - Smaller volume but much higher ARPU — you need fewer customers to hit £10k MRR
 - They'll push you on quality and reliability, which makes the product better for everyone
@@ -204,7 +204,7 @@ YouTubers, TikTok musicians who want to demo "real synth" sounds. Short sessions
 | Studio hire | £50-100/hour | Must be physically present |
 | Soft synth plugins | £10-30/month | Not the real thing |
 | Sample packs | £10-50 one-off | Static, can't tweak |
-| **Airsynth** | **£19-149/month** | **Latency (~40ms), not for live performance** |
+| **Anarack** | **£19-149/month** | **Latency (~40ms), not for live performance** |
 
 ## Key Metrics
 
@@ -212,12 +212,12 @@ YouTubers, TikTok musicians who want to demo "real synth" sounds. Short sessions
 - **Utilisation rate** — target 20-30% across the rack. Low is fine — we want subscribers who pay but don't use all their hours
 - **Monthly churn** — target <5%. Project recall should make this very low
 - **Activation rate** — % of free demo users who subscribe within 7 days
-- **Project recall usage** — how many subscribers have projects that depend on Airsynth? Higher = stickier
+- **Project recall usage** — how many subscribers have projects that depend on Anarack? Higher = stickier
 
 ## Defensibility
 
 - Hardware fleet + maintenance expertise is a real barrier to entry
-- **Project lock-in** — the longer someone uses Airsynth, the more projects depend on it
+- **Project lock-in** — the longer someone uses Anarack, the more projects depend on it
 - **Preset library** — hours of sound design stored in the cloud, painful to lose
 - First-mover advantage in a niche that hasn't been served this way before
 - Technical know-how (low-latency audio streaming) isn't trivial to replicate

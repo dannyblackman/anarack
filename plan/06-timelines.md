@@ -73,7 +73,7 @@ Record a short video of someone tweaking the Rev2 remotely and hearing it respon
 ### Month 5: Iterate
 - [ ] Analyse usage patterns: which synths are most popular? Average session length?
 - [ ] Add most-requested features from user feedback
-- [ ] Second YouTube video: producer makes a full track using Airsynth
+- [ ] Second YouTube video: producer makes a full track using Anarack
 - [ ] Start TikTok/Reels content
 - [ ] Target: 20-30 paying users, £1,000+ MRR
 
