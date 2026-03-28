@@ -498,3 +498,137 @@ Half the revenue comes from 35 professionals. The long tail of creators adds vol
 - Each pro subscriber validates the product for the creator audience that follows
 - The upgrade ladder is self-reinforcing: queue pressure during growth naturally pushes creators to higher tiers
 - With <5% churn (project recall lock-in) you're mostly adding, not replacing
+
+## Risks & Threats
+
+### Technical Risks
+
+**Latency might not be good enough**
+- If we can't consistently hit <40ms round-trip, the experience feels sluggish and producers won't tolerate it
+- Users on poor internet connections will have a bad time and blame Anarack, not their broadband
+- This is the existential risk — if the core experience isn't good enough, nothing else matters
+- *Mitigation:* The soft launch exists to prove this. If it doesn't work on Tailscale with a Pi, we know before spending serious money. Production stack (WireGuard, Mac Mini, wired ethernet) will be significantly better. Set honest expectations: "studio recording tool, not live performance." Show latency in the UI so users understand their connection quality.
+
+**Reliability at scale**
+- Synths crash, MIDI locks up, audio glitches. One bad session and a user churns.
+- Running 10 synths 24/7 unattended is very different from using them in your own studio
+- *Mitigation:* MIDI heartbeat monitoring per synth, auto-restart on failure, session credits for technical issues. Start with modern/reliable synths, add vintage carefully. The Juno-106 will cause more support headaches than all other synths combined.
+
+**Internet dependency**
+- If a user's connection drops mid-session, they lose their flow (not their work — server-side recording catches everything)
+- Frustrating in a way that local gear never is
+- *Mitigation:* Server-side recording as backup, automatic reconnection, session time paused during disconnection. Recommend wired ethernet in the plugin UI when jitter is high.
+
+### Market Risks
+
+**Market might be too small**
+- How many producers would actually pay monthly for remote synth access vs just buying a Minilogue or using plugins?
+- The "real hardware matters" crowd might be smaller than we think
+- *Mitigation:* Soft launch validates demand before major investment. Pro-first strategy means you only need ~35 Professional subscribers at £149 to hit meaningful revenue. If you can't find 35 engineers who'll pay £149/month, the market isn't there.
+
+**Plugins keep getting better**
+- Neural Amp Modeler, AI-based modelling, increasingly sophisticated emulations
+- If someone releases a Moog One plugin that's 99% indistinguishable, the value proposition weakens
+- *Mitigation:* This is a slow trend, not an overnight disruption. Analogue purists will always exist. The effects rack (plate reverb, tape echo) is harder to model than synths. The experience of "this is a real synth" has marketing/emotional value beyond pure audio quality. Position around authenticity, not just sound quality.
+
+**"Good enough" kills premium**
+- Most listeners can't tell a Diva from a real Moog in a finished mix
+- Producers might know the difference but decide it doesn't matter enough to pay for
+- *Mitigation:* Target producers who already believe hardware matters — don't try to convert plugin loyalists. The project recall lock-in means even if they start questioning the value, switching cost keeps them subscribed.
+
+### Competitive Risks
+
+**Someone with more money replicates it**
+- If Anarack proves the model works, a well-funded company (Splice, Native Instruments, Roland Cloud) could replicate it with bigger budgets, more synths, and existing user bases
+- *Mitigation:* First-mover advantage, community, brand loyalty. The partner network and manufacturer relationships create switching costs. The white-label business makes Anarack the infrastructure layer rather than a competitor. See also: Splice as a partner/acquirer below.
+
+**Synth manufacturers do it themselves**
+- Moog could offer "play our synths remotely" directly. They have the synths, the brand, and the audience.
+- *Mitigation:* Manufacturers don't want to run a streaming infrastructure business. The white-label play specifically defends against this — position Anarack as the technology partner, not a competitor. "We power your remote demos" is more attractive to Moog than building it themselves.
+
+### Operational Risks
+
+**Single point of failure**
+- One person, one location, one internet connection, one power supply. If broadband goes down or a fuse blows, the entire service is offline.
+- *Mitigation:* UPS for power continuity, 4G/5G failover for internet, monitoring and alerts. Partner studios (Phase 2) add geographic redundancy. This is the strongest argument for getting partners online early.
+
+**Maintenance burden**
+- Vintage synths break. Juno-106 voice chips, Minimoog tuning, Space Echo tape loops. You become a synth technician as much as a tech company.
+- *Mitigation:* Start with mostly modern/reissue synths (Minimoog 2022 reissue, not vintage). Budget properly for maintenance (already in the financials). Only add vintage pieces once revenue supports the maintenance overhead. Build relationships with synth repair specialists.
+
+**Scaling is physical**
+- Unlike software, you can't spin up more servers. More users = more synths = more space, power, maintenance, money.
+- *Mitigation:* The partner network is the scaling solution — other people's synths, other people's space. Low utilisation is a feature (subscribers pay but don't use all hours). You don't need to scale linearly with users.
+
+### Financial Risks
+
+**High upfront cost relative to uncertain demand**
+- £25-35k in synths before you know if people will pay at proper launch scale
+- *Mitigation:* Soft launch validates demand with zero synth investment. Crowdfunding shifts risk to backers who've already committed. Manufacturer partnerships and partner studios reduce capital requirements. Buy synths incrementally as revenue grows.
+
+**Revenue concentration**
+- At £10k MRR, 52% comes from 35 Professional subscribers. Losing 5 Pros = losing £745/month (7.4% of revenue).
+- *Mitigation:* Diversify revenue across tiers as Creator base grows. Effects add-on creates additional revenue streams. Annual subscriptions reduce churn risk. Project recall makes cancellation painful.
+
+### Behavioural Risks
+
+**Producers are creatures of habit**
+- Convincing someone to change their workflow (open a plugin, connect to a remote synth, deal with latency) when they could just load Diva and start playing is a hard sell
+- *Mitigation:* The DAW plugin minimises workflow change — it's just another instrument. The browser demo requires zero change to try. Target producers who are already frustrated with plugin sound, not happy plugin users.
+
+**The novelty wears off**
+- "Playing a real Moog remotely" is exciting the first time. After 6 months, is it still worth the subscription?
+- *Mitigation:* Project recall lock-in — their projects depend on Anarack. Hours rollover creates sunk cost. Expanding synth catalogue gives a "what's new" reason to stay. Community and presets add value beyond the core product. This is why the Splice-style credit retention matters.
+
+## Strategic Opportunities & Exit
+
+### Splice Partnership / Acquisition
+
+Splice is the most natural partner or acquirer for Anarack. The strategic fit is almost perfect:
+
+**Why Splice makes sense:**
+- They already have **Splice Rent-to-Own** — a plugin/VST rental library with millions of users. Anarack is the physical hardware extension of the same concept.
+- They have the user base (millions of producers), the billing infrastructure, and the brand trust in the producer community
+- "Splice Hardware" or "Splice Studio" — real synths accessible through Splice's existing subscription — is an obvious product line extension
+- They understand the credit/rollover retention model (Splice credits work exactly the same way as Anarack's hour rollover)
+- Anarack's tech (low-latency audio streaming, MIDI routing, servo-controlled effects) is genuinely hard to build. Buying is faster and cheaper than building.
+
+**Partnership model:**
+- Anarack powers a "Hardware Synths" section within Splice's platform
+- Splice drives users, Anarack provides the infrastructure and gear
+- Revenue share or white-label licensing fee
+- Anarack retains independence but gets access to Splice's massive user base
+
+**Acquisition model:**
+- Splice acquires Anarack as a hardware streaming division
+- Anarack's tech becomes Splice's competitive moat — no other sample/plugin platform has real hardware
+- Synth catalogue and partner network transfer as assets
+- Exit valuation based on recurring revenue, tech IP, and strategic value to Splice's platform
+
+**When this becomes relevant:**
+- Not at soft launch — too early, no leverage
+- At £10k+ MRR with proven tech and growing user base, it's a credible conversation
+- A working white-label deployment with a manufacturer would significantly increase attractiveness
+- The ideal timing: approach Splice (or let them approach you) once Anarack has proven the model but before scaling requires massive capital investment
+
+**Other potential acquirers/partners:**
+- **Universal Audio** — the strongest fit after Splice. Their entire business model is subscription-locked plugins that your projects depend on — Anarack's project recall is literally modelled on this. They already have hardware (Apollo interfaces) + software (UAD plugins) + subscription (Spark). Adding real hardware synth access is a natural next step. They understand the lock-in model better than anyone.
+- **Native Instruments** — they have Komplete, hardware controllers (Komplete Kontrol, Maschine), and a massive producer audience. Hardware synth access would complement their ecosystem. They're also owned by Francisco Partners (PE) who are looking to grow the platform.
+- **Plugin Alliance** — already connected via Motive Unknown. They run a plugin subscription model. Hardware synth access is a natural upsell. Smaller company, so potentially more interested in an acqui-hire or partnership.
+- **Roland Cloud** — Roland already has a cloud subscription for their own software synths. Adding real hardware (including their own Juno) is a logical extension. They have the brand cachet and the hardware catalogue.
+- **Focusrite Group** (Focusrite/Novation/Sequential) — they own both audio interfaces and synth brands. Anarack's tech could power a "try before you buy" feature for their own products. They acquired Sequential in 2021 — they're actively building a synth ecosystem.
+- **Sweetwater / Thomann** — major retailers who could use the tech as a "try before you buy" sales tool. Less likely acquirers, more likely partners or licensees.
+- **inMusic** (Akai, Alesis, Denon DJ, M-Audio) — they own multiple music tech brands and are acquisitive. Less synth-focused but have the infrastructure.
+- **Ableton** — they don't make hardware synths but they dominate the DAW market. A "real hardware synths inside Ableton" integration would be a killer feature. Long shot as an acquirer but a dream partnership.
+
+### Defensibility Summary
+
+| Threat | Primary defence | Secondary defence |
+|---|---|---|
+| Latency not good enough | Soft launch proves viability before investment | Honest positioning as recording tool, not live instrument |
+| Plugins get better | Target analogue purists, not plugin converts | Effects rack (plate, tape) is harder to model |
+| Well-funded competitor | First-mover, community, manufacturer relationships | White-label makes us the infrastructure, not the competitor |
+| Market too small | Pro-first strategy needs only 35 subscribers | Label partnerships drive volume through warm channels |
+| Single point of failure | UPS, 4G failover, monitoring | Partner studios add redundancy |
+| Novelty wears off | Project recall lock-in, hour rollover | Growing catalogue, community, effects expansion |
+| High upfront cost | Soft launch validates with zero synth cost | Crowdfunding, manufacturer deals, partner studios |
