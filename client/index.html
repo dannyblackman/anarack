@@ -203,6 +203,7 @@
       <input type="text" id="ws-host" value="192.168.1.131:8765" style="width: 140px">
     </label>
     <button id="connect-btn" onclick="toggleConnection()">Connect</button>
+    <button onclick="measureLatency()">Measure Latency</button>
     <label>MIDI Input:
       <select id="midi-input">
         <option value="">None (use keyboard fallback)</option>
@@ -318,7 +319,7 @@
 
       audioWs.onmessage = (e) => {
         if (!(e.data instanceof ArrayBuffer)) return;
-        playAudioChunk(e.data);
+        playAudioChunkWithDetection(e.data);
       };
 
       audioWs.onclose = () => {
@@ -374,6 +375,89 @@
 
       source.start(nextPlayTime);
       nextPlayTime += buffer.duration;
+    }
+
+    // --- Latency Measurement ---
+    let latencyMeasuring = false;
+    let latencySendTime = 0;
+    let analyserNode = null;
+    let latencyResults = [];
+
+    function measureLatency() {
+      if (!ws || ws.readyState !== WebSocket.OPEN) {
+        log("Connect first before measuring latency");
+        return;
+      }
+      if (!audioCtx) {
+        log("Audio not started");
+        return;
+      }
+
+      log("Measuring latency... (sending test notes)");
+      latencyResults = [];
+      runLatencyTest(0);
+    }
+
+    function runLatencyTest(count) {
+      if (count >= 5) {
+        // Done — show results
+        const avg = latencyResults.reduce((a, b) => a + b, 0) / latencyResults.length;
+        const min = Math.min(...latencyResults);
+        const max = Math.max(...latencyResults);
+        log(`Latency: avg ${avg.toFixed(0)}ms | min ${min.toFixed(0)}ms | max ${max.toFixed(0)}ms (${latencyResults.length} samples)`);
+        document.getElementById("latency-info").textContent =
+          `MEASURED latency: ${avg.toFixed(0)}ms avg (${min.toFixed(0)}-${max.toFixed(0)}ms range)`;
+        return;
+      }
+
+      latencyMeasuring = true;
+      latencySendTime = performance.now();
+
+      // Send a short high note that's easy to detect
+      sendMidi(0x90, 108, 127); // C8, max velocity
+
+      // Set a timeout to stop the note and check
+      setTimeout(() => {
+        sendMidi(0x80, 108, 0);
+      }, 100);
+
+      // Timeout if no audio detected
+      setTimeout(() => {
+        if (latencyMeasuring) {
+          latencyMeasuring = false;
+          log(`  Test ${count + 1}: no audio detected (timeout)`);
+          runLatencyTest(count + 1);
+        }
+      }, 500);
+    }
+
+    // Override playAudioChunk to detect audio for latency measurement
+    const _originalPlayAudioChunk = null;
+
+    function playAudioChunkWithDetection(arrayBuffer) {
+      if (latencyMeasuring) {
+        const int16 = new Int16Array(arrayBuffer);
+        // Check if there's significant audio signal (not silence)
+        let maxSample = 0;
+        for (let i = 0; i < int16.length; i++) {
+          const abs = Math.abs(int16[i]);
+          if (abs > maxSample) maxSample = abs;
+        }
+
+        // Threshold: if peak is above ~10% of max, we have audio
+        if (maxSample > 3200) {
+          const latency = performance.now() - latencySendTime;
+          latencyMeasuring = false;
+          latencyResults.push(latency);
+          log(`  Test ${latencyResults.length}: ${latency.toFixed(1)}ms`);
+
+          // Schedule next test after a pause
+          setTimeout(() => runLatencyTest(latencyResults.length), 300);
+        }
+      }
+
+      // Always play the audio
+      playAudioChunk(arrayBuffer);
     }
 
     // --- WebSocket ---
