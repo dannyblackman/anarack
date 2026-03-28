@@ -107,11 +107,13 @@ class MidiRouter:
 
 
 class AudioStreamer:
-    """Captures audio from JACK and makes it available to WebSocket clients."""
+    """Captures audio from JACK and makes it available to WebSocket and UDP clients."""
 
     def __init__(self, capture_port: str = "system:capture_1"):
         self.capture_port = capture_port
-        self.clients: set = set()
+        self.clients: set = set()  # WebSocket clients
+        self.udp_clients: dict = {}  # {addr: socket} for UDP audio clients
+        self.udp_socket = None  # Shared UDP socket for sending audio
         self.jack_client = None
         self.audio_queue: queue.Queue = queue.Queue(maxsize=200)
         self._running = False
@@ -175,6 +177,15 @@ class AudioStreamer:
     def remove_client(self, ws):
         self.clients.discard(ws)
 
+    def add_udp_client(self, addr, sock):
+        """Register a UDP client to receive audio."""
+        self.udp_clients[addr] = sock
+        print(f"UDP audio client added: {addr}")
+
+    def remove_udp_client(self, addr):
+        self.udp_clients.pop(addr, None)
+        print(f"UDP audio client removed: {addr}")
+
     async def stream_to_clients(self):
         """Continuously send audio data to all connected WebSocket clients."""
         while self._running:
@@ -186,29 +197,48 @@ class AudioStreamer:
                     await asyncio.sleep(0.001)  # 1ms poll — fast enough for audio
                     continue
 
-                if not self.clients:
+                if not self.clients and not self.udp_clients:
                     continue
 
-                # Send immediately — each chunk is one JACK buffer
-                dead_clients = set()
-                for ws in self.clients:
+                # Send to WebSocket clients
+                if self.clients:
+                    dead_clients = set()
+                    for ws in self.clients:
+                        try:
+                            await ws.send(chunk)
+                        except websockets.ConnectionClosed:
+                            dead_clients.add(ws)
+                    self.clients -= dead_clients
+
+                # Send to UDP clients (lower latency path)
+                dead_udp = []
+                for addr, sock in self.udp_clients.items():
                     try:
-                        await ws.send(chunk)
-                    except websockets.ConnectionClosed:
-                        dead_clients.add(ws)
-                self.clients -= dead_clients
+                        sock.sendto(chunk, addr)
+                    except OSError:
+                        dead_udp.append(addr)
+                for addr in dead_udp:
+                    self.udp_clients.pop(addr, None)
 
             except Exception as e:
                 print(f"Audio stream error: {e}")
                 await asyncio.sleep(0.1)
 
 
-async def udp_server(router: MidiRouter, host: str, port: int):
-    """UDP server for receiving MIDI from the plugin."""
+async def udp_server(router: MidiRouter, host: str, port: int, audio_port: int = 9999):
+    """UDP server for receiving MIDI from native clients.
+    Also registers them for UDP audio return on audio_port."""
+
+    import socket as _socket
+    # Create a raw UDP socket for sending audio back
+    audio_sock = _socket.socket(_socket.AF_INET, _socket.SOCK_DGRAM)
 
     class MidiUDPProtocol(asyncio.DatagramProtocol):
         def datagram_received(self, data, addr):
             router.send_from_udp(data)
+            # Auto-register this client for audio return
+            if audio_streamer and (addr[0], audio_port) not in audio_streamer.udp_clients:
+                audio_streamer.add_udp_client((addr[0], audio_port), audio_sock)
 
     loop = asyncio.get_running_loop()
     transport, _ = await loop.create_datagram_endpoint(
@@ -216,6 +246,7 @@ async def udp_server(router: MidiRouter, host: str, port: int):
         local_addr=(host, port),
     )
     print(f"UDP MIDI server listening on {host}:{port}")
+    print(f"UDP audio will stream back to clients on port {audio_port}")
     return transport
 
 
