@@ -159,7 +159,8 @@ The plugin has two views:
 - Account/subscription status shown in a corner
 
 **Session view** (shown when connected to a synth):
-- Synth-specific parameter panel (knobs, sliders, grouped by section)
+- Stylised synth panel with real-time visual feedback (see section 8 — Synth Panel UI)
+- MIDI controller mapping status — shows detected controller and active page
 - Connection quality indicator (latency ms, jitter, packet loss)
 - Session timer (remaining time / pay-as-you-go running total)
 - Preset browser (save/load patches via SysEx)
@@ -278,7 +279,169 @@ Each synth gets a JSON config defining its parameters. The plugin downloads thes
 }
 ```
 
-### 7. Networking Layer
+### 7. MIDI Controller Mapping
+
+The playability gap between "clicking virtual knobs with a mouse" and "turning real knobs on a real synth" is the biggest UX challenge. MIDI controller mapping closes most of that gap — producers are already used to controlling synths via MIDI controllers, they just need it to work instantly.
+
+#### Two Approaches (Both Active Simultaneously)
+
+**1. Pre-built profiles — works out of the box**
+
+Synth profiles + controller profiles combine automatically. It's M + N definitions, not M × N mappings:
+
+- **Synth parameter maps** (one per synth in the catalogue) — defines which CC/NRPN controls which parameter, priority-ranked by importance. Built by reading each synth's MIDI implementation chart.
+- **Controller input maps** (one per supported controller) — defines which physical knobs/faders/buttons send which CCs. Built by reading each controller's documentation.
+- **The bridge** — software routing that connects them automatically. When a user connects to a Moog One with an Arturia KeyLab, the system maps KeyLab knob 1 → Moog One filter cutoff, knob 2 → resonance, etc. Zero setup.
+
+Auto-detection: the system identifies the connected controller via its MIDI device name and loads the right profile automatically.
+
+**Priority controllers to support at launch:**
+- Arturia KeyLab (49/61/88) — huge market share among bedroom producers
+- Novation LaunchKey / SL MkIII — popular, good knob count
+- Native Instruments Komplete Kontrol — common in pro setups
+- Akai MPK series — ubiquitous
+- Roland A-series
+- Generic fallback — any controller with knobs sending CCs 1-8 gets a basic mapping
+
+**2. Manual mapping — double-click and twiddle**
+
+For anything the profiles don't cover, or personal preference overrides:
+
+1. User double-clicks a virtual knob on the synth panel (e.g. filter cutoff) — it highlights, waiting for input
+2. User twiddles any knob on their MIDI controller
+3. System captures the incoming CC and maps it instantly — done
+4. Mapping is saved per-synth, per-user — persists across sessions
+
+This is the same "MIDI learn" pattern used by every DAW, so producers already understand it. No menus, no dropdowns, no MIDI CC numbers to look up.
+
+**Combined flow:**
+- User plugs in controller → auto-detected, pre-built mapping loaded
+- Everything works immediately for the most important parameters
+- User wants filter cutoff on a different knob → double-click, twiddle, done
+- Custom overrides are saved and layered on top of the profile
+
+#### Page System for Limited Knobs
+
+Most controllers have 8 knobs. Most synths have 50+ parameters. Solution: parameter pages.
+
+- **Page 1:** Filter + Amp (cutoff, resonance, envelope ADSR, volume)
+- **Page 2:** Oscillators (waveform, pitch, detune, mix)
+- **Page 3:** Modulation (LFO rate, depth, mod wheel assignment)
+- **Page 4:** Effects (delay, reverb, chorus — where applicable)
+
+Pages are switched via buttons on the controller (if available) or via the UI. The current page is shown prominently in the synth panel so the user always knows which parameters their knobs control.
+
+**Soft-takeover / pickup mode:** When switching pages, knob positions on the controller won't match the parameter values. Two options:
+- **Pickup mode** — knob does nothing until it passes through the current parameter value, then takes over. Prevents value jumps.
+- **Relative mode** — if the controller supports endless encoders, movement is always relative. No jump problem.
+
+The UI shows the current parameter value and the physical knob position as two indicators, so the user can see when they'll "catch" the value.
+
+#### Controller Mapping Config
+
+```json
+{
+  "controller": "arturia-keylab-61-mkii",
+  "name": "Arturia KeyLab 61 MkII",
+  "knobs": [
+    { "cc": 74, "label": "Knob 1" },
+    { "cc": 71, "label": "Knob 2" },
+    { "cc": 76, "label": "Knob 3" },
+    { "cc": 77, "label": "Knob 4" },
+    { "cc": 93, "label": "Knob 5" },
+    { "cc": 73, "label": "Knob 6" },
+    { "cc": 75, "label": "Knob 7" },
+    { "cc": 72, "label": "Knob 8" }
+  ],
+  "faders": [
+    { "cc": 52, "label": "Fader 1" },
+    { "cc": 53, "label": "Fader 2" }
+  ],
+  "page_buttons": {
+    "next": { "cc": 100 },
+    "prev": { "cc": 101 }
+  }
+}
+```
+
+#### Synth-to-Controller Mapping (Auto-Generated)
+
+```json
+{
+  "synth": "moog-one",
+  "pages": [
+    {
+      "name": "Filter / Amp",
+      "mappings": [
+        { "param": "filter_cutoff", "knob_index": 0 },
+        { "param": "filter_resonance", "knob_index": 1 },
+        { "param": "filter_eg_amount", "knob_index": 2 },
+        { "param": "amp_attack", "knob_index": 3 },
+        { "param": "amp_decay", "knob_index": 4 },
+        { "param": "amp_sustain", "knob_index": 5 },
+        { "param": "amp_release", "knob_index": 6 },
+        { "param": "master_volume", "knob_index": 7 }
+      ]
+    },
+    {
+      "name": "Oscillators",
+      "mappings": [
+        { "param": "osc1_waveform", "knob_index": 0 },
+        { "param": "osc1_pitch", "knob_index": 1 },
+        { "param": "osc2_waveform", "knob_index": 2 },
+        { "param": "osc2_pitch", "knob_index": 3 },
+        { "param": "osc3_waveform", "knob_index": 4 },
+        { "param": "osc3_pitch", "knob_index": 5 },
+        { "param": "osc_mix", "knob_index": 6 },
+        { "param": "noise_level", "knob_index": 7 }
+      ]
+    }
+  ]
+}
+```
+
+### 8. Synth Panel UI
+
+The visual representation of the synth is critical for bridging the gap between remote control and the feeling of "being in front of the synth." The panel needs to provide instant visual feedback so the user's brain connects their physical knob movement to the sound change.
+
+#### Design Approach: Stylised Synth Panels
+
+Each synth gets a custom-designed panel in the plugin/web UI that reflects the character and layout of the real synth, without being a pixel-perfect photo recreation.
+
+**Why stylised, not photographic:**
+- Photos don't scale well across screen sizes and DPI
+- Interactive elements need to be clearly clickable/draggable
+- Easier to maintain and update
+- Avoids trademark/IP issues with manufacturer imagery
+- Can be more functional than the real panel (grouping, labelling, tooltips)
+
+**Why not a generic/standardised layout:**
+- Half the appeal is "I'm playing a Moog One" — it should *look* like a Moog One
+- Each synth has a different parameter set and signal flow — a generic layout obscures that
+- Recognisable panel design builds emotional connection to the instrument
+
+#### Panel Requirements
+
+- **Visual knobs/sliders that move in real time** — when the user turns a physical controller knob, the on-screen knob mirrors the movement instantly (no waiting for server round-trip — update locally on MIDI send, before the sound changes)
+- **Parameter value display** — hover or always-visible numerical value next to each knob (e.g. "Cutoff: 6.4kHz" not just "Cutoff: 87")
+- **Section grouping** — parameters grouped by function (Oscillators, Filter, Amp, Modulation, Effects) matching the real synth's panel layout where practical
+- **Active parameter highlight** — when a knob is being moved (physically or via mouse), it visually highlights and shows the value prominently. Helps the user see which parameter they're changing.
+- **MIDI learn indicator** — when in learn mode (double-click), the knob pulses or glows to show it's waiting for controller input
+- **Controller mapping overlay** — toggle to show which physical knob/fader is mapped to each on-screen parameter ("Knob 3 → Filter Cutoff"). Helps users orient themselves.
+- **Page indicator** — when using paged controller mapping, show which page is active and which parameters are currently mapped to physical controls vs only available via mouse
+
+#### Interaction Modes
+
+1. **Physical controller** (primary) — turn real knobs, on-screen knobs follow, sound changes. Best experience.
+2. **Mouse drag** — click and drag on-screen knobs directly. Works but less tactile. Essential for users without controllers and for the web demo.
+3. **DAW automation** — parameter changes from automation lanes show on the panel in real time during playback. The panel becomes a visual monitor of what's happening.
+4. **Scroll wheel** — hover over a knob, scroll to adjust. Fine-tuning mode.
+
+#### Web Demo Considerations
+
+The browser demo uses the same synth panels but without controller support (Web MIDI API is available but not reliably supported across browsers). The demo relies on mouse interaction + virtual keyboard. This is intentionally a degraded experience compared to the plugin — it's meant to hook people, not replace the full product.
+
+### 9. Networking Layer
 
 **Principle: one install, zero configuration.** The user downloads the plugin and that's it. No VPN clients, no Tailscale, no port forwarding.
 
@@ -307,7 +470,7 @@ Each synth gets a JSON config defining its parameters. The plugin downloads thes
 - Tailscale is only used during prototyping, never in production
 - Replaced by embedded boringtun when building the JUCE plugin
 
-### 8. Payments & Sessions
+### 10. Payments & Sessions
 
 - **Stripe** for payments (subscriptions + per-session)
 - **Real-time availability** — plugin polls the API for synth status (available/in-use/offline)

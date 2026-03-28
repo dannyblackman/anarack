@@ -77,6 +77,69 @@ Gearslutz (now Gearspace), KVR Audio, Modwiggler. Longer-form discussions about 
 - **Synth manufacturers** — Sequential, Moog etc. might feature you as an innovative use case
 - **DAW companies** — Ableton, Logic blog features
 
+### 7. Existing Connections (Warm Channels)
+
+These are real relationships, not cold outreach — they give Anarack a significant head start on launch marketing.
+
+**The Quietus** (thequietus.com)
+- Danny runs their website — direct relationship
+- Banner ad placement for launch campaign
+- Potential editorial/PR coverage — "the person behind our website built a remote synth studio" is a story
+- Audience: music-obsessed readers who understand and care about real instruments
+
+**Motive Unknown** (music industry marketing agency)
+- Danny has an existing working relationship
+- They run marketing for **Plugin Alliance** and other music/music tech companies — they know this exact audience
+- Could engage them for the proper launch marketing push (post soft launch)
+- They understand the producer/engineer market, pricing psychology, and what converts in music tech
+- Potentially the most valuable connection — professional music tech marketing without starting from scratch
+
+**Music Ally** (UK music industry intelligence)
+- Danny is in touch with them
+- Deeply connected across the UK music industry — labels, distributors, managers, platforms
+- Could provide PR/coverage in their newsletters and reports
+- Industry credibility signal — if Music Ally covers Anarack, the right people see it
+- Potential introduction pathway to label partnerships or sync opportunities
+
+**Label relationships**
+- **Domino Records** (and subsidiaries including Domino Publishing) — Danny works with them directly. Domino Publishing means access to a roster of producers who are the exact target audience.
+- **OLI Records** — another direct working relationship
+- **Merge Records** — Danny has ins
+- **4AD** — Danny has ins
+- **Mute Records** — Danny has ins. Mute's heritage is literally built on synthesizers (Depeche Mode, Yazoo, Erasure) — the brand alignment is perfect.
+- **Warp Records** — Danny has ins. Warp artists (Aphex Twin, Boards of Canada, Clark, Bibio) are exactly the kind of producers who care about real hardware. A Warp co-sign would be huge credibility.
+- **Ochre** — Warp's ecommerce business. Danny has a connection. Potential retail/merch partnership angle.
+
+**Who to target via labels (and who NOT to):**
+
+The top-tier producers at major labels already have rooms full of Moogs and Prophets — they're not the target. The sweet spot is the tier below:
+
+- **Up-and-coming producers on indie rosters** — talented but not wealthy enough for a £30k synth collection. They're making great records from bedrooms and small studios.
+- **Publishing roster producers and songwriters** — working on spec or modest advances, can't justify gear purchases but need real textures. Domino Publishing, 4AD's writers, Warp's roster are full of these people.
+- **Producers who work across multiple artists** — they might own a Sub37 but not a Moog One, and a specific project needs that sound. Anarack fills the gaps in their collection.
+- **Remix producers** — hired for one-off jobs, need a specific sound for that project, don't want to buy a synth they'll use once.
+- **Composers working in sync/scoring** — need varied sonic palettes across projects but can't own every synth.
+
+The pitch to label/management contacts isn't "get your A-list on this" — it's "you've got 50 producers on your publishing roster who'd love access to a Moog One for £39/month." The label or manager becomes a distribution channel to exactly the right people at scale.
+
+**Potential label partnership models:**
+- **Bulk subscription discount** — a label buys 10 Creator Pro seats at a discounted rate for their roster. Producers get it free as a perk of being signed, label pays a flat monthly fee.
+- **Session sponsorship** — label funds a set number of hours for producers working on specific releases. "We're paying for 20 hours on Anarack for your next album."
+- **Credit/attribution** — "Recorded via Anarack" in liner notes / streaming credits. Free marketing on real releases.
+
+**Music managers and producers**
+- Danny has direct personal connections
+- Early adopter pipeline — working-but-not-rich producers are the ideal target
+- Word of mouth from working professionals carries weight
+- Potential beta testers who can provide credible testimonials
+- "The synths on this track were recorded via Anarack" on a real release is the ultimate marketing
+
+**How these connections map to the launch timeline:**
+- **Soft launch:** Personal network of producers for beta testing + feedback
+- **Post soft launch:** Engage Motive Unknown for launch marketing strategy
+- **Proper launch:** The Quietus banner ads, Music Ally PR, coordinated push via Motive Unknown
+- **Ongoing:** Producer word of mouth, synth YouTuber partnerships, community growth
+
 ## Launch Strategy
 
 ### Phase 1: Beta (Month 1-2)
