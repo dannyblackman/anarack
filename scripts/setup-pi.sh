@@ -22,7 +22,6 @@ echo "[1/6] Installing system packages..."
 sudo apt-get update -qq
 sudo apt-get install -y -qq \
   jackd2 \
-  jack-tools \
   a2jmidid \
   python3-pip \
   python3-venv \
