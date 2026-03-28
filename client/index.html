@@ -104,7 +104,7 @@
     /* CC Sliders */
     .sliders {
       display: grid;
-      grid-template-columns: repeat(3, 1fr);
+      grid-template-columns: repeat(4, 1fr);
       gap: 1.5rem;
       width: 100%;
       max-width: 500px;
@@ -232,13 +232,16 @@
 
   <script>
     // --- Config ---
+    // Prophet Rev2 MIDI CC mapping (from official MIDI implementation chart)
     const SLIDERS = [
-      { label: "Filter Cutoff", cc: 74, default: 64 },
-      { label: "Resonance",     cc: 71, default: 0 },
-      { label: "Attack",        cc: 73, default: 20 },
-      { label: "Decay",         cc: 75, default: 64 },
-      { label: "Sustain",       cc: 79, default: 100 },
-      { label: "Release",       cc: 72, default: 40 },
+      { label: "Filter Cutoff", cc: 102, default: 100 },
+      { label: "Resonance",     cc: 103, default: 0 },
+      { label: "Osc 1 Shape",   cc: 22,  default: 64 },
+      { label: "Osc Mix",       cc: 28,  default: 64 },
+      { label: "Amp Attack",    cc: 118, default: 20 },
+      { label: "Amp Decay",     cc: 119, default: 64 },
+      { label: "Amp Sustain",   cc: 75,  default: 100 },
+      { label: "Amp Release",   cc: 76,  default: 40 },
     ];
 
     // Notes in one octave (C to B)
