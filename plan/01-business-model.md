@@ -632,3 +632,54 @@ Splice is the most natural partner or acquirer for Anarack. The strategic fit is
 | Single point of failure | UPS, 4G failover, monitoring | Partner studios add redundancy |
 | Novelty wears off | Project recall lock-in, hour rollover | Growing catalogue, community, effects expansion |
 | High upfront cost | Soft launch validates with zero synth cost | Crowdfunding, manufacturer deals, partner studios |
+
+## Vision & Team
+
+### What This Business Is
+
+Anarack is a **lifestyle business first** — a steady, profitable company that funds itself, grows sustainably, and lets its founder spend his days working with synths. Exit opportunities (Splice, UA, etc.) are nice optionality but not the driving motivation. Decisions should favour sustainability and quality of life over hockey-stick growth.
+
+### Solo Phase (Soft Launch → Early Proper Launch)
+
+Everything is one person: build the tech, maintain the synths, handle support, do the marketing. This is viable at soft launch scale (5 synths, <50 users) but doesn't scale beyond that.
+
+### When to Hire
+
+Each role becomes necessary at a specific pain point. Don't hire ahead of need — hire when something is actively limiting growth or quality.
+
+| Role | When to hire | Trigger | Est. cost |
+|---|---|---|---|
+| **Synth technician** (part-time/freelance) | Proper launch | 10+ synths need regular maintenance, you can't be debugging a Juno voice chip while fixing a server bug | £200-400/month retainer |
+| **Software developer** (part-time/contract) | Post proper launch | Feature requests pile up, plugin needs updates for new DAW versions, you're spending more time coding than running the business | £2,000-4,000/month |
+| **Customer support** (part-time) | ~100+ subscribers | Support tickets take >5 hours/week, response times are slipping, users are churning because of unresolved issues | £500-1,000/month |
+| **Marketing / community** (part-time/freelance) | Post proper launch | Motive Unknown handles campaign strategy but someone needs to run day-to-day socials, Discord, content calendar | £500-1,500/month |
+
+### Hiring Order
+
+1. **Synth technician first** — the most specialised role and the one that most directly frees you to focus on the business. Find someone local who knows analogue synths. Could be a part-time arrangement with a synth repair shop.
+2. **Software developer second** — once the platform is live and stable, ongoing development (new features, DAW updates, bug fixes) is the biggest time sink. A contract developer who knows JUCE/audio is ideal.
+3. **Customer support third** — can be handled by you personally until ~100 subscribers. Personal support from the founder is actually a feature at small scale ("I emailed about a bug and the guy who built it replied in 10 minutes").
+4. **Marketing last** — Motive Unknown handles strategy. Day-to-day social media and community management can be a junior hire or freelancer once there's enough content and community activity to justify it.
+
+### Team Cost at Scale (~200 subscribers, ~£10k MRR)
+
+| Role | Monthly cost |
+|---|---|
+| Synth technician (part-time) | £300 |
+| Software developer (contract, part-time) | £3,000 |
+| Customer support (part-time) | £750 |
+| Marketing/community (freelance) | £1,000 |
+| Motive Unknown (campaign retainer) | £1,000-2,000 |
+| **Total team cost** | **£6,050-7,050/month** |
+
+At £10k MRR with ~£1,300 in other overheads, total costs would be ~£7,400-8,400/month — leaving £1,600-2,600/month profit plus your own salary. The business needs to be closer to £15k MRR to comfortably support a full team + founder salary.
+
+### What You Keep Doing
+
+Even with a team, the founder role stays focused on:
+- **Product direction** — which synths to add, feature priorities, pricing
+- **Key relationships** — labels, manufacturers, partners (these are personal connections)
+- **Sound and quality** — you're the person who knows if a synth sounds right
+- **The fun stuff** — testing new gear, dialling in patches, curating the catalogue
+
+The goal is to delegate the stuff that drains you (bug fixes, support tickets, social media scheduling) and keep the stuff that energises you (synths, sound, relationships, product vision).
