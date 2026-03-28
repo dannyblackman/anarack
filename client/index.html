@@ -226,6 +226,27 @@
 
   <div class="keyboard" id="keyboard"></div>
 
+  <div class="controls">
+    <label>Program:
+      <button onclick="changeProgram(-1)">&#9664;</button>
+      <input type="number" id="program-num" min="0" max="127" value="0" style="width: 50px; text-align: center">
+      <button onclick="changeProgram(1)">&#9654;</button>
+    </label>
+    <button onclick="sendProgramChange()">Send</button>
+    <label>Bank:
+      <select id="bank-num" onchange="sendBankAndProgram()">
+        <option value="0">A</option>
+        <option value="1">B</option>
+        <option value="2">C</option>
+        <option value="3">D</option>
+        <option value="4">E</option>
+        <option value="5">F</option>
+        <option value="6">G</option>
+        <option value="7">H</option>
+      </select>
+    </label>
+  </div>
+
   <div class="sliders" id="sliders"></div>
 
   <div id="log"></div>
@@ -413,6 +434,32 @@
 
     function cc(controller, value) {
       sendMidi(0xB0, controller, value);
+    }
+
+    function sendProgramChange() {
+      const num = parseInt(document.getElementById("program-num").value);
+      if (num >= 0 && num <= 127) {
+        sendMidi(0xC0, num, 0);
+        log(`Program Change: ${num}`);
+      }
+    }
+
+    function changeProgram(delta) {
+      const el = document.getElementById("program-num");
+      let num = parseInt(el.value) + delta;
+      num = Math.max(0, Math.min(127, num));
+      el.value = num;
+      sendProgramChange();
+    }
+
+    function sendBankAndProgram() {
+      const bank = parseInt(document.getElementById("bank-num").value);
+      const program = parseInt(document.getElementById("program-num").value);
+      // Bank Select MSB (CC 0)
+      sendMidi(0xB0, 0, bank);
+      // Then program change
+      sendMidi(0xC0, program, 0);
+      log(`Bank ${String.fromCharCode(65 + bank)}, Program ${program}`);
     }
 
     function noteName(midi) {
