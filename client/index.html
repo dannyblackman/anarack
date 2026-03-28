@@ -413,12 +413,12 @@
       latencyMeasuring = true;
       latencySendTime = performance.now();
 
-      // Send a short high note that's easy to detect
-      sendMidi(0x90, 108, 127); // C8, max velocity
+      // Send a mid-range note at max velocity
+      sendMidi(0x90, 60, 127); // C4, max velocity
 
-      // Set a timeout to stop the note and check
+      // Set a timeout to stop the note
       setTimeout(() => {
-        sendMidi(0x80, 108, 0);
+        sendMidi(0x80, 60, 0);
       }, 100);
 
       // Timeout if no audio detected
@@ -444,8 +444,8 @@
           if (abs > maxSample) maxSample = abs;
         }
 
-        // Threshold: if peak is above ~10% of max, we have audio
-        if (maxSample > 3200) {
+        // Threshold: if peak is above ~1% of max, we have audio
+        if (maxSample > 300) {
           const latency = performance.now() - latencySendTime;
           latencyMeasuring = false;
           latencyResults.push(latency);
