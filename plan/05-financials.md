@@ -41,16 +41,40 @@
 
 ## Monthly Operating Costs
 
-| Item | Monthly Cost |
-|---|---|
-| Broadband (fibre, static IP) | £50 |
-| Electricity (rack + synths on standby) | £40 |
-| Tailscale Business (if needed) | £0-45 |
-| Domain + hosting (web app) | £20 |
-| Stripe fees (2.9% + 20p per transaction) | ~3% of revenue |
-| Synth maintenance / calibration | £50 (averaged) |
-| Insurance (equipment) | £30 |
-| **Total fixed costs** | **~£200-250/month** |
+### Fixed Overheads (incurred regardless of revenue)
+
+| Item | Monthly Cost | Notes |
+|---|---|---|
+| Broadband (fibre, static IP) | £50 | Need reliable, low-latency connection with static IP for WireGuard |
+| Electricity (rack + synths + Mac Mini) | £50-70 | Synths on standby 24/7, Mac Mini always on, UPS draw |
+| Domain + DNS | £5 | Cloudflare or similar |
+| Web hosting / infrastructure | £20-50 | App hosting, database, file storage (recordings) |
+| Monitoring + uptime tools | £20 | Alerts for rig health, synth status, connection quality |
+| Tailscale Business (prototype only) | £0-45 | Free tier may suffice for prototype, drops away in production |
+| Synth maintenance / calibration | £50 | Averaged — covers replacement cables, occasional repairs, tuning |
+| Equipment insurance | £30-50 | Contents insurance covering £10-15k of gear |
+| Accountant | £0 | Already covered — Crunch via Studio Audience Ltd |
+| **Total fixed overheads** | **£225-290/month** | |
+
+### Variable Costs (scale with revenue)
+
+| Item | Cost | At £5k MRR | At £10k MRR |
+|---|---|---|---|
+| Paddle fees (5% + 50p/txn) | ~5.5% of revenue | £275 | £550 |
+| Recording storage (S3 or similar) | Grows with usage | £20 | £50 |
+| Customer support tools | Per-seat or usage | £0-30 | £30-50 |
+| Marketing spend | Discretionary | £100-200 | £300-500 |
+| **Total variable costs** | | **£395-525** | **£930-1,150** |
+
+### Total Monthly Overheads
+
+| Revenue Level | Fixed | Variable | Total Overhead | Net Margin |
+|---|---|---|---|---|
+| £2k MRR (early) | ~£250 | ~£250 | **~£500** | ~75% |
+| £5k MRR | ~£250 | ~£475 | **~£725** | ~86% |
+| £10k MRR | ~£275 | ~£1,050 | **~£1,325** | ~87% |
+
+Margins are high because there's no staff cost (solo operator), no premises beyond the home studio, and accounting is already covered via Crunch (Studio Audience Ltd). The biggest scaling cost is Paddle fees. If/when revenue justifies hiring help or renting dedicated space, margins drop significantly.
 
 ## Revenue Projections
 
@@ -69,24 +93,27 @@ Pro-first launch strategy. Revenue is subscription-driven. The key metric is sub
 
 **Phase 2 (Months 7+): Open Creator + Creator Pro tiers.** Once proven with pros, widen the funnel. Queue pressure from new users naturally drives upgrades.
 
-| Month | Pro | Creator Pro | Creator | Sub Revenue | PAYG | Total | Costs | Profit |
+| Month | Pro | Creator Pro | Creator | Sub Revenue | PAYG | Total Revenue | Overheads | Profit |
 |---|---|---|---|---|---|---|---|---|
-| 1 (beta) | 5 | — | — | £745 | £50 | £795 | £200 | £595 |
-| 2 | 10 | — | — | £1,490 | £100 | £1,590 | £200 | £1,390 |
-| 3 (launch) | 15 | — | — | £2,235 | £200 | £2,435 | £250 | £2,185 |
-| 4 | 20 | — | — | £2,980 | £300 | £3,280 | £250 | £3,030 |
-| 5 | 25 | — | — | £3,725 | £400 | £4,125 | £250 | £3,875 |
-| 6 | 28 | — | — | £4,172 | £500 | £4,672 | £250 | £4,422 |
-| 7 | 30 | 10 | 30 | £5,340 | £600 | £5,940 | £250 | £5,690 |
-| 8 | 32 | 25 | 60 | £6,643 | £700 | £7,343 | £250 | £7,093 |
-| 9 | 34 | 35 | 80 | £7,631 | £800 | £8,431 | £250 | £8,181 |
-| 10 | 35 | 45 | 100 | £8,490 | £900 | £9,390 | £250 | £9,140 |
-| 11 | 37 | 50 | 120 | £9,263 | £1,000 | £10,263 | £250 | £10,013 |
-| 12 | 40 | 55 | 140 | £10,205 | £1,100 | £11,305 | £250 | £11,055 |
+| 1 (beta) | 5 | — | — | £745 | £50 | £795 | £325 | £470 |
+| 2 | 10 | — | — | £1,490 | £100 | £1,590 | £375 | £1,215 |
+| 3 (launch) | 15 | — | — | £2,235 | £200 | £2,435 | £425 | £2,010 |
+| 4 | 20 | — | — | £2,980 | £300 | £3,280 | £475 | £2,805 |
+| 5 | 25 | — | — | £3,725 | £400 | £4,125 | £525 | £3,600 |
+| 6 | 28 | — | — | £4,172 | £500 | £4,672 | £575 | £4,097 |
+| 7 | 30 | 10 | 30 | £5,340 | £600 | £5,940 | £650 | £5,290 |
+| 8 | 32 | 25 | 60 | £6,643 | £700 | £7,343 | £725 | £6,618 |
+| 9 | 34 | 35 | 80 | £7,631 | £800 | £8,431 | £800 | £7,631 |
+| 10 | 35 | 45 | 100 | £8,490 | £900 | £9,390 | £875 | £8,515 |
+| 11 | 37 | 50 | 120 | £9,263 | £1,000 | £10,263 | £950 | £9,313 |
+| 12 | 40 | 55 | 140 | £10,205 | £1,100 | £11,305 | £1,050 | £10,255 |
+
+Overheads include fixed costs (~£250/month) + Paddle fees (~5.5%) + scaling variable costs (storage, marketing). Accounting already covered via Crunch (Studio Audience Ltd).
 
 **Year 1 total revenue: ~£69,000**
-**Year 1 total profit (after operating costs): ~£66,000**
-**Year 1 profit (after startup investment): ~£59,000-63,000**
+**Year 1 total overheads: ~£7,750**
+**Year 1 profit (after overheads): ~£61,000**
+**Year 1 profit (after startup investment): ~£54,000-58,000**
 
 ### Path to £10k MRR
 
@@ -101,7 +128,7 @@ The upgrade ladder accelerates this: as Creator subscribers hit queues during pe
 ### Why Low Utilisation Is a Feature
 
 We *want* subscribers who don't use all their hours:
-- A Creator pays £15/month for 2 hours. If they use 45 mins, we made £15 for 45 mins of synth time
+- A Creator pays £15/month for 4 hours. If they use 1.5 hours, we made £15 for 1.5 hours of synth time
 - A Creator Pro pays £39/month for 8 hours. Most months they'll use 3-4. That's £10-13 effective hourly rate — but we keep the subscription.
 - A Professional pays £149/month for 30 hours. Most months they'll use 8-12. That's £12-19 effective hourly rate.
 - Their projects depend on Anarack (project recall), so they all keep paying
@@ -111,14 +138,14 @@ Target utilisation: 15-25% of total capacity. Higher than that = time to add mor
 
 ## Break-Even Analysis
 
-Monthly fixed costs: ~£250
-Variable costs: 3-5% of revenue (payment gateway fees — see below)
+Monthly fixed overheads: ~£250
+Variable costs: ~5.5% of revenue (Paddle) + storage/marketing scaling
 
-**Break-even: ~£260-275/month** (trivially low)
+**Monthly break-even: ~£275-300/month revenue** — reached in month 1 with just 2 Professional subscribers.
 
 The real question is break-even on the **hardware investment**. At £6,750 startup cost:
-- Month 3-4 revenue covers operating costs
-- Cumulative profit covers startup investment by **month 8-10**
+- Monthly overheads are covered from month 1
+- Cumulative profit covers the £6,750 startup investment by **month 5-6**
 
 ## Payment Gateway: Stripe vs Paddle
 
@@ -225,4 +252,4 @@ This is manageable but grows in complexity with each new market. An accountant w
 - Home studio: portion of mortgage/rent, utilities, broadband as business expense
 - Corporation tax on profits (currently 25% for profits over £250k, 19% for small profits under £50k)
 - Director's salary + dividends for tax-efficient personal income
-- **Get an accountant before launch** — digital services VAT + international sales is specialist territory. Budget ~£150-200/month for a good one.
+- Accounting already covered via **Crunch** (Studio Audience Ltd) — ensure they're aware of the digital services / international sales angle when it starts.
