@@ -72,11 +72,11 @@ The plugin shows queue position and estimated wait in real time. It also shows: 
 
 All synths are available on all subscription tiers — but flagships have usage limits on the Creator tier that drive upgrades.
 
-| Category | Examples | Creator (£15) | Creator Pro (£39) | Professional (£149) |
+| Category | Synths | Creator (£15) | Creator Pro (£39) | Professional (£149) |
 |---|---|---|---|---|
-| **Standard** | Minilogue XD, MiniBrute 2, Juno-106 | Yes | Yes | Yes |
-| **Premium** | Prophet Rev2, Sub37, OB-6, Peak | Yes | Yes | Yes |
-| **Flagship** | Moog One, Minimoog Model D, CS-80 | 30 mins/month | Yes | Yes |
+| **Filler** | Minilogue, MiniBrute, Minitaur | Yes | Yes | Yes |
+| **Headliner** | Rev2, Subsequent 37, OB-6, Prophet 5, Prophet 10, Juno-106, Summit, Hydrasynth | Yes | Yes | Yes |
+| **Flagship** | Moog One, Minimoog Model D | 30 mins/month | Yes | Yes |
 
 **Why this works:**
 - Creators get to *try* flagships — 30 minutes is enough to hear a Moog One on their track and fall in love. The upgrade trigger is "I want more of this" not "I can't have this." That's a much stronger emotional driver.
@@ -110,14 +110,43 @@ At launch you'll have maybe 5 Professional and 10 Creator Pro users sharing one 
 2. Minimoog Model D — iconic, increasingly rare. Second duplicate.
 3. Others as data shows demand.
 
-### Synth Acquisition Strategy
+### Synth Catalogue
 
-Start with attainable synths, add flagships as revenue justifies them:
+The catalogue leads with 10 aspirational headliner synths — gear people can't justify buying themselves. That's the value proposition. Cheaper synths (Minitaur, Minilogue, MiniBrute etc.) get added later to pad the count and variety, but they're not the reason anyone subscribes.
 
-1. **Launch** — synths you already own (Rev2, Sub37) + affordable additions (Minilogue, MiniBrute, Juno). Total investment: ~£1,000-2,000.
-2. **Growth** — add premium synths as Pro subscribers grow (OB-6, Prophet 6, Peak). £800-2,000 each.
-3. **Flagship** — once Professional tier has 20+ subscribers, invest in the first flagship (Moog One or Minimoog). Marketing event: "The Moog One is now on Anarack." £5,000-8,000 — paid for by ~3-4 months of Pro subscriptions.
-4. **Ongoing** — each new flagship is funded by revenue and marketed as an event. The synth collection becomes a growing asset and a reason to stay subscribed ("what's coming next?").
+**All synths must be fully MIDI-controllable** — every parameter accessible via MIDI CC/NRPN, full preset recall via SysEx. This rules out semi-modular/patch cable synths (Matriarch, ARP 2600, etc.) since patch cables can't be set remotely and defeats project recall.
+
+#### The 10 Headliners
+
+| # | Synth | Type | Status | Est. used price |
+|---|---|---|---|---|
+| 1 | Moog Subsequent 37 | Analogue mono | Owned | — |
+| 2 | Moog Minimoog Model D (2022 reissue) | Analogue mono | Buy new | ~£5,000 |
+| 3 | Moog One | Analogue poly | Buy | £6,000-8,000 |
+| 4 | Sequential Rev2 | Analogue poly | Owned | — |
+| 5 | Sequential Prophet 10 | Analogue poly | Buy | £3,000-4,000 |
+| 6 | Sequential Prophet 5 | Analogue poly | Buy | £3,000-4,000 |
+| 7 | Oberheim OB-6 | Analogue poly | Buy | £2,000-2,500 |
+| 8 | Roland Juno-106 | Analogue poly | Buy | £1,500-2,000 |
+| 9 | Novation Summit | Hybrid poly | Buy | £1,200-1,500 |
+| 10 | ASM Hydrasynth | Wavetable/digital | Buy | £800-1,000 |
+
+**Synths to buy: 7 | Estimated total: £21,000-28,000** (before tax relief and VAT — see financials)
+
+#### Filler Synths (added post-launch for count and variety)
+
+Affordable synths that round out the catalogue. Not the selling point, but they add choice and reduce queue pressure on the headliners:
+- Moog Minitaur (~£250 used)
+- Korg Minilogue (owned)
+- Arturia MiniBrute 2 (~£250 used)
+- Behringer Model D, Poly D (~£200-400 used)
+- Others as budget allows
+
+#### Synth Acquisition Strategy
+
+1. **Soft launch** — prove the concept with 5 synths already available: Subsequent 37 (owned), Rev2 (owned), Minilogue (owned), Prophet 5 (borrowed), Hydrasynth (borrowed). Zero synth investment.
+2. **Proper launch** — buy the remaining 7 headliners. Total investment ~£21,000-28,000 (see financials for effective cost after tax relief/VAT). This is the full catalogue that justifies marketing spend.
+3. **Post-launch** — add filler synths to grow the count. £1,000-2,000 total. Each new headliner added later is a marketing event: "The [synth] has arrived at Anarack."
 
 ### Partner Synth Network (Phase 2 — post soft-launch, pre marketing push)
 
@@ -148,6 +177,56 @@ Once the concept and market are proven with owned synths, the fastest way to sca
 - A few well-placed partners — 2-3 in the UK, 1-2 in the US — would massively expand the catalogue and coverage
 
 **When to start:** After soft launch has validated demand but before the main marketing push. The partner network should be in place so that when marketing drives traffic, the catalogue is deep enough to convert and retain. Build the rack, then turn on the tap.
+
+### Manufacturer & Retailer Partnerships
+
+Anarack is effectively a try-before-you-buy showroom at scale. Every session is extended hands-on time with a real synth — far more effective than 5 minutes at a music shop. That's valuable to manufacturers and retailers, and it creates partnership opportunities that reduce our costs and add a new revenue stream.
+
+#### Manufacturer Partnerships (Moog, Sequential, Novation, ASM, etc.)
+
+**What we offer them:**
+- Extended demo time with their products at scale — hundreds of producers playing their synths every month
+- Measurable data: "X users played your Prophet 10 this month, average session Y minutes"
+- First-to-play launches: "The new Sequential [whatever] — play it first on Anarack" is a marketing event for both parties
+- Credibility by association: their synths presented in a professional, well-maintained environment
+
+**What we want from them:**
+- **Discounted or sponsored synths** — demo/endorsement pricing, or loaner units for the rack. Manufacturers already supply demo units to shops; this is a more effective version of that.
+- **Co-marketing** — featured on their website/socials as an official demo partner. "Try the Moog One on Anarack" on moog.com is massive.
+- **Early access to new products** — exclusive launch window on Anarack before retail availability. Drives subscriptions and press coverage.
+- **Endorsement** — "Official Moog demo partner" is a trust signal that's worth more than any ad spend.
+
+**Pitch to manufacturers:** "Your synths are sitting in music shops where people play them for 5 minutes through headphones. On Anarack, producers spend an hour with your synth in their actual studio workflow, hear it through their monitors, use it on a real track — and then we show them a link to buy their own. Which is more likely to convert?"
+
+#### Retailer Partnerships (Thomann, Sweetwater, Andertons, Jigsaw24, etc.)
+
+**Affiliate model:**
+- After every session, the UI shows: "Loved the Prophet 10? Buy your own" with an affiliate link to the retailer
+- Standard affiliate commission on music gear is 3-8% — passive revenue on every conversion
+- Could negotiate higher commission or exclusive partnership in exchange for being the sole "buy your own" retailer
+
+**Bulk purchase discounts:**
+- Negotiate discounted pricing on Anarack's own synth purchases in exchange for being the exclusive retail partner
+- Retailer gets ongoing affiliate revenue + brand association; Anarack gets cheaper gear
+- "Anarack synths supplied by Thomann" or similar co-branding
+
+**Why retailers would say yes:**
+- New customer acquisition channel they don't have — people who play a synth for hours and then want to own one are high-intent buyers
+- Anarack users are qualified leads — they already know exactly which synth they want and why
+- No risk to the retailer — affiliate model means they only pay on conversion
+
+#### Affiliate Revenue Potential
+
+Conservative estimate — if 1-2% of active subscribers buy a synth per year through affiliate links:
+- 200 subscribers × 1.5% conversion × £2,000 average synth price × 5% commission = ~£300/year
+- Not life-changing, but it's pure passive income and grows with the user base
+- More importantly, it funds the partnership conversation — retailers engage because there's a commercial model, not just goodwill
+
+#### Timing
+
+- **Soft launch:** no leverage yet, too early to approach manufacturers
+- **Post soft launch:** approach manufacturers with real usage data and demo videos. Start with smaller/hungrier brands (ASM, Novation) who are more likely to engage early
+- **Post crowdfund/proper launch:** approach the big names (Moog, Sequential) with subscriber numbers and session data. At this point the pitch is backed by evidence, not just an idea
 
 ### Pay-As-You-Go
 
@@ -255,6 +334,48 @@ YouTubers, TikTok musicians who want to demo "real synth" sounds. Short sessions
 - First-mover advantage in a niche that hasn't been served this way before
 - Technical know-how (low-latency audio streaming) isn't trivial to replicate
 - Community and brand loyalty in the synth world is strong
+
+## White-Label: Remote Demo Platform for Manufacturers (Secondary Business)
+
+The core Anarack tech — low-latency MIDI control + audio streaming + browser UI — can be white-labelled to synth manufacturers as an embeddable "try before you buy" demo platform on their own websites.
+
+### The Product
+
+An embeddable widget or hosted page that a manufacturer puts on their product page. A customer visits moog.com/one, clicks "Play it now", and gets a live session with a real Moog One — controlled from their browser, audio streamed back in real time. Same tech as Anarack, just branded for the manufacturer.
+
+### Why Manufacturers Would Pay For This
+
+- **Online synth sales are growing** but the biggest barrier is "I haven't played it." Soft synths have free trials; hardware doesn't. This solves that.
+- **More effective than any demo video** — 10 minutes of hands-on time with a real synth converts better than a hundred YouTube reviews.
+- **They already spend on demo programmes** — shipping demo units to shops, maintaining showroom stock, trade show booths. This is cheaper and reaches more people.
+- **Data** — they get analytics on which presets people play, how long sessions last, which parameters get tweaked. Product insight they can't get any other way.
+
+### How It Works
+
+- Manufacturer provides the synth (or synths) — either at their own premises or hosted at an Anarack location
+- Anarack provides the tech: rig, software, streaming infrastructure, embeddable UI
+- Sessions are short (5-10 mins) and free for the end user — this is marketing spend for the manufacturer, not a consumer product
+- "Buy now" button at the end of every session links to the manufacturer's store or retail partners
+
+### Revenue Model
+
+- **SaaS fee** — monthly platform fee per synth connected (e.g. £200-500/month per synth)
+- **Per-session fee** — alternative model: charge per demo session (e.g. £1-2 per session, manufacturer pays)
+- **Setup fee** — one-off fee for rig installation if hosted at manufacturer's premises
+
+### Why This Is a Secondary Business
+
+- The core Anarack platform needs to be built and proven first — the white-label version is the same tech, repackaged
+- Manufacturers won't engage until they can see it working (same as the partnership conversation — need traction first)
+- Don't distract from the primary subscription business until it's stable
+- But once the tech is proven, this is high-margin B2B revenue with long contracts and low churn
+
+### Potential Scale
+
+If 3-5 manufacturers each connect 2-3 synths at £300/month per synth:
+- 10 synths × £300 = £3,000/month B2B revenue
+- Minimal additional infrastructure cost — it's the same platform
+- Strengthens manufacturer relationships, which feeds back into the primary business (discounts, endorsements, early access)
 
 ## Revenue Scenarios
 

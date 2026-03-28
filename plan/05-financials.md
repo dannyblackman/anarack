@@ -13,31 +13,147 @@
 | Moog Sub37 (owned) | £0 |
 | **Total** | **~£85** |
 
-### Phase 1 — Launch (5 synths)
+### Soft Launch (5 synths — owned/borrowed)
 
 | Item | Cost |
 |---|---|
 | Mac Mini M4 Pro | £1,600 |
 | MOTU 24Ai + 24Ao | £2,500 |
 | MIDI interface (mioXL) | £300 |
-| 3 additional synths (used) | £1,500 |
 | Rack, patchbay, cables | £500 |
 | UPS + power conditioning | £250 |
-| Domain, hosting, Stripe setup | £100 |
-| **Total** | **~£6,750** |
+| Domain, hosting, Paddle setup | £100 |
+| Synths (Subsequent 37, Rev2, Minilogue — owned) | £0 |
+| Synths (Prophet 5, Hydrasynth — borrowed) | £0 |
+| **Total** | **~£5,250** |
 
-### Phase 2 — Growth (10-15 synths)
+### Proper Launch (10 headliner synths — buy remaining 7)
+
+| Synth | New price (inc. VAT) | Used price | Buy new? | Notes |
+|---|---|---|---|---|
+| Moog Minimoog Model D | ~£5,000 | £3,500-5,000 | **Yes** | 2022 reissue — modern build, stays in tune, warranty. Vintage is a maintenance nightmare. |
+| Moog One | ~£7,500-9,000 | £6,000-8,000 | Consider | Huge VAT reclaim on new (~£1,500). Used saves upfront but no VAT back. |
+| Sequential Prophet 10 | ~£4,500 | £3,000-4,000 | Consider | Still in production. New = warranty + VAT reclaim. |
+| Sequential Prophet 5 | ~£3,800 | £3,000-4,000 | Consider | Still in production. |
+| Oberheim OB-6 | ~£3,500 | £2,000-2,500 | Maybe | Decent used market, but new gets VAT back. |
+| Roland Juno-106 | N/A (discontinued) | £1,500-2,000 | Used only | Vintage — voice chips fragile, budget for repairs. No new option. |
+| Novation Summit | ~£2,000 | £1,200-1,500 | Consider | Still in production. |
+| ASM Hydrasynth | ~£1,300 | £800-1,000 | Consider | Still in production. |
+| **Total (new where possible)** | **~£28,600-34,600** | | | |
+| **Total (all used)** | | **£21,000-28,000** | | |
+
+#### Effective cost: new vs used
+
+**Corporation tax relief (19%)** applies to all equipment regardless of source — it's a capital allowance via Studio Audience Ltd.
+
+**VAT reclaim (20%)** only applies when buying new from authorised dealers (or used from VAT-registered dealers showing VAT on invoice). Used from private sellers or under the VAT margin scheme = no VAT to reclaim.
+
+| Scenario | Gross spend | VAT reclaim | After VAT | Tax relief (19%) | **Effective cost** |
+|---|---|---|---|---|---|
+| All new (where available) | ~£31,000 | ~£5,200 | ~£25,800 | ~£4,900 | **~£20,900** |
+| Mix (new for expensive, used for cheaper) | ~£27,000 | ~£3,500 | ~£23,500 | ~£4,500 | **~£19,000** |
+| All used | ~£24,500 | £0 | £24,500 | ~£4,650 | **~£19,850** |
+
+**Key insight:** buying new is often comparable or better value than used once VAT reclaim is factored in — and you get warranty, reliability, and no maintenance surprises. Buy new where the synth is still in production. Only buy used where there's no new option (Juno-106) or the used discount is very large.
+
+#### Used gear maintenance
+
+Vintage synths (Minimoog, Juno-106) need regular servicing. Modern synths (Summit, Hydrasynth) are low-maintenance. Budget accordingly:
+
+| Category | Synths | Annual maintenance |
+|---|---|---|
+| Vintage (high risk) | Juno-106 | £300-500 |
+| Modern reissue | Minimoog Model D (2022) | £100-200 |
+| Classic (moderate) | Prophet 5, Prophet 10, OB-6 | £100-200 each |
+| Modern (low risk) | Summit, Hydrasynth, Rev2, Subsequent 37 | £0-50 each |
+| **Total annual maintenance** | | **£1,000-2,000** |
+
+Juno-106 voice chips are notoriously fragile — budget for replacements. Minimoog needs periodic calibration. Factor this into the ongoing operating costs (~£80-170/month averaged).
+
+### Post-Launch — Filler Synths
 
 | Item | Cost |
 |---|---|
-| 5-10 additional synths (used) | £3,000-6,000 |
-| Additional MIDI interface | £250 |
+| Filler synths (Minitaur, MiniBrute, etc.) | £500-1,500 |
+| Additional MIDI interface (if needed) | £250 |
 | ADAT expander (if needed) | £200 |
-| **Total** | **~£3,500-6,500** |
+| **Total** | **~£1,000-2,000** |
 
-### Total Investment to Full Scale
+### Total Investment Summary
 
-**£10,000-13,000** to get to 15 synths with professional infrastructure. This can be spread across 6-12 months as revenue grows.
+| Phase | Gross cost | Effective cost (after tax/VAT) |
+|---|---|---|
+| Prototype | £85 | £85 |
+| Soft launch (infrastructure) | £5,250 | ~£3,800 |
+| Proper launch (7 synths, mix new/used) | £27,000-31,000 | ~£19,000-21,000 |
+| Post-launch (fillers) | £1,000-2,000 | ~£700-1,400 |
+| **Total** | **£33,300-38,300** | **~£23,600-26,300** |
+
+## Crowdfunding the Proper Launch
+
+The soft launch runs on owned/borrowed gear — zero synth cost. Once it's built, working, and generating buzz, crowdfund the 7 synths needed for the proper launch. This is the ideal crowdfunding pitch: a working product that people can try, not a concept.
+
+### Why This Works
+
+- **Demonstrable product** — backers can watch a video of someone playing a real Moog remotely, or even try the soft launch themselves. Not a render, not a promise.
+- **Passionate community** — synth people are obsessive. r/synthesizers (500k+), YouTube synth channels, gear forums. They'll share this.
+- **Each synth is a clear goal** — "£5,000 unlocks the Moog One" is a perfect stretch goal. Backers can see exactly what their money buys.
+- **Built-in marketing** — a successful campaign is itself a launch event. Press coverage, social sharing, community building before day one.
+
+### Campaign Structure
+
+**Platform:** Kickstarter (largest audience, all-or-nothing creates urgency) or Indiegogo (flexible funding if preferred).
+
+**Target:** £25,000-30,000 (covers the 7 synths at new prices, net of VAT reclaim and tax relief the effective cost is lower but the campaign needs to cover gross spend upfront).
+
+**Stretch goals — each synth unlocked individually:**
+
+| Goal | Synth | Amount |
+|---|---|---|
+| Base goal | Hydrasynth + Summit + Juno-106 | £5,000 |
+| Stretch 1 | Oberheim OB-6 | £8,500 |
+| Stretch 2 | Sequential Prophet 5 | £12,500 |
+| Stretch 3 | Sequential Prophet 10 | £17,000 |
+| Stretch 4 | Moog Minimoog Model D | £22,000 |
+| Stretch 5 | Moog One | £30,000 |
+
+Order cheapest to most expensive — each unlock feels like progress, and the Moog One as the final stretch goal creates maximum excitement.
+
+### Reward Tiers
+
+| Tier | Pledge | Reward |
+|---|---|---|
+| Supporter | £10 | Name on the Anarack wall of fame + updates |
+| Early Bird Creator | £25 | 2 months Creator access at launch (normally £30) |
+| Early Bird Creator Pro | £60 | 2 months Creator Pro at launch (normally £78) |
+| Founding Creator | £120 | 1 year Creator (normally £150) |
+| Founding Creator Pro | £300 | 1 year Creator Pro (normally £390) |
+| Founding Professional | £500 | 6 months Professional (normally £894) |
+| Lifetime Founding Member | £1,000 | Lifetime Creator Pro access (limited to 20 slots) |
+
+Lifetime tier is the big hook — 20 slots creates scarcity, and at £1,000 that's 20 × £1,000 = £20,000 which nearly funds the whole campaign alone. The ongoing cost of honouring lifetime access is minimal (they're just another user on the platform).
+
+### Building Buzz Pre-Campaign
+
+1. **Reddit** — post the soft launch demo to r/synthesizers, r/musicproduction, r/WeAreTheMusicMakers. "I built a service that lets you play real hardware synths over the internet — here's a demo." These communities love novel tech + synths.
+2. **Synth YouTubers** — reach out to Loopop, BoBeats, Starsky Carr, Red Means Recording. Offer early access to the soft launch. "Play my synths remotely and make a video" is an easy yes for content creators.
+3. **TikTok/Reels** — short clips of someone tweaking a Moog from their laptop. Instant hook.
+4. **Discord/community** — build a small community during soft launch. Early users become campaign ambassadors.
+
+### Timing
+
+1. **Build and soft launch** with owned gear — prove the concept works
+2. **Gather early users and testimonials** during soft launch
+3. **Create campaign video** showing real usage, real latency, real recordings
+4. **Launch campaign** once there's a proven product and a warm audience
+5. **Proper launch** once funded — buy synths, install, go live with full catalogue
+
+### Risk Mitigation
+
+- Campaign only launches after the product is working — no "we hope to build" risk
+- If campaign doesn't hit target (Kickstarter all-or-nothing), no money changes hands and we continue with soft launch synths + self-fund as revenue allows
+- Lifetime memberships are the main financial risk — cap at 20 to limit exposure
+- VAT reclaim and tax relief mean the gross campaign target recovers more than backers realise
 
 ## Monthly Operating Costs
 
@@ -51,7 +167,7 @@
 | Web hosting / infrastructure | £20-50 | App hosting, database, file storage (recordings) |
 | Monitoring + uptime tools | £20 | Alerts for rig health, synth status, connection quality |
 | Tailscale Business (prototype only) | £0-45 | Free tier may suffice for prototype, drops away in production |
-| Synth maintenance / calibration | £50 | Averaged — covers replacement cables, occasional repairs, tuning |
+| Synth maintenance / calibration | £80-170 | Higher for vintage (Minimoog, Juno-106). See maintenance breakdown above |
 | Equipment insurance | £30-50 | Contents insurance covering £10-15k of gear |
 | Accountant | £0 | Already covered — Crunch via Studio Audience Ltd |
 | **Total fixed overheads** | **£225-290/month** | |
@@ -80,7 +196,7 @@ Margins are high because there's no staff cost (solo operator), no premises beyo
 
 ### Assumptions
 
-- 5 synths at launch, growing to 15 by month 12
+- Soft launch with 5 synths (owned/borrowed), proper launch with 10 headliners, fillers added post-launch
 - Sessions are 1-hour slots at £15/hour (blended rate including bundles)
 - Operating hours: 16 hours/day (covering UK + US time zones)
 - Utilisation grows from 10% at launch to 30%+ at scale
@@ -143,9 +259,10 @@ Variable costs: ~5.5% of revenue (Paddle) + storage/marketing scaling
 
 **Monthly break-even: ~£275-300/month revenue** — reached in month 1 with just 2 Professional subscribers.
 
-The real question is break-even on the **hardware investment**. At £6,750 startup cost:
-- Monthly overheads are covered from month 1
-- Cumulative profit covers the £6,750 startup investment by **month 5-6**
+The real question is break-even on the **hardware investment**:
+- **Soft launch** (£5,250 infrastructure): covered by cumulative profit in ~month 3-4
+- **Proper launch** (additional £21,000-28,000 in synths): this is the big spend. At ~£5,000-8,000/month profit (months 7-9 projections), the synth investment pays back in ~3-5 months after proper launch
+- **Total investment** (~£27,000-35,000 gross): fully recovered within year 1 if subscriber growth tracks projections
 
 ## Payment Gateway: Stripe vs Paddle
 
