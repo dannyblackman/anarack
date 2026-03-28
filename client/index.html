@@ -196,6 +196,7 @@
 
   <div id="server-status" class="server-status offline">Server: checking...</div>
   <div id="status" class="disconnected">Disconnected</div>
+  <div id="latency-info" style="font-size: 0.7rem; color: #666; margin-bottom: 1rem; font-family: monospace;"></div>
 
   <div class="controls">
     <label>Server:
@@ -285,8 +286,22 @@
 
     function initAudio() {
       if (audioCtx) return;
-      audioCtx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: SAMPLE_RATE });
-      log("Audio context started (" + audioCtx.sampleRate + "Hz)");
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: SAMPLE_RATE, latencyHint: "interactive" });
+      const baseLat = (audioCtx.baseLatency || 0) * 1000;
+      const outLat = (audioCtx.outputLatency || 0) * 1000;
+      log(`Audio context started (${audioCtx.sampleRate}Hz, base: ${baseLat.toFixed(1)}ms, output: ${outLat.toFixed(1)}ms)`);
+      updateLatencyDisplay();
+    }
+
+    function updateLatencyDisplay() {
+      if (!audioCtx) return;
+      const el = document.getElementById("latency-info");
+      const baseLat = (audioCtx.baseLatency || 0) * 1000;
+      const outLat = (audioCtx.outputLatency || 0) * 1000;
+      const bufferLat = BUFFER_AHEAD * 1000;
+      const jackLat = 128 / 48000 * 1000; // JACK buffer
+      const totalEst = baseLat + outLat + bufferLat + jackLat + 5; // +5ms for network/processing
+      el.textContent = `Latency: browser ${baseLat.toFixed(0)}+${outLat.toFixed(0)}ms | buffer ${bufferLat.toFixed(0)}ms | JACK ${jackLat.toFixed(1)}ms | est. total ~${totalEst.toFixed(0)}ms`;
     }
 
     function connectAudio(host) {
@@ -325,7 +340,7 @@
     // Gapless audio playback with adaptive buffering
     let nextPlayTime = 0;
     let audioStarted = false;
-    const BUFFER_AHEAD = 0.03; // 30ms buffer — tighter, may glitch on bad connections but lower latency
+    const BUFFER_AHEAD = 0.015; // 15ms buffer — aggressive, lowest practical latency for Web Audio
 
     function playAudioChunk(arrayBuffer) {
       if (!audioCtx) return;
