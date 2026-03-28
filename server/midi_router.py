@@ -119,18 +119,24 @@ class AudioStreamer:
             return
 
         try:
+            import numpy as np
+
             self.jack_client = jack.Client("anarack_audio")
             self.jack_client.inports.register("input_1")
 
+            # Pre-allocate conversion buffer to avoid allocation in RT callback
+            blocksize = self.jack_client.blocksize
+            self._int16_buf = np.zeros(blocksize, dtype=np.int16)
+            self._scale = np.float32(32767.0)
+
             @self.jack_client.set_process_callback
             def process(frames):
-                # Get audio data from JACK port (float32)
+                # Get audio data from JACK port (float32) — minimal work in RT callback
                 audio_data = self.jack_client.inports[0].get_array()
-                # Convert float32 [-1.0, 1.0] to int16 PCM
-                import numpy as np
-                int16_data = (audio_data * 32767).clip(-32768, 32767).astype(np.int16).tobytes()
+                # Fast in-place conversion: float32 → int16
+                np.multiply(audio_data, self._scale, out=self._int16_buf, casting='unsafe')
                 try:
-                    self.audio_queue.put_nowait(int16_data)
+                    self.audio_queue.put_nowait(self._int16_buf.tobytes())
                 except queue.Full:
                     pass  # Drop if consumers are too slow
 
