@@ -89,7 +89,7 @@ echo "[6/6] Writing JACK configuration..."
 
 # jackdrc — JACK auto-start config
 cat > "$HOME/.jackdrc" << EOF
-/usr/bin/jackd -R -d alsa -d $ALSA_DEVICE -r 48000 -p 128 -n 3
+/usr/bin/jackd -R -d alsa -d $ALSA_DEVICE -r 48000 -p 64 -n 3
 EOF
 
 # Also write a startup script
@@ -115,7 +115,7 @@ fi
 echo "Using audio device: $ALSA_DEVICE"
 
 echo "Starting JACK..."
-jackd -R -d alsa -d "$ALSA_DEVICE" -r 48000 -p 128 -n 3 &
+jackd -R -d alsa -d "$ALSA_DEVICE" -r 48000 -p 64 -n 3 &
 JACK_PID=$!
 sleep 2
 

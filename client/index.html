@@ -300,7 +300,7 @@
       const baseLat = (audioCtx.baseLatency || 0) * 1000;
       const outLat = (audioCtx.outputLatency || 0) * 1000;
       const bufferLat = BUFFER_AHEAD * 1000;
-      const jackLat = 128 / 48000 * 1000; // JACK buffer
+      const jackLat = 64 / 48000 * 1000; // JACK buffer
       const totalEst = baseLat + outLat + bufferLat + jackLat + 5; // +5ms for network/processing
       el.textContent = `Latency: browser ${baseLat.toFixed(0)}+${outLat.toFixed(0)}ms | buffer ${bufferLat.toFixed(0)}ms | JACK ${jackLat.toFixed(1)}ms | est. total ~${totalEst.toFixed(0)}ms`;
     }

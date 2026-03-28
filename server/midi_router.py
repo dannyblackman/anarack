@@ -179,19 +179,17 @@ class AudioStreamer:
         """Continuously send audio data to all connected WebSocket clients."""
         while self._running:
             try:
-                # Wait for audio data from the JACK callback
+                # Poll the queue rapidly instead of blocking in executor
                 try:
-                    chunk = await asyncio.get_event_loop().run_in_executor(
-                        None, lambda: self.audio_queue.get(timeout=0.1)
-                    )
+                    chunk = self.audio_queue.get_nowait()
                 except queue.Empty:
+                    await asyncio.sleep(0.001)  # 1ms poll — fast enough for audio
                     continue
 
                 if not self.clients:
                     continue
 
-                # Send immediately — don't batch. Each chunk is one JACK buffer
-                # (256 samples = 5.3ms @ 48kHz). Low latency > fewer packets.
+                # Send immediately — each chunk is one JACK buffer
                 dead_clients = set()
                 for ws in self.clients:
                     try:
