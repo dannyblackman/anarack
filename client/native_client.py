@@ -2,7 +2,7 @@
 Anarack Native Client — Low-Latency Prototype
 
 Bypasses the browser entirely for minimum latency:
-- Reads MIDI from your controller via rtmidi (no Web MIDI API)
+- Reads MIDI from your controller via mido (no browser/Web MIDI API)
 - Sends MIDI over UDP to the Pi (no WebSocket/TCP)
 - Receives audio over UDP from the Pi (no WebSocket/TCP)
 - Plays audio through PyAudio/CoreAudio with minimal buffering (no Web Audio API)
@@ -11,7 +11,7 @@ Usage:
     python native_client.py [--server 192.168.1.131] [--midi-port "LaunchKey"]
 
 Requirements:
-    pip install python-rtmidi pyaudio
+    pip install mido pyaudio
 """
 
 import argparse
@@ -21,7 +21,7 @@ import sys
 import threading
 import time
 
-import rtmidi
+import mido
 import pyaudio
 
 SAMPLE_RATE = 48000
@@ -32,8 +32,7 @@ MIDI_PORT = 5555
 
 
 def list_midi_ports():
-    midi_in = rtmidi.MidiIn()
-    ports = midi_in.get_ports()
+    ports = mido.get_input_names()
     if not ports:
         print("No MIDI input ports found.")
     else:
@@ -43,35 +42,31 @@ def list_midi_ports():
     return ports
 
 
-def open_midi_input(port_name=None):
-    midi_in = rtmidi.MidiIn()
-    ports = midi_in.get_ports()
+def find_midi_port(port_name=None):
+    ports = mido.get_input_names()
 
     if not ports:
         print("No MIDI input ports available")
         return None
 
     if port_name is None:
-        midi_in.open_port(0)
-        print(f"Opened MIDI input: {ports[0]}")
-        return midi_in
+        print(f"Using first MIDI input: {ports[0]}")
+        return ports[0]
 
     # Try numeric index
     try:
         idx = int(port_name)
         if 0 <= idx < len(ports):
-            midi_in.open_port(idx)
-            print(f"Opened MIDI input: {ports[idx]}")
-            return midi_in
+            print(f"Using MIDI input: {ports[idx]}")
+            return ports[idx]
     except ValueError:
         pass
 
     # Substring match
-    for i, port in enumerate(ports):
+    for port in ports:
         if port_name.lower() in port.lower():
-            midi_in.open_port(i)
-            print(f"Opened MIDI input: {port}")
-            return midi_in
+            print(f"Using MIDI input: {port}")
+            return port
 
     print(f"MIDI port matching '{port_name}' not found. Available: {ports}")
     return None
@@ -91,8 +86,8 @@ def main():
         return
 
     # --- MIDI Setup ---
-    midi_in = open_midi_input(args.midi_port)
-    if midi_in is None:
+    port_name = find_midi_port(args.midi_port)
+    if port_name is None:
         sys.exit(1)
 
     # UDP socket for sending MIDI to Pi
@@ -106,7 +101,6 @@ def main():
 
     pa = pyaudio.PyAudio()
 
-    # Find the default output device and report its latency
     default_output = pa.get_default_output_device_info()
     print(f"Audio output: {default_output['name']}")
     print(f"  Default low latency: {default_output['defaultLowOutputLatency']*1000:.1f}ms")
@@ -122,25 +116,7 @@ def main():
     midi_count = 0
     audio_count = 0
     latency_measurements = []
-
-    # --- MIDI Callback ---
-    # Track when we send notes for latency measurement
     note_send_times = {}
-
-    def midi_callback(event, data=None):
-        nonlocal midi_count
-        message, delta = event
-        # Send raw MIDI bytes over UDP
-        midi_sock.sendto(bytes(message), server_addr)
-        midi_count += 1
-
-        # Track note-on times for latency measurement
-        if len(message) >= 2:
-            status = message[0] & 0xF0
-            if status == 0x90 and message[2] > 0:
-                note_send_times[message[1]] = time.perf_counter()
-
-    midi_in.set_callback(midi_callback)
 
     # --- Audio Receive Thread ---
     running = True
@@ -153,15 +129,14 @@ def main():
                 stream.write(data)
                 audio_count += 1
 
-                # Simple latency detection: check for non-silence
+                # Latency detection: check for non-silence
                 if note_send_times and len(data) >= 4:
                     samples = struct.unpack(f"<{len(data)//2}h", data)
                     peak = max(abs(s) for s in samples)
                     if peak > 300 and note_send_times:
-                        # Audio detected — measure from earliest pending note
                         earliest_note = min(note_send_times.values())
                         latency = (time.perf_counter() - earliest_note) * 1000
-                        if latency < 200:  # Sanity check
+                        if latency < 200:
                             latency_measurements.append(latency)
                         note_send_times.clear()
 
@@ -175,37 +150,47 @@ def main():
     audio_recv = threading.Thread(target=audio_thread, daemon=True)
     audio_recv.start()
 
-    # Send an initial MIDI packet to register with the server for audio
-    midi_sock.sendto(bytes([0xFE]), server_addr)  # Active Sensing — harmless
+    # Send an initial packet to register with the server for audio
+    midi_sock.sendto(bytes([0xFE]), server_addr)
 
     print(f"\n=== Anarack Native Client ===")
     print(f"  Server:     {args.server}")
-    print(f"  MIDI:       UDP → {args.server}:{MIDI_PORT}")
-    print(f"  Audio:      UDP ← port {AUDIO_PORT}")
+    print(f"  MIDI:       UDP -> {args.server}:{MIDI_PORT}")
+    print(f"  Audio:      UDP <- port {AUDIO_PORT}")
     print(f"  Buffer:     {args.buffer_frames} frames ({args.buffer_frames/SAMPLE_RATE*1000:.1f}ms)")
-    print(f"\n  Play your MIDI controller — audio comes through your Mac speakers.")
-    print(f"  Press Ctrl+C to quit.\n")
+    print(f"\n  Play your MIDI controller. Press Ctrl+C to quit.\n")
 
+    # --- MIDI Input Loop ---
     try:
-        while True:
-            time.sleep(2)
-            # Print stats
-            if latency_measurements:
-                recent = latency_measurements[-10:]
-                avg = sum(recent) / len(recent)
-                mn = min(recent)
-                mx = max(recent)
-                print(f"  MIDI: {midi_count} msgs | Audio: {audio_count} packets | "
-                      f"Latency: {avg:.0f}ms avg ({mn:.0f}-{mx:.0f}ms) [{len(latency_measurements)} samples]",
-                      end="\r")
-            else:
-                print(f"  MIDI: {midi_count} msgs | Audio: {audio_count} packets | "
-                      f"Latency: measuring...", end="\r")
+        with mido.open_input(port_name) as midi_in:
+            while True:
+                for msg in midi_in.iter_pending():
+                    # Convert mido message to raw bytes and send over UDP
+                    raw = msg.bytes()
+                    midi_sock.sendto(bytes(raw), server_addr)
+                    midi_count += 1
+
+                    # Track note-on times for latency measurement
+                    if msg.type == 'note_on' and msg.velocity > 0:
+                        note_send_times[msg.note] = time.perf_counter()
+
+                # Print stats periodically
+                time.sleep(0.001)  # 1ms poll
+
+                # Update display every ~500 iterations
+                if midi_count % 100 == 0 or audio_count % 500 == 0:
+                    if latency_measurements:
+                        recent = latency_measurements[-10:]
+                        avg = sum(recent) / len(recent)
+                        mn = min(recent)
+                        mx = max(recent)
+                        print(f"  MIDI: {midi_count} | Audio: {audio_count} | "
+                              f"Latency: {avg:.0f}ms avg ({mn:.0f}-{mx:.0f}ms)   ",
+                              end="\r")
 
     except KeyboardInterrupt:
         print("\n\nShutting down...")
         running = False
-        midi_in.close_port()
         stream.stop_stream()
         stream.close()
         audio_sock.close()
