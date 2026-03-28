@@ -130,28 +130,31 @@ bash scripts/setup-mac.sh
 
 ## Step 9: Test It
 
-### Test 1: LAN (same network)
+### Test 1: LAN — MIDI + Audio (same network)
 
-1. Open `client/index.html` in Chrome on your Mac
-2. Set the server address to the Pi's **local** IP (e.g. `192.168.1.x:8765`)
-3. Click Connect
-4. Play your MIDI keyboard — the Rev2 should respond
-5. You'll hear audio directly from the Rev2 in the room (no network audio yet)
+1. On your Mac, serve the web UI:
+   ```
+   cd client && python3 -m http.server 8080
+   ```
+2. Open `http://localhost:8080` in Chrome
+3. Set the server address to the Pi's **local** IP (e.g. `192.168.1.x:8765`)
+4. Click Connect
+5. On your Mac, start the audio receiver:
+   ```
+   ffplay -nodisp -ar 48000 -f s16le tcp://192.168.1.x:9999
+   ```
+6. Play notes on the virtual keyboard (click or use A-L keys) — you should hear the Rev2
 
-This confirms: MIDI keyboard → browser → WebSocket → Pi → Rev2 works.
+This confirms the full loop: browser → WebSocket → Pi → MIDI → Rev2 → audio → Scarlett → ffmpeg → network → your Mac speakers.
 
 ### Test 2: Over Tailscale (simulated remote)
 
-1. Change the server address to the Pi's **Tailscale** IP (e.g. `100.x.x.x:8765`)
-2. Tether your Mac to your phone's mobile hotspot (so traffic actually goes over the internet)
-3. Play your MIDI keyboard
-4. The Rev2 should still respond — the latency you feel now is real network latency
+1. Change the browser's server address to the Pi's **Tailscale** IP (e.g. `100.x.x.x:8765`)
+2. Change the ffplay address to the Tailscale IP too: `tcp://100.x.x.x:9999`
+3. Tether your Mac to your phone's mobile hotspot (so traffic actually goes over the internet)
+4. Play notes — the Rev2 should respond with real network latency
 
 This is the go/no-go test. If the MIDI response feels playable (<50ms), the concept works.
-
-### Test 3: Network Audio (full round trip)
-
-This is the final piece — getting the Rev2's audio back to your Mac over the network via netjack2. We'll set this up after Tests 1 and 2 pass, since it needs additional JACK configuration on both ends.
 
 ## Troubleshooting
 

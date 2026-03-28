@@ -29,6 +29,7 @@ sudo apt-get install -y -qq \
   libasound2-dev \
   libjack-jackd2-dev \
   alsa-utils \
+  ffmpeg \
   git
 
 # --- Tailscale ---
@@ -99,8 +100,16 @@ set -euo pipefail
 
 DIR="$(cd "$(dirname "$0")" && pwd)"
 
+# Auto-detect USB audio device (Scarlett)
+ALSA_DEVICE=$(aplay -l 2>/dev/null | grep -i "scarlett\|focusrite" | head -1 | sed 's/card \([0-9]*\).*/hw:\1/' || echo "")
+if [ -z "$ALSA_DEVICE" ]; then
+  echo "WARNING: Could not detect Scarlett. Falling back to hw:0"
+  ALSA_DEVICE="hw:0"
+fi
+echo "Using audio device: $ALSA_DEVICE"
+
 echo "Starting JACK..."
-jackd -R -d alsa -d hw:USB -r 48000 -p 64 -n 3 &
+jackd -R -d alsa -d "$ALSA_DEVICE" -r 48000 -p 64 -n 3 &
 JACK_PID=$!
 sleep 2
 
@@ -115,20 +124,36 @@ source "$DIR/venv/bin/activate"
 python "$DIR/server/midi_router.py" "$@" &
 ROUTER_PID=$!
 
+# Start audio streaming via ffmpeg (TCP, so client connects to us)
+echo "Starting audio stream..."
+ffmpeg -f jack -i anarack_audio -ac 1 -ar 48000 -f s16le -listen 1 tcp://0.0.0.0:9999 -loglevel warning &
+AUDIO_PID=$!
+sleep 1
+
+# Connect Scarlett capture to ffmpeg
+jack_connect system:capture_1 anarack_audio:input_1
+
+PI_IP=$(hostname -I | awk '{print $1}')
+
 echo ""
 echo "=== Anarack running ==="
 echo "  JACK PID:     $JACK_PID"
 echo "  a2jmidid PID: $A2J_PID"
 echo "  Router PID:   $ROUTER_PID"
+echo "  Audio PID:    $AUDIO_PID"
 echo ""
-echo "  WebSocket MIDI: ws://$(hostname -I | awk '{print $1}'):8765"
-echo "  UDP MIDI:       $(hostname -I | awk '{print $1}'):5555"
+echo "  WebSocket MIDI: ws://${PI_IP}:8765"
+echo "  UDP MIDI:       ${PI_IP}:5555"
+echo "  Audio stream:   tcp://${PI_IP}:9999"
+echo ""
+echo "  To hear audio on your Mac:"
+echo "    ffplay -nodisp -ar 48000 -f s16le tcp://${PI_IP}:9999"
 echo ""
 echo "Press Ctrl+C to stop all services."
 
 cleanup() {
   echo "Shutting down..."
-  kill $ROUTER_PID $A2J_PID $JACK_PID 2>/dev/null
+  kill $AUDIO_PID $ROUTER_PID $A2J_PID $JACK_PID 2>/dev/null
   wait 2>/dev/null
   echo "Done."
 }
