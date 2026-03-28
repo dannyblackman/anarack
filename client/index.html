@@ -30,6 +30,17 @@
       margin-bottom: 2rem;
     }
 
+    .server-status {
+      padding: 0.3rem 0.6rem;
+      border-radius: 4px;
+      font-size: 0.7rem;
+      margin-bottom: 0.5rem;
+    }
+
+    .server-status.online { background: #0a2e0a; color: #4ade80; }
+    .server-status.offline { background: #2e0a0a; color: #f87171; }
+    .server-status.checking { background: #2e2a0a; color: #facc15; }
+
     #status {
       padding: 0.4rem 0.8rem;
       border-radius: 4px;
@@ -183,6 +194,7 @@
   <h1>Anarack</h1>
   <p class="subtitle">Phase 0 Prototype — Remote Synth Control</p>
 
+  <div id="server-status" class="server-status offline">Server: checking...</div>
   <div id="status" class="disconnected">Disconnected</div>
 
   <div class="controls">
@@ -641,10 +653,61 @@
       while (el.children.length > 200) el.removeChild(el.firstChild);
     }
 
+    // --- Server Status Polling ---
+    let serverOnline = false;
+
+    function checkServerStatus() {
+      const host = document.getElementById("ws-host").value;
+      const el = document.getElementById("server-status");
+      el.className = "server-status checking";
+      el.textContent = "Server: checking...";
+
+      const probe = new WebSocket(`ws://${host}`);
+      const timeout = setTimeout(() => {
+        probe.close();
+        setServerStatus(false);
+      }, 3000);
+
+      probe.onopen = () => {
+        clearTimeout(timeout);
+        probe.close();
+        setServerStatus(true);
+      };
+
+      probe.onerror = () => {
+        clearTimeout(timeout);
+        setServerStatus(false);
+      };
+    }
+
+    function setServerStatus(online) {
+      const el = document.getElementById("server-status");
+      serverOnline = online;
+      if (online) {
+        el.className = "server-status online";
+        el.textContent = "Server: online — ready to connect";
+      } else {
+        el.className = "server-status offline";
+        el.textContent = "Server: offline — waiting for Pi...";
+      }
+    }
+
+    // Poll every 3 seconds when not connected
+    setInterval(() => {
+      if (!ws || ws.readyState !== WebSocket.OPEN) {
+        checkServerStatus();
+      } else {
+        const el = document.getElementById("server-status");
+        el.className = "server-status online";
+        el.textContent = "Server: connected";
+      }
+    }, 3000);
+
     // --- Init ---
     buildKeyboard();
     buildSliders();
     initWebMidi();
+    checkServerStatus();
     log("Ready. Connect a MIDI keyboard or use computer keys (A-L row) as fallback.");
   </script>
 </body>
