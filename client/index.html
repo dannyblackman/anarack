@@ -341,7 +341,7 @@
     // Gapless audio playback with adaptive buffering
     let nextPlayTime = 0;
     let audioStarted = false;
-    const BUFFER_AHEAD = 0.015; // 15ms buffer — aggressive, lowest practical latency for Web Audio
+    const BUFFER_AHEAD = 0.005; // 5ms buffer — minimal, may glitch but lowest possible latency
 
     function playAudioChunk(arrayBuffer) {
       if (!audioCtx) return;
