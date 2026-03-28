@@ -45,7 +45,7 @@ echo "[3/6] Setting up Python environment..."
 VENV_DIR="$HOME/anarack/venv"
 python3 -m venv "$VENV_DIR"
 source "$VENV_DIR/bin/activate"
-pip install -q python-rtmidi websockets
+pip install -q python-rtmidi websockets JACK-Client numpy
 
 # --- Realtime audio permissions ---
 echo "[4/6] Configuring realtime audio..."
@@ -92,13 +92,19 @@ cat > "$HOME/.jackdrc" << EOF
 /usr/bin/jackd -R -d alsa -d $ALSA_DEVICE -r 48000 -p 64 -n 3
 EOF
 
-# Also write a startup script for clarity
+# Also write a startup script
 cat > "$HOME/anarack/start.sh" << 'SCRIPT'
 #!/usr/bin/env bash
 # Start the Anarack server stack
 set -euo pipefail
 
 DIR="$(cd "$(dirname "$0")" && pwd)"
+
+# Kill any stale processes from a previous run
+echo "Cleaning up stale processes..."
+sudo fuser -k 5555/udp 8765/tcp 8766/tcp 2>/dev/null || true
+killall jackd a2jmidid 2>/dev/null || true
+sleep 1
 
 # Auto-detect USB audio device (Scarlett)
 ALSA_DEVICE=$(aplay -l 2>/dev/null | grep -i "scarlett\|focusrite" | head -1 | sed 's/card \([0-9]*\).*/hw:\1/' || echo "")
@@ -119,41 +125,32 @@ a2jmidid -e &
 A2J_PID=$!
 sleep 1
 
-echo "Starting MIDI router..."
+# Start the Anarack server (MIDI routing + audio streaming)
+echo "Starting Anarack server..."
 source "$DIR/venv/bin/activate"
 python "$DIR/server/midi_router.py" "$@" &
-ROUTER_PID=$!
-
-# Start audio streaming via ffmpeg (TCP, so client connects to us)
-echo "Starting audio stream..."
-ffmpeg -f jack -i anarack_audio -ac 1 -ar 48000 -f s16le -listen 1 tcp://0.0.0.0:9999 -loglevel warning &
-AUDIO_PID=$!
-sleep 1
-
-# Connect Scarlett capture to ffmpeg
-jack_connect system:capture_1 anarack_audio:input_1
+SERVER_PID=$!
 
 PI_IP=$(hostname -I | awk '{print $1}')
+TS_IP=$(tailscale ip -4 2>/dev/null || echo "not configured")
 
 echo ""
 echo "=== Anarack running ==="
 echo "  JACK PID:     $JACK_PID"
 echo "  a2jmidid PID: $A2J_PID"
-echo "  Router PID:   $ROUTER_PID"
-echo "  Audio PID:    $AUDIO_PID"
+echo "  Server PID:   $SERVER_PID"
 echo ""
-echo "  WebSocket MIDI: ws://${PI_IP}:8765"
-echo "  UDP MIDI:       ${PI_IP}:5555"
-echo "  Audio stream:   tcp://${PI_IP}:9999"
+echo "  LAN:       http://${PI_IP}:8765"
+echo "  Tailscale: http://${TS_IP}:8765"
 echo ""
-echo "  To hear audio on your Mac:"
-echo "    ffplay -nodisp -ar 48000 -f s16le tcp://${PI_IP}:9999"
+echo "  Open the browser client and enter the server address to connect."
+echo "  Audio streams automatically — no ffplay needed."
 echo ""
 echo "Press Ctrl+C to stop all services."
 
 cleanup() {
   echo "Shutting down..."
-  kill $AUDIO_PID $ROUTER_PID $A2J_PID $JACK_PID 2>/dev/null
+  kill $SERVER_PID $A2J_PID $JACK_PID 2>/dev/null
   wait 2>/dev/null
   echo "Done."
 }
@@ -163,19 +160,50 @@ wait
 SCRIPT
 chmod +x "$HOME/anarack/start.sh"
 
+# --- Systemd service (auto-start on boot) ---
+echo "[7/7] Creating systemd service for auto-start..."
+
+sudo tee /etc/systemd/system/anarack.service > /dev/null << SVCEOF
+[Unit]
+Description=Anarack Remote Synth Server
+After=network-online.target sound.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=$USER
+WorkingDirectory=$HOME/anarack
+ExecStart=$HOME/anarack/start.sh --midi-port "Prophet Rev2"
+Restart=on-failure
+RestartSec=5
+
+# Audio needs these
+Environment=JACK_NO_AUDIO_RESERVATION=1
+
+[Install]
+WantedBy=multi-user.target
+SVCEOF
+
+sudo systemctl daemon-reload
+sudo systemctl enable anarack.service
+
 echo ""
 echo "=== Setup complete ==="
+echo ""
+echo "Anarack will auto-start on boot."
 echo ""
 echo "Next steps:"
 echo "  1. Reboot (required for audio group + realtime limits)"
 echo "     sudo reboot"
 echo ""
-echo "  2. After reboot, authenticate Tailscale:"
+echo "  2. After reboot, authenticate Tailscale (one-time only):"
 echo "     sudo tailscale up"
 echo ""
-echo "  3. Plug in Scarlett + Rev2, then start everything:"
-echo "     cd ~/anarack && ./start.sh"
+echo "  3. That's it! Anarack starts automatically."
+echo "     Open the browser client and connect to this Pi's IP."
 echo ""
-echo "  4. Check MIDI ports:"
-echo "     source ~/anarack/venv/bin/activate"
-echo "     python ~/anarack/server/midi_router.py --list-ports"
+echo "Manual commands (if needed):"
+echo "  sudo systemctl status anarack    # Check if running"
+echo "  sudo systemctl restart anarack   # Restart"
+echo "  sudo journalctl -u anarack -f    # View logs"
+echo "  ~/anarack/start.sh --list-ports  # List MIDI ports"

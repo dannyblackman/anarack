@@ -1,21 +1,34 @@
 """
-Anarack MIDI Router — Phase 0 Prototype
+Anarack Server — Phase 0 Prototype
 
-Receives MIDI messages over UDP and forwards them to a hardware synth via rtmidi.
-Also runs a WebSocket server so the browser demo can send MIDI.
+MIDI routing + audio streaming in one process.
+- Receives MIDI over WebSocket from browser, forwards to hardware synth via rtmidi
+- Captures audio from JACK (Scarlett input) and streams to browser via WebSocket
+- Also accepts MIDI over UDP for future plugin use
 
 Usage:
-    python midi_router.py [--udp-port 5555] [--ws-port 8765] [--midi-port "Prophet Rev2"]
+    python midi_router.py [--ws-port 8765] [--midi-port "Prophet Rev2"]
 """
 
 import argparse
 import asyncio
 import json
-import struct
 import signal
+import struct
+import threading
+import queue
 
 import rtmidi
 import websockets
+
+# Try to import JACK — audio streaming is optional
+try:
+    import jack
+    HAS_JACK = True
+except ImportError:
+    HAS_JACK = False
+    print("WARNING: python-jack-client not installed. Audio streaming disabled.")
+    print("  Install with: pip install JACK-Client")
 
 
 def list_midi_ports():
@@ -41,7 +54,6 @@ def open_midi_port(port_name: str | None) -> rtmidi.MidiOut:
         raise RuntimeError("No MIDI output ports available")
 
     if port_name is None:
-        # Use the first available port
         midi_out.open_port(0)
         print(f"Opened MIDI port: {ports[0]}")
         return midi_out
@@ -77,19 +89,12 @@ class MidiRouter:
         self.message_count += 1
 
     def send_from_udp(self, data: bytes):
-        """Parse and forward a UDP MIDI packet.
-
-        Format: 3 bytes — [status, data1, data2]
-        SysEx: variable length, starts with 0xF0, ends with 0xF7
-        """
+        """Parse and forward a UDP MIDI packet."""
         if len(data) >= 2:
             self.send(list(data[:3] if len(data) >= 3 else data))
 
     def send_from_websocket(self, payload: str):
-        """Parse and forward a WebSocket MIDI message.
-
-        Format: JSON {"status": int, "data1": int, "data2": int}
-        """
+        """Parse and forward a WebSocket MIDI message."""
         msg = json.loads(payload)
         status = msg["status"]
         data1 = msg.get("data1", 0)
@@ -97,8 +102,108 @@ class MidiRouter:
         self.send([status, data1, data2])
 
 
+class AudioStreamer:
+    """Captures audio from JACK and makes it available to WebSocket clients."""
+
+    def __init__(self, capture_port: str = "system:capture_1"):
+        self.capture_port = capture_port
+        self.clients: set = set()
+        self.jack_client = None
+        self.audio_queue: queue.Queue = queue.Queue(maxsize=200)
+        self._running = False
+
+    def start(self):
+        """Start the JACK audio capture client."""
+        if not HAS_JACK:
+            print("Audio streaming unavailable (no JACK client library)")
+            return
+
+        try:
+            self.jack_client = jack.Client("anarack_audio")
+            self.jack_client.inports.register("input_1")
+
+            @self.jack_client.set_process_callback
+            def process(frames):
+                # Get audio data from JACK port (float32)
+                audio_data = self.jack_client.inports[0].get_array()
+                # Convert float32 [-1.0, 1.0] to int16 PCM
+                import numpy as np
+                int16_data = (audio_data * 32767).clip(-32768, 32767).astype(np.int16).tobytes()
+                try:
+                    self.audio_queue.put_nowait(int16_data)
+                except queue.Full:
+                    pass  # Drop if consumers are too slow
+
+            self.jack_client.activate()
+
+            # Connect to the Scarlett capture port
+            try:
+                self.jack_client.connect(self.capture_port, "anarack_audio:input_1")
+                print(f"Audio capture connected: {self.capture_port} → anarack_audio:input_1")
+            except jack.JackError as e:
+                print(f"WARNING: Could not auto-connect audio: {e}")
+                print(f"  Manually connect with: jack_connect {self.capture_port} anarack_audio:input_1")
+
+            self._running = True
+            print(f"Audio streaming active (JACK @ {self.jack_client.samplerate}Hz, "
+                  f"buffer {self.jack_client.blocksize} frames)")
+
+        except Exception as e:
+            print(f"WARNING: Could not start audio capture: {e}")
+            self.jack_client = None
+
+    def stop(self):
+        """Stop the JACK client."""
+        self._running = False
+        if self.jack_client:
+            self.jack_client.deactivate()
+            self.jack_client.close()
+
+    def add_client(self, ws):
+        self.clients.add(ws)
+
+    def remove_client(self, ws):
+        self.clients.discard(ws)
+
+    async def stream_to_clients(self):
+        """Continuously send audio data to all connected WebSocket clients."""
+        while self._running:
+            try:
+                # Collect a chunk of audio frames to send in batches
+                # (sending every JACK callback would be too many tiny packets)
+                chunks = []
+                total_bytes = 0
+                target_bytes = 48000 * 2 // 20  # ~50ms worth of 16-bit mono @ 48kHz = ~4800 bytes
+
+                while total_bytes < target_bytes:
+                    try:
+                        chunk = self.audio_queue.get_nowait()
+                        chunks.append(chunk)
+                        total_bytes += len(chunk)
+                    except queue.Empty:
+                        break
+
+                if chunks and self.clients:
+                    data = b"".join(chunks)
+                    # Send as binary WebSocket frames to all clients
+                    dead_clients = set()
+                    for ws in self.clients:
+                        try:
+                            await ws.send(data)
+                        except websockets.ConnectionClosed:
+                            dead_clients.add(ws)
+                    self.clients -= dead_clients
+
+                # Small sleep to batch frames (~50ms chunks)
+                await asyncio.sleep(0.02)
+
+            except Exception as e:
+                print(f"Audio stream error: {e}")
+                await asyncio.sleep(0.1)
+
+
 async def udp_server(router: MidiRouter, host: str, port: int):
-    """UDP server for receiving MIDI from the plugin / netjack2 client."""
+    """UDP server for receiving MIDI from the plugin."""
 
     class MidiUDPProtocol(asyncio.DatagramProtocol):
         def datagram_received(self, data, addr):
@@ -113,10 +218,14 @@ async def udp_server(router: MidiRouter, host: str, port: int):
     return transport
 
 
-async def websocket_handler(router: MidiRouter, ws):
-    """Handle a single WebSocket connection from the browser demo."""
+# Global audio streamer — shared between MIDI and audio WebSocket handlers
+audio_streamer: AudioStreamer | None = None
+
+
+async def midi_ws_handler(router: MidiRouter, ws):
+    """Handle MIDI WebSocket connections from the browser."""
     remote = ws.remote_address
-    print(f"WebSocket client connected: {remote}")
+    print(f"MIDI client connected: {remote}")
     try:
         async for message in ws:
             try:
@@ -126,15 +235,39 @@ async def websocket_handler(router: MidiRouter, ws):
     except websockets.ConnectionClosed:
         pass
     finally:
-        print(f"WebSocket client disconnected: {remote}")
+        print(f"MIDI client disconnected: {remote}")
+
+
+async def audio_ws_handler(ws):
+    """Handle audio WebSocket connections from the browser."""
+    remote = ws.remote_address
+    print(f"Audio client connected: {remote}")
+
+    if audio_streamer:
+        audio_streamer.add_client(ws)
+
+    try:
+        # Keep connection alive — client doesn't send data, just receives
+        async for _ in ws:
+            pass
+    except websockets.ConnectionClosed:
+        pass
+    finally:
+        if audio_streamer:
+            audio_streamer.remove_client(ws)
+        print(f"Audio client disconnected: {remote}")
 
 
 async def main():
-    parser = argparse.ArgumentParser(description="Anarack MIDI Router")
+    global audio_streamer
+
+    parser = argparse.ArgumentParser(description="Anarack Server")
     parser.add_argument("--udp-port", type=int, default=5555, help="UDP port for MIDI input")
     parser.add_argument("--ws-port", type=int, default=8765, help="WebSocket port for browser MIDI")
+    parser.add_argument("--audio-ws-port", type=int, default=8766, help="WebSocket port for audio stream")
     parser.add_argument("--host", default="0.0.0.0", help="Listen address")
     parser.add_argument("--midi-port", default=None, help="MIDI output port name or index")
+    parser.add_argument("--capture-port", default="system:capture_1", help="JACK capture port for audio")
     parser.add_argument("--list-ports", action="store_true", help="List MIDI ports and exit")
     args = parser.parse_args()
 
@@ -148,16 +281,35 @@ async def main():
     # Start UDP server
     udp_transport = await udp_server(router, args.host, args.udp_port)
 
-    # Start WebSocket server
-    ws_server = await websockets.serve(
-        lambda ws: websocket_handler(router, ws),
+    # Start MIDI WebSocket server
+    midi_ws = await websockets.serve(
+        lambda ws: midi_ws_handler(router, ws),
         args.host,
         args.ws_port,
     )
-    print(f"WebSocket MIDI server listening on {args.host}:{args.ws_port}")
+    print(f"MIDI WebSocket listening on {args.host}:{args.ws_port}")
 
-    print(f"\nAnarack MIDI Router running. Ctrl+C to stop.")
-    print(f"  MIDI messages sent: check with --list-ports to verify connection\n")
+    # Start audio capture and streaming
+    if HAS_JACK:
+        audio_streamer = AudioStreamer(capture_port=args.capture_port)
+        audio_streamer.start()
+
+        # Start audio WebSocket server
+        audio_ws = await websockets.serve(
+            audio_ws_handler,
+            args.host,
+            args.audio_ws_port,
+        )
+        print(f"Audio WebSocket listening on {args.host}:{args.audio_ws_port}")
+
+        # Start the audio streaming loop
+        audio_task = asyncio.create_task(audio_streamer.stream_to_clients())
+
+    print(f"\nAnarack Server running. Ctrl+C to stop.")
+    print(f"  MIDI WebSocket: ws://{args.host}:{args.ws_port}")
+    if HAS_JACK:
+        print(f"  Audio WebSocket: ws://{args.host}:{args.audio_ws_port}")
+    print()
 
     # Run until interrupted
     stop = asyncio.Event()
@@ -168,9 +320,15 @@ async def main():
     await stop.wait()
 
     # Cleanup
+    if HAS_JACK and audio_streamer:
+        audio_streamer.stop()
+        audio_task.cancel()
+        audio_ws.close()
+        await audio_ws.wait_closed()
+
     udp_transport.close()
-    ws_server.close()
-    await ws_server.wait_closed()
+    midi_ws.close()
+    await midi_ws.wait_closed()
     midi_out.close_port()
     print(f"\nShutdown complete. Sent {router.message_count} MIDI messages.")
 

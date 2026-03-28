@@ -236,9 +236,84 @@
 
     // --- State ---
     let ws = null;
+    let audioWs = null;
     let activeNotes = new Set();
     let midiAccess = null;
     let activeMidiInput = null;
+
+    // --- Audio Playback ---
+    let audioCtx = null;
+    let audioBufferQueue = [];
+    let isPlaying = false;
+    const SAMPLE_RATE = 48000;
+
+    function initAudio() {
+      if (audioCtx) return;
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: SAMPLE_RATE });
+      log("Audio context started (" + audioCtx.sampleRate + "Hz)");
+    }
+
+    function connectAudio(host) {
+      // Derive audio port from MIDI host (replace port with 8766)
+      const parts = host.split(":");
+      const audioHost = parts[0] + ":8766";
+
+      audioWs = new WebSocket(`ws://${audioHost}`);
+      audioWs.binaryType = "arraybuffer";
+
+      audioWs.onopen = () => {
+        log("Audio stream connected");
+      };
+
+      audioWs.onmessage = (e) => {
+        if (!(e.data instanceof ArrayBuffer)) return;
+        playAudioChunk(e.data);
+      };
+
+      audioWs.onclose = () => {
+        log("Audio stream disconnected");
+      };
+
+      audioWs.onerror = () => {
+        log("Audio stream error");
+      };
+    }
+
+    function disconnectAudio() {
+      if (audioWs) {
+        audioWs.close();
+        audioWs = null;
+      }
+    }
+
+    // Next scheduled playback time for gapless audio
+    let nextPlayTime = 0;
+
+    function playAudioChunk(arrayBuffer) {
+      if (!audioCtx) return;
+
+      // Convert Int16 PCM to Float32 for Web Audio
+      const int16 = new Int16Array(arrayBuffer);
+      const float32 = new Float32Array(int16.length);
+      for (let i = 0; i < int16.length; i++) {
+        float32[i] = int16[i] / 32768;
+      }
+
+      const buffer = audioCtx.createBuffer(1, float32.length, SAMPLE_RATE);
+      buffer.getChannelData(0).set(float32);
+
+      const source = audioCtx.createBufferSource();
+      source.buffer = buffer;
+      source.connect(audioCtx.destination);
+
+      // Schedule for gapless playback
+      const now = audioCtx.currentTime;
+      if (nextPlayTime < now) {
+        nextPlayTime = now + 0.05; // Small initial buffer
+      }
+      source.start(nextPlayTime);
+      nextPlayTime += buffer.duration;
+    }
 
     // --- WebSocket ---
     function setStatus(state, text) {
@@ -250,21 +325,30 @@
     function toggleConnection() {
       if (ws && ws.readyState === WebSocket.OPEN) {
         ws.close();
+        disconnectAudio();
         return;
       }
       const host = document.getElementById("ws-host").value;
       setStatus("connecting", "Connecting...");
+
+      // Init audio on first user interaction (browser requires this)
+      initAudio();
+
       ws = new WebSocket(`ws://${host}`);
 
       ws.onopen = () => {
         setStatus("connected", "Connected");
         document.getElementById("connect-btn").textContent = "Disconnect";
-        log("Connected to " + host);
+        log("MIDI connected to " + host);
+        // Auto-connect audio stream
+        connectAudio(host);
       };
 
       ws.onclose = () => {
         setStatus("disconnected", "Disconnected");
         document.getElementById("connect-btn").textContent = "Connect";
+        disconnectAudio();
+        nextPlayTime = 0;
         log("Disconnected");
       };
 
@@ -274,8 +358,10 @@
       };
 
       ws.onmessage = (e) => {
-        const data = JSON.parse(e.data);
-        if (data.error) log("Server error: " + data.error);
+        if (typeof e.data === "string") {
+          const data = JSON.parse(e.data);
+          if (data.error) log("Server error: " + data.error);
+        }
       };
     }
 
