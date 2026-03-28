@@ -286,8 +286,10 @@
       }
     }
 
-    // Next scheduled playback time for gapless audio
+    // Gapless audio playback with adaptive buffering
     let nextPlayTime = 0;
+    let audioStarted = false;
+    const BUFFER_AHEAD = 0.08; // 80ms buffer — enough to absorb jitter without feeling laggy
 
     function playAudioChunk(arrayBuffer) {
       if (!audioCtx) return;
@@ -306,11 +308,19 @@
       source.buffer = buffer;
       source.connect(audioCtx.destination);
 
-      // Schedule for gapless playback
       const now = audioCtx.currentTime;
-      if (nextPlayTime < now) {
-        nextPlayTime = now + 0.05; // Small initial buffer
+
+      if (!audioStarted || nextPlayTime < now) {
+        // First chunk or we've fallen behind — reset schedule with buffer
+        nextPlayTime = now + BUFFER_AHEAD;
+        audioStarted = true;
       }
+
+      // Don't let the schedule get too far ahead (indicates network stall then burst)
+      if (nextPlayTime > now + 0.5) {
+        nextPlayTime = now + BUFFER_AHEAD;
+      }
+
       source.start(nextPlayTime);
       nextPlayTime += buffer.duration;
     }
@@ -349,6 +359,7 @@
         document.getElementById("connect-btn").textContent = "Connect";
         disconnectAudio();
         nextPlayTime = 0;
+        audioStarted = false;
         log("Disconnected");
       };
 

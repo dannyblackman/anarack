@@ -175,33 +175,26 @@ class AudioStreamer:
         """Continuously send audio data to all connected WebSocket clients."""
         while self._running:
             try:
-                # Collect a chunk of audio frames to send in batches
-                # (sending every JACK callback would be too many tiny packets)
-                chunks = []
-                total_bytes = 0
-                target_bytes = 48000 * 2 // 20  # ~50ms worth of 16-bit mono @ 48kHz = ~4800 bytes
+                # Wait for audio data from the JACK callback
+                try:
+                    chunk = await asyncio.get_event_loop().run_in_executor(
+                        None, lambda: self.audio_queue.get(timeout=0.1)
+                    )
+                except queue.Empty:
+                    continue
 
-                while total_bytes < target_bytes:
+                if not self.clients:
+                    continue
+
+                # Send immediately — don't batch. Each chunk is one JACK buffer
+                # (256 samples = 5.3ms @ 48kHz). Low latency > fewer packets.
+                dead_clients = set()
+                for ws in self.clients:
                     try:
-                        chunk = self.audio_queue.get_nowait()
-                        chunks.append(chunk)
-                        total_bytes += len(chunk)
-                    except queue.Empty:
-                        break
-
-                if chunks and self.clients:
-                    data = b"".join(chunks)
-                    # Send as binary WebSocket frames to all clients
-                    dead_clients = set()
-                    for ws in self.clients:
-                        try:
-                            await ws.send(data)
-                        except websockets.ConnectionClosed:
-                            dead_clients.add(ws)
-                    self.clients -= dead_clients
-
-                # Small sleep to batch frames (~50ms chunks)
-                await asyncio.sleep(0.02)
+                        await ws.send(chunk)
+                    except websockets.ConnectionClosed:
+                        dead_clients.add(ws)
+                self.clients -= dead_clients
 
             except Exception as e:
                 print(f"Audio stream error: {e}")
