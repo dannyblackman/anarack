@@ -5,7 +5,7 @@ Step-by-step instructions for getting the Phase 0 prototype running.
 ## What You Need
 
 - Raspberry Pi 5 (4GB) + official USB-C PSU + microSD card
-- Focusrite Scarlett 2i2
+- Focusrite Scarlett 18i20 (4th gen, USB, separate PSU)
 - Sequential Prophet Rev2
 - USB cables for both (USB-A to USB-B)
 - Ethernet cable (Pi to router)
@@ -94,7 +94,7 @@ You should see both the Pi and your Mac listed. Note the Pi's Tailscale IP (star
 ## Step 6: Plug In the Hardware
 
 Connect to the Pi via USB:
-- Scarlett 2i2 (audio interface)
+- Scarlett 18i20 (audio interface)
 - Prophet Rev2 (MIDI)
 
 Verify the Pi sees them:
@@ -108,7 +108,7 @@ source ~/anarack/venv/bin/activate
 python ~/anarack/server/midi_router.py --list-ports
 ```
 
-You should see the Scarlett in the audio list and the Rev2 in the MIDI list.
+You should see the Scarlett 18i20 in the audio list and the Rev2 in the MIDI list.
 
 ## Step 7: Start the Server on the Pi
 

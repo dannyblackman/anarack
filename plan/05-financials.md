@@ -8,7 +8,7 @@
 |---|---|
 | Raspberry Pi 5 (8GB) | £75 |
 | USB cables + misc | £10 |
-| Focusrite Scarlett (owned) | £0 |
+| Focusrite Scarlett 18i20 4th gen (owned) | £0 |
 | Prophet Rev2 (owned) | £0 |
 | Moog Sub37 (owned) | £0 |
 | **Total** | **~£85** |

@@ -4,7 +4,7 @@ Remote hardware synth studio — producers control real synths over the internet
 
 ## Project Phase
 
-Currently in **Phase 0 — Prototype**. Proving that remote synth control with <50ms latency is viable using a Raspberry Pi 5 + Scarlett 2i2 + Prophet Rev2/Sub37.
+Currently in **Phase 0 — Prototype**. Proving that remote synth control with <50ms latency is viable using a Raspberry Pi 5 + Scarlett 18i20 + Prophet Rev2/Sub37.
 
 ## Tech Stack (Prototype)
 

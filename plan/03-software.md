@@ -185,10 +185,34 @@ The core — lowest latency path possible.
 - Network buffer: 2-3 packets (~4-6ms) — absorbs single packet loss
 - Format: 24-bit PCM over UDP (no codec)
 
+#### Stereo Handling: Mono Stream + Stereo Capture
+
+Most synths in the catalogue output stereo (Rev2, Prophet 5/10, OB-6, Moog One, Summit, Hydrasynth). Stereo doubles the audio bandwidth per synth (~2.3 Mbit/s vs ~1.15 Mbit/s at 48kHz/24-bit). While this is trivial for good connections, it can matter on marginal ones.
+
+**Solution: stream mono for live monitoring, capture stereo locally.**
+
+- **Live stream to user (mono):** The server sums left+right to mono and streams a single channel back to the user in real time. For sound design and playing, mono is perfectly fine — you're tweaking parameters, not mixing in stereo.
+- **Server-side capture (stereo):** The server simultaneously records the full stereo output to disk as 48kHz/24-bit WAV. When the session ends, the user downloads or renders the stereo recording. No latency constraint on this — it's just a file.
+- **Optional stereo streaming:** User setting to stream in full stereo for people with great connections. The plugin shows which mode it's in.
+
+This gives the user the best of both worlds: lowest-latency monitoring while playing, full stereo quality in the final recording.
+
+#### Audio Interface
+
+**Prototype:** Focusrite Scarlett 18i20 (4th gen) — USB class-compliant, works on Pi/Linux without drivers, separate power supply, 18 inputs = 9 stereo pairs.
+
+**Production:** MOTU 24Ai + 24Ao — 24 channels in each direction, enough for 10+ stereo synths. Only one synth is active per user session (unless multi-synth on Professional tier), so the server routes the active synth's stereo pair — not all synths simultaneously.
+
+**Channel allocation:**
+- Mono synths (Sub37, Minitaur): 1 input each
+- Stereo synths (Rev2, Prophet 5/10, OB-6, Moog One, Summit, Hydrasynth, Juno): 2 inputs each (stereo pair)
+- On the 18i20: ~8 stereo synths + a couple of mono = fits the 10 headliners
+- On the MOTU 24Ai: room for the full catalogue with headroom
+
 **Recording:**
-- JACK capture to disk per-session (server-side backup)
-- 48kHz/24-bit WAV
+- JACK capture to disk per-session — always stereo, always 48kHz/24-bit WAV
 - Available for download via web app as a backup — but the primary workflow is bouncing in the DAW
+- Server-side recording is the safety net and the source for the lossless download
 
 **Alternative to netjack2:** Since the plugin handles audio I/O natively (it's a JUCE audio plugin), we could skip netjack2 entirely and use a custom UDP audio protocol between the plugin and server. This is simpler — no JACK install on the client side. The plugin sends MIDI packets and receives raw PCM audio packets directly. The server side still uses JACK/CoreAudio for the synth I/O.
 
@@ -504,6 +528,8 @@ JUCE builds all formats from one codebase, so supporting multiple DAWs is primar
 - [ ] Network buffer: 2-3 packets (~4-6ms)
 - [ ] Raw PCM transport (no codec)
 - [ ] UDP for both MIDI and audio (no TCP)
+- [ ] Mono stream for live monitoring (halves audio bandwidth, reduces latency on marginal connections)
+- [ ] Full stereo capture to disk server-side (always, regardless of stream mode)
 
 ### Client side (plugin)
 - [ ] Report accurate latency to DAW for compensation
