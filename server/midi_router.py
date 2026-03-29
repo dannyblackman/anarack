@@ -257,10 +257,19 @@ audio_streamer: AudioStreamer | None = None
 async def ws_handler(router: MidiRouter, ws, path=None):
     """Handle all WebSocket connections. Route by path: /audio or /midi (default)."""
     remote = ws.remote_address
-    # websockets v12+ passes path via ws.path, older via parameter
-    ws_path = getattr(ws, 'path', path) or '/'
 
-    if '/audio' in ws_path:
+    # Try multiple ways to get the path (varies by websockets library version)
+    ws_path = path or getattr(ws, 'path', None) or getattr(ws, 'request', None) and getattr(ws.request, 'path', None) or '/'
+    # Also check the request headers for the path
+    try:
+        if hasattr(ws, 'request') and hasattr(ws.request, 'path'):
+            ws_path = ws.request.path
+    except:
+        pass
+
+    print(f"WebSocket connection: {remote} path='{ws_path}'")
+
+    if '/audio' in str(ws_path):
         # Audio stream client
         print(f"Audio client connected: {remote}")
         if audio_streamer:
