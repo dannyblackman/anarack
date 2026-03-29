@@ -14,36 +14,36 @@
     }
 
     /* Header */
-    .header { background: #111; width: 100%; padding: 8px 16px; display: flex; align-items: center; gap: 12px; }
-    .header h1 { font-size: 14px; font-weight: 700; letter-spacing: 1px; }
-    .header .synth-name { font-size: 11px; color: #555; }
-    .header .status { font-size: 11px; margin-left: auto; }
+    .header { background: #111; width: 100%; padding: 12px 20px; display: flex; align-items: center; gap: 12px; }
+    .header h1 { font-size: 18px; font-weight: 700; letter-spacing: 1px; }
+    .header .synth-name { font-size: 13px; color: #555; }
+    .header .status { font-size: 13px; margin-left: auto; }
     .header .status.connected { color: #4ade80; }
     .header .status.disconnected { color: #f87171; }
     .header .status.connecting { color: #facc15; }
-    .header .latency { font-family: "SF Mono", monospace; font-size: 12px; font-weight: 700; color: #4ade80; }
+    .header .latency { font-family: "SF Mono", monospace; font-size: 16px; font-weight: 700; color: #4ade80; }
 
     /* Connection bar */
-    .conn-bar { background: #131313; width: 100%; padding: 6px 16px; display: flex; align-items: center; gap: 10px; font-size: 12px; flex-wrap: wrap; }
+    .conn-bar { background: #131313; width: 100%; padding: 8px 20px; display: flex; align-items: center; gap: 12px; font-size: 13px; flex-wrap: wrap; }
     .conn-bar label { color: #777; }
-    .conn-bar input[type="text"] { background: #222; color: #eee; border: 1px solid #333; border-radius: 3px; padding: 3px 6px; font-family: "SF Mono", monospace; font-size: 11px; }
-    .conn-bar select { background: #222; color: #eee; border: 1px solid #333; border-radius: 3px; padding: 3px 6px; font-size: 11px; }
-    .conn-bar button { background: #6366f1; color: white; border: none; border-radius: 3px; padding: 4px 14px; font-size: 11px; font-weight: 600; cursor: pointer; }
+    .conn-bar input[type="text"] { background: #222; color: #eee; border: 1px solid #333; border-radius: 4px; padding: 5px 8px; font-family: "SF Mono", monospace; font-size: 12px; }
+    .conn-bar select { background: #222; color: #eee; border: 1px solid #333; border-radius: 4px; padding: 5px 8px; font-size: 12px; }
+    .conn-bar button { background: #6366f1; color: white; border: none; border-radius: 4px; padding: 6px 18px; font-size: 12px; font-weight: 600; cursor: pointer; }
     .conn-bar button.disconnect { background: #dc2626; }
-    .conn-bar .midi-status { font-size: 10px; color: #666; }
+    .conn-bar .midi-status { font-size: 11px; color: #666; }
 
     /* Synth Panel */
-    .panel { display: flex; gap: 2px; padding: 6px; flex-wrap: wrap; justify-content: center; }
-    .group { background: #1a1a1a; padding: 6px 4px; border-radius: 4px; display: flex; flex-direction: column; align-items: center; }
-    .group-title { font-size: 8px; font-weight: 700; color: #6366f1; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
-    .group-knobs { display: flex; flex-wrap: wrap; justify-content: center; gap: 2px; }
+    .panel { display: flex; gap: 4px; padding: 10px; flex-wrap: wrap; justify-content: center; width: 100%; }
+    .group { background: #1a1a1a; padding: 10px 8px; border-radius: 6px; display: flex; flex-direction: column; align-items: center; flex: 1; min-width: 140px; }
+    .group-title { font-size: 10px; font-weight: 700; color: #6366f1; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; }
+    .group-knobs { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; }
 
     /* Knob */
-    .knob-wrap { display: flex; flex-direction: column; align-items: center; cursor: pointer; width: 52px; }
+    .knob-wrap { display: flex; flex-direction: column; align-items: center; cursor: pointer; width: 72px; }
     .knob-wrap canvas { cursor: grab; }
     .knob-wrap canvas:active { cursor: grabbing; }
-    .knob-label { font-size: 8px; color: #999; margin-top: 1px; }
-    .knob-map { font-size: 7px; color: #6366f1; height: 10px; }
+    .knob-label { font-size: 10px; color: #999; margin-top: 2px; }
+    .knob-map { font-size: 8px; color: #6366f1; height: 12px; }
     .knob-wrap.learning .knob-map { color: #facc15; }
 
     /* Program bar */
@@ -55,11 +55,11 @@
     .bank-btn.active { background: #6366f1 !important; }
 
     /* Keyboard */
-    .keyboard-wrap { padding: 6px; }
-    .keyboard { display: flex; position: relative; height: 60px; user-select: none; -webkit-user-select: none; }
-    .key { position: relative; border-radius: 0 0 3px 3px; cursor: pointer; }
-    .key.white { width: 18px; height: 60px; background: #d4d4d4; border: 1px solid #888; z-index: 1; }
-    .key.black { width: 11px; height: 36px; background: #1a1a1a; border: 1px solid #000; margin-left: -6px; margin-right: -5px; z-index: 2; }
+    .keyboard-wrap { padding: 8px; width: 100%; display: flex; justify-content: center; }
+    .keyboard { display: flex; position: relative; height: 80px; user-select: none; -webkit-user-select: none; }
+    .key { position: relative; border-radius: 0 0 4px 4px; cursor: pointer; }
+    .key.white { width: 24px; height: 80px; background: #d4d4d4; border: 1px solid #888; z-index: 1; }
+    .key.black { width: 15px; height: 48px; background: #1a1a1a; border: 1px solid #000; margin-left: -8px; margin-right: -7px; z-index: 2; }
     .key.white.active { background: #6366f1; }
     .key.black.active { background: #6366f1; }
 
@@ -182,7 +182,7 @@ function createKnob(parent, label, cc, defaultVal) {
   wrap.className = "knob-wrap";
 
   const canvas = document.createElement("canvas");
-  canvas.width = 44; canvas.height = 44;
+  canvas.width = 60; canvas.height = 60;
   const mapLabel = document.createElement("div");
   mapLabel.className = "knob-map";
   const nameLabel = document.createElement("div");
@@ -229,7 +229,7 @@ function createKnob(parent, label, cc, defaultVal) {
 
 function drawKnob(knob, learning = false) {
   const ctx = knob.canvas.getContext("2d");
-  const w = 44, cx = w/2, cy = w/2, r = 17;
+  const w = 60, cx = w/2, cy = w/2, r = 24;
   ctx.clearRect(0, 0, w, w);
 
   const startAng = (225 * Math.PI) / 180;
@@ -261,7 +261,7 @@ function drawKnob(knob, learning = false) {
   ctx.strokeStyle = "white"; ctx.lineWidth = 2; ctx.stroke();
 
   // Value text
-  ctx.fillStyle = "#777"; ctx.font = "7px monospace"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+  ctx.fillStyle = "#777"; ctx.font = "9px monospace"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
   ctx.fillText(knob.value, cx, cy);
 }
 
