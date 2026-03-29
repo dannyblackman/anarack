@@ -1,8 +1,23 @@
 # Plan: Embedded WireGuard (boringtun) in the DAW Plugin
 
-**Status:** Planned
+**Status:** Implemented
 **Date:** 2026-03-29
 **Phase:** Production networking — Phase 3 from software strategy
+
+## Current State
+
+This is working in production. The key facts:
+
+- **boringtun** (Cloudflare's Rust userspace WireGuard) is compiled as a static library and embedded directly in the JUCE plugin. No TUN interface, no root access, no separate VPN app.
+- **VPS relay** at `66.245.195.65` (Vultr London) forwards encrypted UDP between the plugin and the Pi. This solves NAT traversal — neither the plugin nor the Pi need open ports or port forwarding.
+- **WireGuard tunnel IPs:** Plugin is `10.0.0.3`, VPS is `10.0.0.1`, Pi is `10.0.0.2`.
+- **Two connection modes:** Raw UDP for LAN (lowest latency), WireGuard for internet. The plugin selects the mode based on the target address.
+- **Adaptive pre-buffer:** 15ms on LAN, scales automatically with measured RTT on internet connections.
+- **Tested performance:** 18ms RTT on WiFi, ~80ms on 4G. Both are usable for studio recording.
+- **Plugin builds as AU (Logic) + VST3 (Ableton)** from the same JUCE codebase — boringtun is linked into both.
+- **Sample rate resampling:** Server always sends 48kHz PCM. The plugin resamples to whatever rate the DAW host is running.
+
+The open questions from the original plan have been resolved: VPS relay (not home port forwarding), single tunnel with the relay forwarding, and macOS-only for now.
 
 ## Context
 
@@ -287,9 +302,9 @@ The audio thread never touches crypto or sockets. Same lock-free architecture as
 
 The 20ms ring buffer dominates. Over the internet, network adds ~10-30ms. Total should be under 60ms for UK connections — acceptable for studio recording (not live performance, as stated in the strategy).
 
-## Open Questions
+## Open Questions (Resolved)
 
-1. **Server hosting:** Pi on home broadband with port forwarding, or a VPS relay? Home broadband has asymmetric latency. A VPS adds a hop but gives a static public IP.
-2. **Multi-synth sessions:** One WireGuard tunnel per synth, or one tunnel with multiplexed streams?
-3. **Windows/Linux:** boringtun builds for all platforms. VST3 is cross-platform. When do we add Windows support?
-4. **Code signing:** AU/VST3 plugins need to be signed and notarized for macOS Gatekeeper. Need an Apple Developer account ($99/yr).
+1. **Server hosting:** Resolved — VPS relay at `66.245.195.65` (Vultr London). Pi stays behind home NAT, VPS has the public IP. Adds minimal latency for the benefit of zero port-forwarding hassle.
+2. **Multi-synth sessions:** Single tunnel for now. Will revisit when adding more synths.
+3. **Windows/Linux:** boringtun builds for all platforms. VST3 is cross-platform. macOS-only for now.
+4. **Code signing:** AU/VST3 plugins need to be signed and notarized for macOS Gatekeeper. Need an Apple Developer account ($99/yr). Still to do for distribution.

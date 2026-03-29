@@ -1,10 +1,10 @@
 # Logic Pro AU Plugin — Anarack Rev2
 
-**Status:** In Progress
+**Status:** Implemented
 
 ## Overview
 
-JUCE-based Audio Unit instrument plugin for Logic Pro. The plugin sends MIDI from Logic to the Anarack server over UDP and receives live audio back, allowing producers to play the Prophet Rev2 as if it were a local software instrument.
+JUCE-based Audio Unit instrument plugin for Logic Pro (also builds as VST3 for Ableton). The plugin sends MIDI from the DAW to the Anarack server over UDP and receives live audio back, allowing producers to play the Prophet Rev2 as if it were a local software instrument. Connects over LAN via raw UDP or over the internet via an embedded WireGuard tunnel (boringtun) through a VPS relay — no user-visible VPN, no setup beyond clicking connect.
 
 ## Architecture
 
@@ -12,7 +12,7 @@ JUCE-based Audio Unit instrument plugin for Logic Pro. The plugin sends MIDI fro
 
 | Field             | Value                  |
 |-------------------|------------------------|
-| Format            | AU instrument (`aumu`) |
+| Formats           | AU (`aumu`) + VST3 + Standalone |
 | Plugin name       | Anarack Rev2           |
 | Manufacturer code | `Anak`                 |
 | Plugin code       | `Arv2`                 |
@@ -91,6 +91,6 @@ The built `.component` bundle is copied to `~/Library/Audio/Plug-Ins/Components/
 
 ## Requirements
 
-- Logic Pro session **must be set to 48 kHz** sample rate to match the server's JACK configuration
 - macOS with Xcode and CMake installed
-- Network access to the Anarack server (Tailscale for prototype)
+- Network access to the Anarack server (LAN or internet via WireGuard tunnel)
+- **No sample rate restriction** — the server sends 48kHz and the plugin resamples to match the host DAW's rate
