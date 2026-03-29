@@ -160,6 +160,19 @@ def audio_midi_engine(server_ip, midi_port_name, audio_port, midi_udp_port,
         )
 
         midi_in = mido.open_input(midi_port_name)
+
+        # Also open the DAW port if available (some controllers send knob CCs there)
+        midi_in2 = None
+        all_ports = mido.get_input_names()
+        for p in all_ports:
+            if p != midi_port_name and any(x in p.lower() for x in
+                    [midi_port_name.split()[0].lower()]):
+                try:
+                    midi_in2 = mido.open_input(p)
+                    break
+                except:
+                    pass
+
         midi_sock.sendto(bytes([0xFE]), server_addr)
         stats["status"] = 1
 
@@ -214,24 +227,28 @@ def audio_midi_engine(server_ip, midi_port_name, audio_port, midi_udp_port,
                 except:
                     break
 
-            # MIDI input
-            msg = midi_in.poll()
-            if msg is not None:
-                raw = msg.bytes()
-                midi_sock.sendto(bytes(raw), server_addr)
-                stats["midi_count"] += 1
+            # MIDI input — check both ports
+            got_msg = False
+            for mi in ([midi_in, midi_in2] if midi_in2 else [midi_in]):
+                msg = mi.poll()
+                if msg is not None:
+                    got_msg = True
+                    raw = msg.bytes()
+                    midi_sock.sendto(bytes(raw), server_addr)
+                    stats["midi_count"] += 1
 
-                if msg.type == "note_on" and msg.velocity > 0:
-                    note_send_times[msg.note] = time.perf_counter()
-                    stats["last_note_on"] = msg.note
-                elif msg.type == "note_off" or (msg.type == "note_on" and msg.velocity == 0):
-                    stats["last_note_off"] = msg.note
+                    if msg.type == "note_on" and msg.velocity > 0:
+                        note_send_times[msg.note] = time.perf_counter()
+                        stats["last_note_on"] = msg.note
+                    elif msg.type == "note_off" or (msg.type == "note_on" and msg.velocity == 0):
+                        stats["last_note_off"] = msg.note
 
-                # MIDI learn — use Value for reliable IPC
-                if learn_flag.value and msg.type == "control_change":
-                    learn_result.value = msg.control
-                    learn_flag.value = 0
-            else:
+                    # MIDI learn — use Value for reliable IPC
+                    if learn_flag.value and msg.type == "control_change":
+                        learn_result.value = msg.control
+                        learn_flag.value = 0
+
+            if not got_msg:
                 time.sleep(0.0001)
 
     except Exception as e:
@@ -241,6 +258,8 @@ def audio_midi_engine(server_ip, midi_port_name, audio_port, midi_udp_port,
         stats["status"] = 0
         try:
             midi_in.close()
+            if midi_in2:
+                midi_in2.close()
             stream.stop_stream()
             stream.close()
             audio_sock.close()
