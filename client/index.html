@@ -3,1045 +3,646 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Anarack — Prototype</title>
+  <title>Anarack — Remote Synth Studio</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
-
     body {
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      background: #0a0a0a;
-      color: #e0e0e0;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
+      background: #0a0a0a; color: #e0e0e0;
+      display: flex; flex-direction: column; align-items: center;
       min-height: 100vh;
-      padding: 2rem;
     }
 
-    h1 {
-      font-size: 1.5rem;
-      font-weight: 600;
-      margin-bottom: 0.25rem;
-    }
+    /* Header */
+    .header { background: #111; width: 100%; padding: 8px 16px; display: flex; align-items: center; gap: 12px; }
+    .header h1 { font-size: 14px; font-weight: 700; letter-spacing: 1px; }
+    .header .synth-name { font-size: 11px; color: #555; }
+    .header .status { font-size: 11px; margin-left: auto; }
+    .header .status.connected { color: #4ade80; }
+    .header .status.disconnected { color: #f87171; }
+    .header .status.connecting { color: #facc15; }
+    .header .latency { font-family: "SF Mono", monospace; font-size: 12px; font-weight: 700; color: #4ade80; }
 
-    .subtitle {
-      color: #666;
-      font-size: 0.85rem;
-      margin-bottom: 2rem;
-    }
+    /* Connection bar */
+    .conn-bar { background: #131313; width: 100%; padding: 6px 16px; display: flex; align-items: center; gap: 10px; font-size: 12px; flex-wrap: wrap; }
+    .conn-bar label { color: #777; }
+    .conn-bar input[type="text"] { background: #222; color: #eee; border: 1px solid #333; border-radius: 3px; padding: 3px 6px; font-family: "SF Mono", monospace; font-size: 11px; }
+    .conn-bar select { background: #222; color: #eee; border: 1px solid #333; border-radius: 3px; padding: 3px 6px; font-size: 11px; }
+    .conn-bar button { background: #6366f1; color: white; border: none; border-radius: 3px; padding: 4px 14px; font-size: 11px; font-weight: 600; cursor: pointer; }
+    .conn-bar button.disconnect { background: #dc2626; }
+    .conn-bar .midi-status { font-size: 10px; color: #666; }
 
-    .server-status {
-      padding: 0.3rem 0.6rem;
-      border-radius: 4px;
-      font-size: 0.7rem;
-      margin-bottom: 0.5rem;
-    }
+    /* Synth Panel */
+    .panel { display: flex; gap: 2px; padding: 6px; flex-wrap: wrap; justify-content: center; }
+    .group { background: #1a1a1a; padding: 6px 4px; border-radius: 4px; display: flex; flex-direction: column; align-items: center; }
+    .group-title { font-size: 8px; font-weight: 700; color: #6366f1; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
+    .group-knobs { display: flex; flex-wrap: wrap; justify-content: center; gap: 2px; }
 
-    .server-status.online { background: #0a2e0a; color: #4ade80; }
-    .server-status.offline { background: #2e0a0a; color: #f87171; }
-    .server-status.checking { background: #2e2a0a; color: #facc15; }
+    /* Knob */
+    .knob-wrap { display: flex; flex-direction: column; align-items: center; cursor: pointer; width: 52px; }
+    .knob-wrap canvas { cursor: grab; }
+    .knob-wrap canvas:active { cursor: grabbing; }
+    .knob-label { font-size: 8px; color: #999; margin-top: 1px; }
+    .knob-map { font-size: 7px; color: #6366f1; height: 10px; }
+    .knob-wrap.learning .knob-map { color: #facc15; }
 
-    #status {
-      padding: 0.4rem 0.8rem;
-      border-radius: 4px;
-      font-size: 0.8rem;
-      margin-bottom: 2rem;
-    }
-
-    #status.connected { background: #0a2e0a; color: #4ade80; }
-    #status.disconnected { background: #2e0a0a; color: #f87171; }
-    #status.connecting { background: #2e2a0a; color: #facc15; }
+    /* Program bar */
+    .prog-bar { background: #131313; width: 100%; padding: 5px 16px; display: flex; align-items: center; gap: 8px; font-size: 11px; }
+    .prog-bar label { color: #777; font-size: 9px; font-weight: 600; }
+    .prog-bar button { background: #444; color: white; border: none; border-radius: 3px; padding: 3px 8px; font-size: 12px; font-weight: 700; cursor: pointer; }
+    .prog-bar input { background: #222; color: #eee; border: 1px solid #333; border-radius: 3px; padding: 2px; width: 40px; text-align: center; font-family: "SF Mono", monospace; font-size: 11px; }
+    .bank-btn { background: #444 !important; color: white !important; border: none; border-radius: 3px; padding: 2px 6px; font-family: "SF Mono", monospace; font-size: 10px; font-weight: 700; cursor: pointer; margin: 0 1px; }
+    .bank-btn.active { background: #6366f1 !important; }
 
     /* Keyboard */
-    .keyboard {
-      display: flex;
-      position: relative;
-      height: 160px;
-      margin-bottom: 2rem;
-      user-select: none;
-      -webkit-user-select: none;
-    }
-
-    .key {
-      position: relative;
-      border: 1px solid #333;
-      border-radius: 0 0 4px 4px;
-      cursor: pointer;
-      transition: background 0.05s;
-    }
-
-    .key.white {
-      width: 40px;
-      height: 160px;
-      background: #e8e8e8;
-      z-index: 1;
-    }
-
-    .key.black {
-      width: 26px;
-      height: 100px;
-      background: #1a1a1a;
-      margin-left: -13px;
-      margin-right: -13px;
-      z-index: 2;
-    }
-
-    .key.white.active { background: #a5b4fc; }
+    .keyboard-wrap { padding: 6px; }
+    .keyboard { display: flex; position: relative; height: 60px; user-select: none; -webkit-user-select: none; }
+    .key { position: relative; border-radius: 0 0 3px 3px; cursor: pointer; }
+    .key.white { width: 18px; height: 60px; background: #d4d4d4; border: 1px solid #888; z-index: 1; }
+    .key.black { width: 11px; height: 36px; background: #1a1a1a; border: 1px solid #000; margin-left: -6px; margin-right: -5px; z-index: 2; }
+    .key.white.active { background: #6366f1; }
     .key.black.active { background: #6366f1; }
 
-    .key .label {
-      position: absolute;
-      bottom: 6px;
-      width: 100%;
-      text-align: center;
-      font-size: 0.6rem;
-      color: #666;
-      pointer-events: none;
-    }
-
-    .key.black .label { color: #888; bottom: 4px; }
-
-    /* CC Sliders */
-    .sliders {
-      display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      gap: 1.5rem;
-      width: 100%;
-      max-width: 500px;
-      margin-bottom: 2rem;
-    }
-
-    .slider-group {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 0.5rem;
-    }
-
-    .slider-group label {
-      font-size: 0.75rem;
-      color: #999;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-    }
-
-    .slider-group input[type="range"] {
-      -webkit-appearance: none;
-      appearance: none;
-      width: 100%;
-      height: 6px;
-      background: #222;
-      border-radius: 3px;
-      outline: none;
-    }
-
-    .slider-group input[type="range"]::-webkit-slider-thumb {
-      -webkit-appearance: none;
-      appearance: none;
-      width: 16px;
-      height: 16px;
-      background: #6366f1;
-      border-radius: 50%;
-      cursor: pointer;
-    }
-
-    .slider-value {
-      font-size: 0.75rem;
-      color: #6366f1;
-      font-variant-numeric: tabular-nums;
-    }
-
-    /* Controls */
-    .controls {
-      display: flex;
-      gap: 1rem;
-      align-items: center;
-      margin-bottom: 1rem;
-    }
-
-    .controls label {
-      font-size: 0.8rem;
-      color: #999;
-    }
-
-    .controls select, .controls input {
-      background: #1a1a1a;
-      color: #e0e0e0;
-      border: 1px solid #333;
-      border-radius: 4px;
-      padding: 0.3rem 0.5rem;
-      font-size: 0.8rem;
-    }
+    /* Footer */
+    .footer { width: 100%; padding: 4px 16px; display: flex; justify-content: space-between; font-size: 9px; color: #444; font-family: "SF Mono", monospace; }
 
     /* Log */
-    #log {
-      width: 100%;
-      max-width: 500px;
-      height: 120px;
-      background: #111;
-      border: 1px solid #222;
-      border-radius: 4px;
-      padding: 0.5rem;
-      font-family: "SF Mono", "Fira Code", monospace;
-      font-size: 0.7rem;
-      color: #666;
-      overflow-y: auto;
-      margin-top: 1rem;
-    }
+    #log { width: 100%; max-width: 900px; height: 80px; background: #111; border-top: 1px solid #222; padding: 4px 8px; font-family: "SF Mono", monospace; font-size: 9px; color: #555; overflow-y: auto; }
   </style>
 </head>
 <body>
-  <h1>Anarack</h1>
-  <p class="subtitle">Phase 0 Prototype — Remote Synth Control</p>
 
-  <div id="server-status" class="server-status offline">Server: checking...</div>
-  <div id="status" class="disconnected">Disconnected</div>
-  <div id="latency-info" style="font-size: 0.7rem; color: #666; margin-bottom: 1rem; font-family: monospace;"></div>
+  <!-- Header -->
+  <div class="header">
+    <h1>ANARACK</h1>
+    <span class="synth-name">Prophet Rev2</span>
+    <span class="status disconnected" id="status">Disconnected</span>
+    <span class="latency" id="latency"></span>
+  </div>
 
-  <div class="controls">
-    <label>Server:
-      <input type="text" id="ws-host" value="play.anarack.com" style="width: 340px">
-    </label>
+  <!-- Connection -->
+  <div class="conn-bar">
+    <label>Server</label>
+    <input type="text" id="ws-host" value="play.anarack.com" style="width:220px">
+    <label>MIDI In</label>
+    <select id="midi-input"><option value="">None</option></select>
     <button id="connect-btn" onclick="toggleConnection()">Connect</button>
-    <button onclick="measureLatency()">Measure Latency</button>
-    <label>MIDI Input:
-      <select id="midi-input">
-        <option value="">None (use keyboard fallback)</option>
-      </select>
-    </label>
+    <button onclick="measureLatency()" style="background:#333">Measure</button>
+    <span class="midi-status" id="midi-input-status"></span>
   </div>
 
-  <div class="controls">
-    <label>Octave:
-      <select id="octave">
-        <option value="2">2</option>
-        <option value="3" selected>3</option>
-        <option value="4">4</option>
-        <option value="5">5</option>
-      </select>
-    </label>
-    <label>Velocity:
-      <input type="range" id="velocity" min="1" max="127" value="100" style="width: 80px">
-    </label>
-    <span id="midi-input-status" style="font-size: 0.75rem; color: #666;"></span>
+  <!-- Synth Panel -->
+  <div class="panel" id="panel"></div>
+
+  <!-- Program / Bank -->
+  <div class="prog-bar">
+    <label>PROGRAM</label>
+    <button onclick="changeProgram(-1)"> < </button>
+    <input type="number" id="program-num" value="0" min="0" max="127">
+    <button onclick="changeProgram(1)"> > </button>
+    <label style="margin-left:12px">BANK</label>
+    <span id="bank-buttons"></span>
   </div>
 
-  <div class="keyboard" id="keyboard"></div>
-
-  <div class="controls">
-    <label>Program:
-      <button onclick="changeProgram(-1)">&#9664;</button>
-      <input type="number" id="program-num" min="0" max="127" value="0" style="width: 50px; text-align: center">
-      <button onclick="changeProgram(1)">&#9654;</button>
-    </label>
-    <button onclick="sendProgramChange()">Send</button>
-    <label>Bank:
-      <select id="bank-num" onchange="sendBankAndProgram()">
-        <option value="0">A</option>
-        <option value="1">B</option>
-        <option value="2">C</option>
-        <option value="3">D</option>
-        <option value="4">E</option>
-        <option value="5">F</option>
-        <option value="6">G</option>
-        <option value="7">H</option>
-      </select>
-    </label>
+  <!-- Keyboard -->
+  <div class="keyboard-wrap">
+    <div class="keyboard" id="keyboard"></div>
   </div>
 
-  <div class="sliders" id="sliders"></div>
+  <!-- Footer -->
+  <div class="footer">
+    <span id="stats">MIDI: 0 | Audio: 0</span>
+    <span id="learn-hint">Double-click knob to MIDI learn</span>
+  </div>
 
+  <!-- Log -->
   <div id="log"></div>
 
-  <script>
-    // --- Config ---
-    // Prophet Rev2 MIDI CC mapping (from official MIDI implementation chart)
-    const SLIDERS = [
-      { label: "Filter Cutoff", cc: 102, default: 100 },
-      { label: "Resonance",     cc: 103, default: 0 },
-      { label: "Osc 1 Shape",   cc: 22,  default: 64 },
-      { label: "Osc Mix",       cc: 28,  default: 64 },
-      { label: "Amp Attack",    cc: 118, default: 20 },
-      { label: "Amp Decay",     cc: 119, default: 64 },
-      { label: "Amp Sustain",   cc: 75,  default: 100 },
-      { label: "Amp Release",   cc: 76,  default: 40 },
-    ];
+<script>
+// ─────────────────────────────────────────────
+// Rev2 Parameter Layout (matching front panel)
+// ─────────────────────────────────────────────
+const PANEL = [
+  { name: "OSC 1", params: [
+    { label: "Freq", cc: 20, def: 64 }, { label: "Fine", cc: 21, def: 64 },
+    { label: "Shape", cc: 22, def: 0 }, { label: "Glide", cc: 23, def: 0 },
+  ]},
+  { name: "OSC 2", params: [
+    { label: "Freq", cc: 24, def: 64 }, { label: "Fine", cc: 25, def: 64 },
+    { label: "Shape", cc: 26, def: 0 }, { label: "Glide", cc: 27, def: 0 },
+  ]},
+  { name: "MIXER", params: [
+    { label: "Mix", cc: 28, def: 64 }, { label: "Noise", cc: 29, def: 0 },
+    { label: "Sub", cc: 8, def: 0 }, { label: "Slop", cc: 9, def: 0 },
+  ]},
+  { name: "FILTER", params: [
+    { label: "Cutoff", cc: 102, def: 100 }, { label: "Reso", cc: 103, def: 0 },
+    { label: "Key", cc: 104, def: 0 }, { label: "EnvAmt", cc: 106, def: 64 },
+  ]},
+  { name: "FILT ENV", params: [
+    { label: "Atk", cc: 109, def: 0 }, { label: "Dec", cc: 110, def: 64 },
+    { label: "Sus", cc: 111, def: 64 }, { label: "Rel", cc: 112, def: 40 },
+  ]},
+  { name: "AMP", params: [
+    { label: "Level", cc: 113, def: 100 }, { label: "Pan", cc: 114, def: 64 },
+  ]},
+  { name: "AMP ENV", params: [
+    { label: "Atk", cc: 118, def: 0 }, { label: "Dec", cc: 119, def: 64 },
+    { label: "Sus", cc: 75, def: 100 }, { label: "Rel", cc: 76, def: 40 },
+  ]},
+  { name: "EFFECTS", params: [
+    { label: "Mix", cc: 17, def: 0 }, { label: "P1", cc: 12, def: 64 },
+    { label: "P2", cc: 13, def: 64 },
+  ]},
+];
 
-    // --- MIDI Controller Mapping ---
-    // Maps controller CC → synth CC. Stored as { controllerCC: synthCC }
-    let ccMap = {};           // Active mapping: controller CC → synth CC
-    let learningSliderIdx = -1; // Which slider is in learn mode (-1 = none)
+// ─────────────────────────────────────────────
+// State
+// ─────────────────────────────────────────────
+let ws = null, audioWs = null, audioCtx = null;
+let midiAccess = null, activeMidiInput = null;
+let activeNotes = new Set();
+let nextPlayTime = 0, audioStarted = false;
+const SAMPLE_RATE = 48000;
+const BUFFER_AHEAD = 0.001;
 
-    // Pre-built profiles for common controllers
-    const CONTROLLER_PROFILES = {
-      "launchkey": {
-        name: "Novation LaunchKey",
-        // LaunchKey MK4 knobs typically send CC 21-28 in MIDI mode
-        mappings: { 21: 102, 22: 103, 23: 22, 24: 28, 25: 118, 26: 119, 27: 75, 28: 76 }
-      },
-      "mpk": {
-        name: "Akai MPK Mini",
-        // MPK Mini knobs send CC 70-77 by default
-        mappings: { 70: 102, 71: 103, 72: 22, 73: 28, 74: 118, 75: 119, 76: 75, 77: 76 }
-      },
-      "keylab": {
-        name: "Arturia KeyLab",
-        // KeyLab knobs typically send CC 74, 71, 18, 19, 16, 17, 91, 79
-        mappings: { 74: 102, 71: 103, 18: 22, 19: 28, 16: 118, 17: 119, 91: 75, 79: 76 }
-      }
+// Knob state
+const knobs = []; // { canvas, cc, value, label, mappedCC }
+let learningKnob = null;
+
+// CC mapping: controller CC → synth CC
+let ccMap = {};
+let midiCount = 0, audioCount = 0;
+
+// ─────────────────────────────────────────────
+// Knob Rendering
+// ─────────────────────────────────────────────
+function createKnob(parent, label, cc, defaultVal) {
+  const wrap = document.createElement("div");
+  wrap.className = "knob-wrap";
+
+  const canvas = document.createElement("canvas");
+  canvas.width = 44; canvas.height = 44;
+  const mapLabel = document.createElement("div");
+  mapLabel.className = "knob-map";
+  const nameLabel = document.createElement("div");
+  nameLabel.className = "knob-label";
+  nameLabel.textContent = label;
+
+  wrap.appendChild(canvas);
+  wrap.appendChild(nameLabel);
+  wrap.appendChild(mapLabel);
+  parent.appendChild(wrap);
+
+  const knob = { canvas, cc, value: defaultVal, label, mappedCC: null, wrap, mapLabel, dragY: null, dragVal: null };
+  knobs.push(knob);
+
+  drawKnob(knob);
+  updateKnobMapLabel(knob);
+
+  // Drag
+  canvas.addEventListener("mousedown", (e) => { knob.dragY = e.clientY; knob.dragVal = knob.value; e.preventDefault(); });
+  window.addEventListener("mousemove", (e) => {
+    if (knob.dragY === null) return;
+    const dy = knob.dragY - e.clientY;
+    setKnobValue(knob, knob.dragVal + dy * 0.7, true);
+  });
+  window.addEventListener("mouseup", () => { knob.dragY = null; });
+
+  // Touch
+  canvas.addEventListener("touchstart", (e) => { knob.dragY = e.touches[0].clientY; knob.dragVal = knob.value; e.preventDefault(); });
+  window.addEventListener("touchmove", (e) => {
+    if (knob.dragY === null) return;
+    const dy = knob.dragY - e.touches[0].clientY;
+    setKnobValue(knob, knob.dragVal + dy * 0.7, true);
+  });
+  window.addEventListener("touchend", () => { knob.dragY = null; });
+
+  // Scroll
+  canvas.addEventListener("wheel", (e) => { e.preventDefault(); setKnobValue(knob, knob.value + (e.deltaY < 0 ? 1 : -1), true); });
+
+  // Double-click = MIDI learn
+  wrap.addEventListener("dblclick", (e) => { e.preventDefault(); startLearn(knob); });
+
+  return knob;
+}
+
+function drawKnob(knob, learning = false) {
+  const ctx = knob.canvas.getContext("2d");
+  const w = 44, cx = w/2, cy = w/2, r = 17;
+  ctx.clearRect(0, 0, w, w);
+
+  const startAng = (225 * Math.PI) / 180;
+  const sweep = (270 * Math.PI) / 180;
+  const valAng = (knob.value / 127) * sweep;
+
+  // Track
+  ctx.beginPath();
+  ctx.arc(cx, cy, r, -startAng, -startAng + sweep);
+  ctx.strokeStyle = "#333"; ctx.lineWidth = 2; ctx.stroke();
+
+  // Value arc
+  ctx.beginPath();
+  ctx.arc(cx, cy, r, -startAng, -startAng + valAng);
+  ctx.strokeStyle = learning ? "#facc15" : "#6366f1"; ctx.lineWidth = 2.5; ctx.stroke();
+
+  // Body
+  ctx.beginPath();
+  ctx.arc(cx, cy, r - 4, 0, Math.PI * 2);
+  ctx.fillStyle = learning ? "#33351a" : "#2a2a2a"; ctx.fill();
+  ctx.strokeStyle = "#444"; ctx.lineWidth = 0.5; ctx.stroke();
+
+  // Indicator
+  const ang = -startAng + valAng;
+  const il = r - 5;
+  ctx.beginPath();
+  ctx.moveTo(cx, cy);
+  ctx.lineTo(cx + Math.cos(ang) * il, cy + Math.sin(ang) * il);
+  ctx.strokeStyle = "white"; ctx.lineWidth = 2; ctx.stroke();
+
+  // Value text
+  ctx.fillStyle = "#777"; ctx.font = "7px monospace"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+  ctx.fillText(knob.value, cx, cy);
+}
+
+function setKnobValue(knob, val, send) {
+  knob.value = Math.max(0, Math.min(127, Math.round(val)));
+  drawKnob(knob, knob === learningKnob);
+  if (send) sendMidi(0xB0, knob.cc, knob.value);
+}
+
+function updateKnobMapLabel(knob) {
+  const controllerCC = Object.entries(ccMap).find(([k, v]) => v === knob.cc);
+  if (controllerCC) {
+    knob.mapLabel.textContent = `← CC${controllerCC[0]}`;
+    knob.mapLabel.style.color = "#6366f1";
+    knob.mappedCC = parseInt(controllerCC[0]);
+  } else {
+    knob.mapLabel.textContent = "dbl-click";
+    knob.mapLabel.style.color = "#444";
+    knob.mappedCC = null;
+  }
+}
+
+// ─────────────────────────────────────────────
+// MIDI Learn
+// ─────────────────────────────────────────────
+function startLearn(knob) {
+  if (learningKnob === knob) { learningKnob = null; drawKnob(knob); setLearnHint("Double-click knob to MIDI learn"); return; }
+  if (learningKnob) drawKnob(learningKnob);
+  learningKnob = knob;
+  drawKnob(knob, true);
+  knob.wrap.classList.add("learning");
+  setLearnHint(`Twiddle a knob for ${knob.label}...`);
+}
+
+function finishLearn(controllerCC) {
+  if (!learningKnob) return false;
+  const synthCC = learningKnob.cc;
+
+  // Remove old mappings
+  for (const [k, v] of Object.entries(ccMap)) { if (v === synthCC) delete ccMap[k]; }
+  delete ccMap[controllerCC];
+
+  ccMap[controllerCC] = synthCC;
+  saveMappings();
+
+  setLearnHint(`Mapped CC${controllerCC} → ${learningKnob.label} (CC${synthCC})`);
+  learningKnob.wrap.classList.remove("learning");
+  drawKnob(learningKnob);
+  learningKnob = null;
+  knobs.forEach(k => updateKnobMapLabel(k));
+  return true;
+}
+
+function setLearnHint(text) { document.getElementById("learn-hint").textContent = text; }
+
+function loadMappings() {
+  try { const s = localStorage.getItem("anarack_cc_map"); if (s) ccMap = JSON.parse(s); } catch(e) {}
+  knobs.forEach(k => updateKnobMapLabel(k));
+}
+
+function saveMappings() { localStorage.setItem("anarack_cc_map", JSON.stringify(ccMap)); }
+
+function autoDetectController() {
+  if (!midiAccess || Object.keys(ccMap).length > 0) return;
+  const profiles = {
+    "launchkey": { 21: 102, 22: 103, 23: 22, 24: 28, 25: 118, 26: 119, 27: 75, 28: 76 },
+    "mpk": { 70: 102, 71: 103, 72: 22, 73: 28, 74: 118, 75: 119, 76: 75, 77: 76 },
+    "keylab": { 74: 102, 71: 103, 18: 22, 19: 28, 16: 118, 17: 119, 91: 75, 79: 76 },
+  };
+  for (const [, input] of midiAccess.inputs) {
+    const name = (input.name || "").toLowerCase();
+    for (const [key, map] of Object.entries(profiles)) {
+      if (name.includes(key)) { ccMap = { ...map }; saveMappings(); knobs.forEach(k => updateKnobMapLabel(k)); log(`Auto-mapped ${key}`); return; }
+    }
+  }
+}
+
+// ─────────────────────────────────────────────
+// Audio
+// ─────────────────────────────────────────────
+function initAudio() {
+  if (audioCtx) return;
+  audioCtx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: SAMPLE_RATE, latencyHint: "interactive" });
+  log(`Audio: ${audioCtx.sampleRate}Hz, base ${((audioCtx.baseLatency||0)*1000).toFixed(0)}ms`);
+}
+
+function connectAudio(host) {
+  const isLocal = host.startsWith("localhost") || host.startsWith("192.168") || host.startsWith("127.0");
+  audioWs = new WebSocket(`${isLocal ? "ws" : "wss"}://${host}/audio`);
+  audioWs.binaryType = "arraybuffer";
+  audioWs.onopen = () => log("Audio stream connected");
+  audioWs.onmessage = (e) => { if (e.data instanceof ArrayBuffer) playAudioChunkWithDetection(e.data); };
+  audioWs.onclose = () => log("Audio disconnected");
+}
+
+function disconnectAudio() { if (audioWs) { audioWs.close(); audioWs = null; } }
+
+function playAudioChunk(buf) {
+  if (!audioCtx) return;
+  const int16 = new Int16Array(buf);
+  const float32 = new Float32Array(int16.length);
+  for (let i = 0; i < int16.length; i++) float32[i] = int16[i] / 32768;
+  const ab = audioCtx.createBuffer(1, float32.length, SAMPLE_RATE);
+  ab.getChannelData(0).set(float32);
+  const src = audioCtx.createBufferSource();
+  src.buffer = ab; src.connect(audioCtx.destination);
+  const now = audioCtx.currentTime;
+  if (!audioStarted || nextPlayTime < now) { nextPlayTime = now + BUFFER_AHEAD; audioStarted = true; }
+  if (nextPlayTime > now + 0.5) nextPlayTime = now + BUFFER_AHEAD;
+  src.start(nextPlayTime); nextPlayTime += ab.duration;
+  audioCount++;
+}
+
+// Latency measurement
+let latencyMeasuring = false, latencySendTime = 0, latencyResults = [];
+function measureLatency() {
+  if (!ws || ws.readyState !== 1 || !audioCtx) { log("Connect first"); return; }
+  log("Measuring..."); latencyResults = []; runLatencyTest(0);
+}
+function runLatencyTest(n) {
+  if (n >= 5) {
+    const avg = latencyResults.reduce((a,b)=>a+b,0)/latencyResults.length;
+    log(`Latency: avg ${avg.toFixed(0)}ms | min ${Math.min(...latencyResults).toFixed(0)}ms | max ${Math.max(...latencyResults).toFixed(0)}ms (${latencyResults.length} samples)`);
+    document.getElementById("latency").textContent = `${avg.toFixed(0)}ms`;
+    return;
+  }
+  latencyMeasuring = true; latencySendTime = performance.now();
+  sendMidi(0x90, 60, 127);
+  setTimeout(() => sendMidi(0x80, 60, 0), 100);
+  setTimeout(() => { if (latencyMeasuring) { latencyMeasuring = false; runLatencyTest(n+1); } }, 500);
+}
+function playAudioChunkWithDetection(buf) {
+  if (latencyMeasuring) {
+    const int16 = new Int16Array(buf); let peak = 0;
+    for (let i = 0; i < int16.length; i++) { const a = Math.abs(int16[i]); if (a > peak) peak = a; }
+    if (peak > 300) {
+      const ms = performance.now() - latencySendTime;
+      latencyMeasuring = false; latencyResults.push(ms);
+      log(`  Test ${latencyResults.length}: ${ms.toFixed(0)}ms`);
+      setTimeout(() => runLatencyTest(latencyResults.length), 300);
+    }
+  }
+  playAudioChunk(buf);
+}
+
+// ─────────────────────────────────────────────
+// WebSocket + MIDI
+// ─────────────────────────────────────────────
+function setStatus(s) {
+  const el = document.getElementById("status");
+  el.className = "status " + s;
+  el.textContent = s === "connected" ? "Connected" : s === "connecting" ? "Connecting..." : "Disconnected";
+}
+
+function toggleConnection() {
+  if (ws && ws.readyState === 1) { ws.close(); disconnectAudio(); return; }
+  const host = document.getElementById("ws-host").value;
+  initAudio(); setStatus("connecting");
+  const isLocal = host.startsWith("localhost") || host.startsWith("192.168") || host.startsWith("127.0");
+  ws = new WebSocket(`${isLocal ? "ws" : "wss"}://${host}`);
+  ws.onopen = () => {
+    setStatus("connected");
+    document.getElementById("connect-btn").textContent = "Disconnect";
+    document.getElementById("connect-btn").classList.add("disconnect");
+    connectAudio(host); log("Connected to " + host);
+  };
+  ws.onclose = () => {
+    setStatus("disconnected");
+    document.getElementById("connect-btn").textContent = "Connect";
+    document.getElementById("connect-btn").classList.remove("disconnect");
+    disconnectAudio(); nextPlayTime = 0; audioStarted = false;
+  };
+  ws.onerror = () => setStatus("disconnected");
+}
+
+function sendMidi(status, d1, d2) {
+  if (!ws || ws.readyState !== 1) return;
+  ws.send(JSON.stringify({ status, data1: d1, data2: d2 }));
+  midiCount++;
+}
+
+// ─────────────────────────────────────────────
+// MIDI Input
+// ─────────────────────────────────────────────
+async function initWebMidi() {
+  if (!navigator.requestMIDIAccess) { log("Web MIDI not supported"); return; }
+  try {
+    midiAccess = await navigator.requestMIDIAccess({ sysex: false });
+    populateMidiInputs();
+    midiAccess.onstatechange = () => populateMidiInputs();
+  } catch(e) { log("MIDI denied: " + e.message); }
+}
+
+function populateMidiInputs() {
+  const sel = document.getElementById("midi-input");
+  const cur = sel.value;
+  sel.innerHTML = '<option value="">None</option>';
+  for (const [id, inp] of midiAccess.inputs) {
+    const o = document.createElement("option"); o.value = id; o.textContent = inp.name; sel.appendChild(o);
+  }
+  if (!cur && midiAccess.inputs.size > 0) { sel.value = midiAccess.inputs.keys().next().value; selectMidiInput(sel.value); }
+  else if (cur) { sel.value = midiAccess.inputs.has(cur) ? cur : ""; selectMidiInput(sel.value); }
+  document.getElementById("midi-input-status").textContent = midiAccess.inputs.size ? `${midiAccess.inputs.size} device(s)` : "";
+}
+
+function selectMidiInput(id) {
+  if (midiAccess) for (const [, inp] of midiAccess.inputs) inp.onmidimessage = null;
+  activeMidiInput = null;
+  if (!id || !midiAccess) return;
+  const selected = midiAccess.inputs.get(id);
+  if (!selected) return;
+  const base = selected.name.split(" ")[0].toLowerCase();
+  for (const [, inp] of midiAccess.inputs) {
+    if (inp.name.toLowerCase().startsWith(base)) { inp.onmidimessage = onMidiMessage; }
+  }
+  activeMidiInput = selected; log("MIDI: " + selected.name);
+}
+document.getElementById("midi-input").addEventListener("change", (e) => selectMidiInput(e.target.value));
+
+function onMidiMessage(e) {
+  const [status, d1, d2] = e.data;
+  const type = status & 0xF0;
+  const val = d2 ?? 0;
+
+  if (type === 0xB0) {
+    if (learningKnob) { finishLearn(d1); return; }
+    const mapped = ccMap[d1];
+    if (mapped !== undefined) {
+      sendMidi(0xB0, mapped, val);
+      const knob = knobs.find(k => k.cc === mapped);
+      if (knob) setKnobValue(knob, val, false);
+    }
+    return;
+  }
+
+  // Notes → channel 1
+  if (type === 0x90 || type === 0x80) {
+    sendMidi(type, d1, val);
+    if (type === 0x90 && val > 0) { activeNotes.add(d1); highlightKey(d1, true); }
+    else { activeNotes.delete(d1); highlightKey(d1, false); }
+    return;
+  }
+
+  sendMidi(type, d1, val);
+}
+
+// ─────────────────────────────────────────────
+// Keyboard
+// ─────────────────────────────────────────────
+const NOTE_NAMES = ["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"];
+const BLACK_SET = new Set([1,3,6,8,10]);
+let mouseNote = null;
+
+function buildKeyboard() {
+  const kb = document.getElementById("keyboard");
+  kb.innerHTML = "";
+  const startNote = 36; // C2
+  const octaves = 5;
+  for (let o = 0; o < octaves; o++) {
+    for (let i = 0; i < 12; i++) {
+      const note = startNote + o * 12 + i;
+      const isBlack = BLACK_SET.has(i);
+      const key = document.createElement("div");
+      key.className = `key ${isBlack ? "black" : "white"}`;
+      key.dataset.note = note;
+      key.addEventListener("mousedown", (e) => { e.preventDefault(); noteOn(note); mouseNote = note; });
+      key.addEventListener("mouseenter", (e) => { if (e.buttons === 1 && mouseNote !== note) { if (mouseNote !== null) noteOff(mouseNote); noteOn(note); mouseNote = note; }});
+      key.addEventListener("touchstart", (e) => { e.preventDefault(); noteOn(note); mouseNote = note; });
+      kb.appendChild(key);
+    }
+  }
+  // Final C
+  const lastNote = startNote + octaves * 12;
+  const lastKey = document.createElement("div");
+  lastKey.className = "key white"; lastKey.dataset.note = lastNote;
+  lastKey.addEventListener("mousedown", (e) => { e.preventDefault(); noteOn(lastNote); mouseNote = lastNote; });
+  kb.appendChild(lastKey);
+
+  document.addEventListener("mouseup", () => { if (mouseNote !== null) { noteOff(mouseNote); mouseNote = null; }});
+  document.addEventListener("touchend", () => { if (mouseNote !== null) { noteOff(mouseNote); mouseNote = null; }});
+}
+
+function noteOn(n) { sendMidi(0x90, n, 100); activeNotes.add(n); highlightKey(n, true); }
+function noteOff(n) { sendMidi(0x80, n, 0); activeNotes.delete(n); highlightKey(n, false); }
+function highlightKey(n, on) { const el = document.querySelector(`.key[data-note="${n}"]`); if (el) el.classList.toggle("active", on); }
+
+// Computer keyboard fallback
+const KEY_MAP = { a:0, w:1, s:2, e:3, d:4, f:5, t:6, g:7, y:8, h:9, u:10, j:11, k:12, o:13, l:14, p:15 };
+const heldKeys = new Set();
+document.addEventListener("keydown", (e) => {
+  if (e.repeat || e.target.tagName === "INPUT" || e.target.tagName === "SELECT") return;
+  const off = KEY_MAP[e.key.toLowerCase()]; if (off === undefined) return;
+  const note = 60 + off; if (heldKeys.has(e.key)) return; heldKeys.add(e.key); noteOn(note);
+});
+document.addEventListener("keyup", (e) => {
+  const off = KEY_MAP[e.key.toLowerCase()]; if (off === undefined) return;
+  heldKeys.delete(e.key); noteOff(60 + off);
+});
+
+// ─────────────────────────────────────────────
+// Program / Bank
+// ─────────────────────────────────────────────
+let currentBank = 0;
+function changeProgram(d) {
+  const el = document.getElementById("program-num");
+  el.value = Math.max(0, Math.min(127, parseInt(el.value) + d));
+  sendBankProgram();
+}
+function sendBankProgram() {
+  sendMidi(0xB0, 0, currentBank);
+  sendMidi(0xC0, parseInt(document.getElementById("program-num").value), 0);
+}
+function buildBankButtons() {
+  const wrap = document.getElementById("bank-buttons");
+  "ABCDEFGH".split("").forEach((l, i) => {
+    const btn = document.createElement("button");
+    btn.className = "bank-btn" + (i === 0 ? " active" : "");
+    btn.textContent = l;
+    btn.onclick = () => {
+      currentBank = i;
+      wrap.querySelectorAll(".bank-btn").forEach(b => b.classList.remove("active"));
+      btn.classList.add("active");
+      sendBankProgram();
     };
-
-    function loadMappings() {
-      try {
-        const saved = localStorage.getItem("anarack_cc_map");
-        if (saved) {
-          ccMap = JSON.parse(saved);
-          log(`Loaded ${Object.keys(ccMap).length} CC mappings`);
-          updateSliderMappingLabels();
-        }
-      } catch(e) {}
-    }
-
-    function saveMappings() {
-      localStorage.setItem("anarack_cc_map", JSON.stringify(ccMap));
-    }
-
-    function autoDetectController() {
-      if (!midiAccess) return;
-      for (const [id, input] of midiAccess.inputs) {
-        const name = (input.name || "").toLowerCase();
-        for (const [key, profile] of Object.entries(CONTROLLER_PROFILES)) {
-          if (name.includes(key)) {
-            // Only auto-apply if no saved mappings
-            if (Object.keys(ccMap).length === 0) {
-              ccMap = { ...profile.mappings };
-              saveMappings();
-              log(`Auto-detected ${profile.name} — mapped ${Object.keys(ccMap).length} knobs`);
-              updateSliderMappingLabels();
-            }
-            return;
-          }
-        }
-      }
-    }
-
-    function updateSliderMappingLabels() {
-      const groups = document.querySelectorAll(".slider-group");
-      groups.forEach((group, idx) => {
-        let badge = group.querySelector(".cc-badge");
-        if (!badge) {
-          badge = document.createElement("span");
-          badge.className = "cc-badge";
-          badge.style.cssText = "font-size:0.6rem;color:#6366f1;display:block;margin-top:2px;";
-          group.appendChild(badge);
-        }
-        // Find which controller CC maps to this slider's synth CC
-        const synthCC = SLIDERS[idx].cc;
-        const controllerCC = Object.entries(ccMap).find(([k,v]) => v === synthCC);
-        badge.textContent = controllerCC ? `← CC${controllerCC[0]}` : "dbl-click to map";
-        badge.style.color = controllerCC ? "#6366f1" : "#444";
-      });
-    }
-
-    function startMidiLearn(sliderIdx) {
-      if (learningSliderIdx === sliderIdx) {
-        // Cancel learn
-        learningSliderIdx = -1;
-        updateLearnUI();
-        return;
-      }
-      learningSliderIdx = sliderIdx;
-      updateLearnUI();
-      log(`MIDI Learn: move a knob on your controller to map it to ${SLIDERS[sliderIdx].label}...`);
-    }
-
-    function updateLearnUI() {
-      const groups = document.querySelectorAll(".slider-group");
-      groups.forEach((group, idx) => {
-        const input = group.querySelector("input");
-        if (idx === learningSliderIdx) {
-          input.style.accentColor = "#facc15";
-          group.style.outline = "1px solid #facc15";
-        } else {
-          input.style.accentColor = "";
-          group.style.outline = "";
-        }
-      });
-    }
-
-    function handleMidiLearn(controllerCC) {
-      if (learningSliderIdx < 0) return false;
-
-      const synthCC = SLIDERS[learningSliderIdx].cc;
-
-      // Remove any existing mapping TO this synth CC
-      for (const [k, v] of Object.entries(ccMap)) {
-        if (v === synthCC) delete ccMap[k];
-      }
-
-      // Remove any existing mapping FROM this controller CC
-      delete ccMap[controllerCC];
-
-      // Set new mapping
-      ccMap[controllerCC] = synthCC;
-      saveMappings();
-
-      log(`Mapped: controller CC${controllerCC} → ${SLIDERS[learningSliderIdx].label} (CC${synthCC})`);
-      learningSliderIdx = -1;
-      updateLearnUI();
-      updateSliderMappingLabels();
-      return true;
-    }
-
-    // Notes in one octave (C to B)
-    const NOTE_NAMES = ["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"];
-    const BLACK_INDICES = new Set([1, 3, 6, 8, 10]);
-    const NUM_OCTAVES = 2;
-
-    // --- State ---
-    let ws = null;
-    let audioWs = null;
-    let activeNotes = new Set();
-    let midiAccess = null;
-    let activeMidiInput = null;
-
-    // --- Audio Playback ---
-    let audioCtx = null;
-    let audioBufferQueue = [];
-    let isPlaying = false;
-    const SAMPLE_RATE = 48000;
-
-    function initAudio() {
-      if (audioCtx) return;
-      audioCtx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: SAMPLE_RATE, latencyHint: "interactive" });
-      const baseLat = (audioCtx.baseLatency || 0) * 1000;
-      const outLat = (audioCtx.outputLatency || 0) * 1000;
-      log(`Audio context started (${audioCtx.sampleRate}Hz, base: ${baseLat.toFixed(1)}ms, output: ${outLat.toFixed(1)}ms)`);
-      updateLatencyDisplay();
-    }
-
-    function updateLatencyDisplay() {
-      if (!audioCtx) return;
-      const el = document.getElementById("latency-info");
-      const baseLat = (audioCtx.baseLatency || 0) * 1000;
-      const outLat = (audioCtx.outputLatency || 0) * 1000;
-      const bufferLat = BUFFER_AHEAD * 1000;
-      const jackLat = 64 / 48000 * 1000; // JACK buffer
-      const totalEst = baseLat + outLat + bufferLat + jackLat + 5; // +5ms for network/processing
-      el.textContent = `Latency: browser ${baseLat.toFixed(0)}+${outLat.toFixed(0)}ms | buffer ${bufferLat.toFixed(0)}ms | JACK ${jackLat.toFixed(1)}ms | est. total ~${totalEst.toFixed(0)}ms`;
-    }
-
-    function connectAudio(host) {
-      // Audio WebSocket on same host, /audio path
-      const isLocal = host.startsWith("localhost") || host.startsWith("192.168") || host.startsWith("127.0");
-      const proto = isLocal ? "ws" : "wss";
-      audioWs = new WebSocket(`${proto}://${host}/audio`);
-      audioWs.binaryType = "arraybuffer";
-
-      audioWs.onopen = () => {
-        log("Audio stream connected");
-      };
-
-      audioWs.onmessage = (e) => {
-        if (!(e.data instanceof ArrayBuffer)) return;
-        playAudioChunkWithDetection(e.data);
-      };
-
-      audioWs.onclose = () => {
-        log("Audio stream disconnected");
-      };
-
-      audioWs.onerror = () => {
-        log("Audio stream error");
-      };
-    }
-
-    function disconnectAudio() {
-      if (audioWs) {
-        audioWs.close();
-        audioWs = null;
-      }
-    }
-
-    // Gapless audio playback with adaptive buffering
-    let nextPlayTime = 0;
-    let audioStarted = false;
-    const BUFFER_AHEAD = 0.001; // 1ms buffer — absolute minimum, trades glitches for latency
-
-    function playAudioChunk(arrayBuffer) {
-      if (!audioCtx) return;
-
-      // Convert Int16 PCM to Float32 for Web Audio
-      const int16 = new Int16Array(arrayBuffer);
-      const float32 = new Float32Array(int16.length);
-      for (let i = 0; i < int16.length; i++) {
-        float32[i] = int16[i] / 32768;
-      }
-
-      const buffer = audioCtx.createBuffer(1, float32.length, SAMPLE_RATE);
-      buffer.getChannelData(0).set(float32);
-
-      const source = audioCtx.createBufferSource();
-      source.buffer = buffer;
-      source.connect(audioCtx.destination);
-
-      const now = audioCtx.currentTime;
-
-      if (!audioStarted || nextPlayTime < now) {
-        // First chunk or we've fallen behind — reset schedule with buffer
-        nextPlayTime = now + BUFFER_AHEAD;
-        audioStarted = true;
-      }
-
-      // Don't let the schedule get too far ahead (indicates network stall then burst)
-      if (nextPlayTime > now + 0.5) {
-        nextPlayTime = now + BUFFER_AHEAD;
-      }
-
-      source.start(nextPlayTime);
-      nextPlayTime += buffer.duration;
-    }
-
-    // --- Latency Measurement ---
-    let latencyMeasuring = false;
-    let latencySendTime = 0;
-    let analyserNode = null;
-    let latencyResults = [];
-
-    function measureLatency() {
-      if (!ws || ws.readyState !== WebSocket.OPEN) {
-        log("Connect first before measuring latency");
-        return;
-      }
-      if (!audioCtx) {
-        log("Audio not started");
-        return;
-      }
-
-      log("Measuring latency... (sending test notes)");
-      latencyResults = [];
-      runLatencyTest(0);
-    }
-
-    function runLatencyTest(count) {
-      if (count >= 5) {
-        // Done — show results
-        const avg = latencyResults.reduce((a, b) => a + b, 0) / latencyResults.length;
-        const min = Math.min(...latencyResults);
-        const max = Math.max(...latencyResults);
-        log(`Latency: avg ${avg.toFixed(0)}ms | min ${min.toFixed(0)}ms | max ${max.toFixed(0)}ms (${latencyResults.length} samples)`);
-        document.getElementById("latency-info").textContent =
-          `MEASURED latency: ${avg.toFixed(0)}ms avg (${min.toFixed(0)}-${max.toFixed(0)}ms range)`;
-        return;
-      }
-
-      latencyMeasuring = true;
-      latencySendTime = performance.now();
-
-      // Send a mid-range note at max velocity
-      sendMidi(0x90, 60, 127); // C4, max velocity
-
-      // Set a timeout to stop the note
-      setTimeout(() => {
-        sendMidi(0x80, 60, 0);
-      }, 100);
-
-      // Timeout if no audio detected
-      setTimeout(() => {
-        if (latencyMeasuring) {
-          latencyMeasuring = false;
-          log(`  Test ${count + 1}: no audio detected (timeout)`);
-          runLatencyTest(count + 1);
-        }
-      }, 500);
-    }
-
-    // Override playAudioChunk to detect audio for latency measurement
-    const _originalPlayAudioChunk = null;
-
-    function playAudioChunkWithDetection(arrayBuffer) {
-      if (latencyMeasuring) {
-        const int16 = new Int16Array(arrayBuffer);
-        // Check if there's significant audio signal (not silence)
-        let maxSample = 0;
-        for (let i = 0; i < int16.length; i++) {
-          const abs = Math.abs(int16[i]);
-          if (abs > maxSample) maxSample = abs;
-        }
-
-        // Threshold: if peak is above ~1% of max, we have audio
-        if (maxSample > 300) {
-          const latency = performance.now() - latencySendTime;
-          latencyMeasuring = false;
-          latencyResults.push(latency);
-          log(`  Test ${latencyResults.length}: ${latency.toFixed(1)}ms`);
-
-          // Schedule next test after a pause
-          setTimeout(() => runLatencyTest(latencyResults.length), 300);
-        }
-      }
-
-      // Always play the audio
-      playAudioChunk(arrayBuffer);
-    }
-
-    // --- WebSocket ---
-    function setStatus(state, text) {
-      const el = document.getElementById("status");
-      el.className = state;
-      el.textContent = text;
-    }
-
-    function toggleConnection() {
-      if (ws && ws.readyState === WebSocket.OPEN) {
-        ws.close();
-        disconnectAudio();
-        return;
-      }
-      const host = document.getElementById("ws-host").value;
-      setStatus("connecting", "Connecting...");
-
-      // Init audio on first user interaction (browser requires this)
-      initAudio();
-
-      const isLocal = host.startsWith("localhost") || host.startsWith("192.168") || host.startsWith("127.0");
-      const proto = isLocal ? "ws" : "wss";
-      ws = new WebSocket(`${proto}://${host}`);
-
-      ws.onopen = () => {
-        setStatus("connected", "Connected");
-        document.getElementById("connect-btn").textContent = "Disconnect";
-        log("MIDI connected to " + host);
-        // Auto-connect audio stream
-        connectAudio(host);
-      };
-
-      ws.onclose = () => {
-        setStatus("disconnected", "Disconnected");
-        document.getElementById("connect-btn").textContent = "Connect";
-        disconnectAudio();
-        nextPlayTime = 0;
-        audioStarted = false;
-        log("Disconnected");
-      };
-
-      ws.onerror = () => {
-        setStatus("disconnected", "Connection failed");
-        log("Connection error");
-      };
-
-      ws.onmessage = (e) => {
-        if (typeof e.data === "string") {
-          const data = JSON.parse(e.data);
-          if (data.error) log("Server error: " + data.error);
-        }
-      };
-    }
-
-    function sendMidi(status, data1, data2) {
-      if (!ws || ws.readyState !== WebSocket.OPEN) return;
-      ws.send(JSON.stringify({ status, data1, data2 }));
-    }
-
-    // --- MIDI Helpers ---
-    function noteOn(note, velocity) {
-      sendMidi(0x90, note, velocity);
-      activeNotes.add(note);
-      highlightKey(note, true);
-      log(`Note On: ${noteName(note)} (${note}) vel=${velocity}`);
-    }
-
-    function noteOff(note) {
-      sendMidi(0x80, note, 0);
-      activeNotes.delete(note);
-      highlightKey(note, false);
-      log(`Note Off: ${noteName(note)} (${note})`);
-    }
-
-    function cc(controller, value) {
-      sendMidi(0xB0, controller, value);
-    }
-
-    function sendProgramChange() {
-      const num = parseInt(document.getElementById("program-num").value);
-      if (num >= 0 && num <= 127) {
-        sendMidi(0xC0, num, 0);
-        log(`Program Change: ${num}`);
-      }
-    }
-
-    function changeProgram(delta) {
-      const el = document.getElementById("program-num");
-      let num = parseInt(el.value) + delta;
-      num = Math.max(0, Math.min(127, num));
-      el.value = num;
-      sendProgramChange();
-    }
-
-    function sendBankAndProgram() {
-      const bank = parseInt(document.getElementById("bank-num").value);
-      const program = parseInt(document.getElementById("program-num").value);
-      // Bank Select MSB (CC 0)
-      sendMidi(0xB0, 0, bank);
-      // Then program change
-      sendMidi(0xC0, program, 0);
-      log(`Bank ${String.fromCharCode(65 + bank)}, Program ${program}`);
-    }
-
-    function noteName(midi) {
-      return NOTE_NAMES[midi % 12] + Math.floor(midi / 12 - 1);
-    }
-
-    function highlightKey(note, on) {
-      const el = document.querySelector(`.key[data-note="${note}"]`);
-      if (el) el.classList.toggle("active", on);
-    }
-
-    // =========================================================
-    // Web MIDI API — primary input
-    // =========================================================
-    async function initWebMidi() {
-      const statusEl = document.getElementById("midi-input-status");
-
-      if (!navigator.requestMIDIAccess) {
-        statusEl.textContent = "Web MIDI not supported — using keyboard fallback";
-        log("Web MIDI API not available in this browser. Use Chrome/Edge/Opera, or fall back to computer keyboard.");
-        return;
-      }
-
-      try {
-        midiAccess = await navigator.requestMIDIAccess({ sysex: false });
-        populateMidiInputs();
-
-        // Re-populate when devices are plugged/unplugged
-        midiAccess.onstatechange = () => populateMidiInputs();
-      } catch (err) {
-        statusEl.textContent = "MIDI access denied — using keyboard fallback";
-        log("MIDI access denied: " + err.message);
-      }
-    }
-
-    function populateMidiInputs() {
-      const select = document.getElementById("midi-input");
-      const current = select.value;
-
-      // Keep the "None" option, clear the rest
-      select.innerHTML = '<option value="">None (use keyboard fallback)</option>';
-
-      for (const [id, input] of midiAccess.inputs) {
-        const opt = document.createElement("option");
-        opt.value = id;
-        opt.textContent = input.name || `MIDI Input ${id}`;
-        select.appendChild(opt);
-      }
-
-      // Auto-select the first real device if nothing was selected yet
-      if (!current && midiAccess.inputs.size > 0) {
-        const firstId = midiAccess.inputs.keys().next().value;
-        select.value = firstId;
-        selectMidiInput(firstId);
-      } else if (current) {
-        // Re-select the previously chosen device if still present
-        select.value = midiAccess.inputs.has(current) ? current : "";
-        selectMidiInput(select.value);
-      }
-
-      const count = midiAccess.inputs.size;
-      document.getElementById("midi-input-status").textContent =
-        count ? `${count} MIDI device${count > 1 ? "s" : ""} found` : "No MIDI devices detected";
-    }
-
-    function selectMidiInput(id) {
-      // Detach all previous listeners
-      if (midiAccess) {
-        for (const [, input] of midiAccess.inputs) {
-          input.onmidimessage = null;
-        }
-      }
-      activeMidiInput = null;
-
-      if (!id || !midiAccess) return;
-
-      // Listen on the selected port AND any related ports (e.g. DAW port for knobs)
-      const selected = midiAccess.inputs.get(id);
-      if (!selected) return;
-
-      const selectedBase = selected.name.split(" ")[0].toLowerCase();
-      for (const [, input] of midiAccess.inputs) {
-        if (input.name.toLowerCase().startsWith(selectedBase)) {
-          input.onmidimessage = onMidiMessage;
-          log(`Listening on: ${input.name}`);
-        }
-      }
-      activeMidiInput = selected;
-    }
-
-    function onMidiMessage(e) {
-      const [status, data1, data2] = e.data;
-      const type = status & 0xF0;
-      const val2 = data2 ?? 0;
-
-      if (type === 0xB0) {
-        // CC message — check for MIDI learn first
-        if (learningSliderIdx >= 0) {
-          handleMidiLearn(data1);
-          return; // Don't forward during learn
-        }
-
-        // Check if this CC is mapped to a synth CC
-        const mappedCC = ccMap[data1];
-        if (mappedCC !== undefined) {
-          // Send the REMAPPED CC to the synth (on channel 1)
-          sendMidi(0xB0, mappedCC, val2);
-          // Update the on-screen slider
-          updateSliderFromMidi(mappedCC, val2);
-        }
-        // Don't forward unmapped CCs — they could conflict with synth parameters
-        return;
-      }
-
-      // Notes — force to channel 1 and forward
-      if (type === 0x90 || type === 0x80) {
-        sendMidi(type, data1, val2); // Channel 1
-
-        if (type === 0x90 && val2 > 0) {
-          activeNotes.add(data1);
-          highlightKey(data1, true);
-        } else {
-          activeNotes.delete(data1);
-          highlightKey(data1, false);
-        }
-        return;
-      }
-
-      // Everything else (pitch bend, aftertouch, etc.) — forward on channel 1
-      sendMidi(type, data1, val2);
-
-      if (type === 0xE0) {
-        log(`Pitch Bend: ${data1 | (val2 << 7)}`);
-      }
-    }
-
-    function updateSliderFromMidi(ccNum, value) {
-      const idx = SLIDERS.findIndex(s => s.cc === ccNum);
-      if (idx === -1) return;
-      const group = document.querySelectorAll(".slider-group")[idx];
-      if (!group) return;
-      const input = group.querySelector("input");
-      const display = group.querySelector(".slider-value");
-      input.value = value;
-      display.textContent = value;
-    }
-
-    document.getElementById("midi-input").addEventListener("change", (e) => {
-      selectMidiInput(e.target.value);
-    });
-
-    // --- On-screen Keyboard (mouse) ---
-    function buildKeyboard() {
-      const container = document.getElementById("keyboard");
-      const baseOctave = parseInt(document.getElementById("octave").value);
-
-      container.innerHTML = "";
-
-      for (let oct = 0; oct < NUM_OCTAVES; oct++) {
-        for (let i = 0; i < 12; i++) {
-          const isBlack = BLACK_INDICES.has(i);
-          const midiNote = (baseOctave + oct + 1) * 12 + i;
-          const key = document.createElement("div");
-          key.className = `key ${isBlack ? "black" : "white"}`;
-          key.dataset.note = midiNote;
-
-          if (!isBlack) {
-            const label = document.createElement("span");
-            label.className = "label";
-            label.textContent = NOTE_NAMES[i] + (baseOctave + oct);
-            key.appendChild(label);
-          }
-
-          key.addEventListener("mousedown", (e) => {
-            e.preventDefault();
-            const vel = parseInt(document.getElementById("velocity").value);
-            noteOn(midiNote, vel);
-          });
-
-          key.addEventListener("mouseup", () => {
-            noteOff(midiNote);
-          });
-
-          key.addEventListener("mouseleave", () => {
-            if (activeNotes.has(midiNote)) noteOff(midiNote);
-          });
-
-          container.appendChild(key);
-        }
-      }
-    }
-
-    document.addEventListener("mouseup", () => {
-      for (const note of activeNotes) noteOff(note);
-    });
-
-    document.getElementById("octave").addEventListener("change", buildKeyboard);
-
-    // --- Computer Keyboard (fallback) ---
-    const KEY_MAP = {
-      "a": 0, "w": 1, "s": 2, "e": 3, "d": 4, "f": 5,
-      "t": 6, "g": 7, "y": 8, "h": 9, "u": 10, "j": 11,
-      "k": 12, "o": 13, "l": 14, "p": 15,
-    };
-    const keysHeld = new Set();
-
-    document.addEventListener("keydown", (e) => {
-      if (e.repeat || e.target.tagName === "INPUT" || e.target.tagName === "SELECT") return;
-      const offset = KEY_MAP[e.key.toLowerCase()];
-      if (offset === undefined) return;
-      const base = (parseInt(document.getElementById("octave").value) + 1) * 12;
-      const note = base + offset;
-      if (keysHeld.has(e.key)) return;
-      keysHeld.add(e.key);
-      const vel = parseInt(document.getElementById("velocity").value);
-      noteOn(note, vel);
-    });
-
-    document.addEventListener("keyup", (e) => {
-      const offset = KEY_MAP[e.key.toLowerCase()];
-      if (offset === undefined) return;
-      const base = (parseInt(document.getElementById("octave").value) + 1) * 12;
-      const note = base + offset;
-      keysHeld.delete(e.key);
-      noteOff(note);
-    });
-
-    // --- Sliders ---
-    function buildSliders() {
-      const container = document.getElementById("sliders");
-      for (let i = 0; i < SLIDERS.length; i++) {
-        const s = SLIDERS[i];
-        const group = document.createElement("div");
-        group.className = "slider-group";
-        group.style.cursor = "pointer";
-
-        const label = document.createElement("label");
-        label.textContent = s.label;
-
-        const input = document.createElement("input");
-        input.type = "range";
-        input.min = 0;
-        input.max = 127;
-        input.value = s.default;
-
-        const value = document.createElement("span");
-        value.className = "slider-value";
-        value.textContent = s.default;
-
-        input.addEventListener("input", () => {
-          const val = parseInt(input.value);
-          value.textContent = val;
-          cc(s.cc, val);
-        });
-
-        // Double-click to MIDI learn
-        const idx = i;
-        group.addEventListener("dblclick", (e) => {
-          e.preventDefault();
-          startMidiLearn(idx);
-        });
-
-        group.appendChild(label);
-        group.appendChild(input);
-        group.appendChild(value);
-        container.appendChild(group);
-      }
-    }
-
-    // --- Log ---
-    function log(msg) {
-      const el = document.getElementById("log");
-      const line = document.createElement("div");
-      const time = new Date().toLocaleTimeString("en-GB", { hour12: false });
-      line.textContent = `[${time}] ${msg}`;
-      el.appendChild(line);
-      el.scrollTop = el.scrollHeight;
-
-      while (el.children.length > 200) el.removeChild(el.firstChild);
-    }
-
-    // --- Server Status Polling ---
-    let serverOnline = false;
-
-    function checkServerStatus() {
-      const host = document.getElementById("ws-host").value;
-      const el = document.getElementById("server-status");
-      el.className = "server-status checking";
-      el.textContent = "Server: checking...";
-
-      const isLocal = host.startsWith("localhost") || host.startsWith("192.168") || host.startsWith("127.0");
-      const probe = new WebSocket(`${isLocal ? "ws" : "wss"}://${host}`);
-      const timeout = setTimeout(() => {
-        probe.close();
-        setServerStatus(false);
-      }, 3000);
-
-      probe.onopen = () => {
-        clearTimeout(timeout);
-        probe.close();
-        setServerStatus(true);
-      };
-
-      probe.onerror = () => {
-        clearTimeout(timeout);
-        setServerStatus(false);
-      };
-    }
-
-    function setServerStatus(online) {
-      const el = document.getElementById("server-status");
-      serverOnline = online;
-      if (online) {
-        el.className = "server-status online";
-        el.textContent = "Server: online — ready to connect";
-      } else {
-        el.className = "server-status offline";
-        el.textContent = "Server: offline — waiting for Pi...";
-      }
-    }
-
-    // Poll every 3 seconds when not connected
-    setInterval(() => {
-      if (!ws || ws.readyState !== WebSocket.OPEN) {
-        checkServerStatus();
-      } else {
-        const el = document.getElementById("server-status");
-        el.className = "server-status online";
-        el.textContent = "Server: connected";
-      }
-    }, 3000);
-
-    // --- Init ---
-    buildKeyboard();
-    buildSliders();
-    initWebMidi().then(() => {
-      loadMappings();
-      autoDetectController();
-      updateSliderMappingLabels();
-    });
-    checkServerStatus();
-    log("Ready. Connect a MIDI keyboard or use computer keys (A-L row) as fallback.");
-    log("Double-click any slider to MIDI learn a controller knob.");
-
-    // Allow server override via URL parameter: ?server=your-tunnel.trycloudflare.com
-    const urlParams = new URLSearchParams(window.location.search);
-    const serverParam = urlParams.get("server");
-    if (serverParam) {
-      document.getElementById("ws-host").value = serverParam;
-    }
-
-    // Auto-connect if server field is pre-filled
-    const autoHost = document.getElementById("ws-host").value;
-    if (autoHost && autoHost !== "localhost:8765") {
-      setTimeout(() => toggleConnection(), 1000);
-    }
-  </script>
+    wrap.appendChild(btn);
+  });
+}
+
+// ─────────────────────────────────────────────
+// Build Panel
+// ─────────────────────────────────────────────
+function buildPanel() {
+  const panel = document.getElementById("panel");
+  for (const group of PANEL) {
+    const div = document.createElement("div");
+    div.className = "group";
+    const title = document.createElement("div");
+    title.className = "group-title"; title.textContent = group.name;
+    div.appendChild(title);
+    const knobsDiv = document.createElement("div");
+    knobsDiv.className = "group-knobs";
+    for (const p of group.params) createKnob(knobsDiv, p.label, p.cc, p.def);
+    div.appendChild(knobsDiv);
+    panel.appendChild(div);
+  }
+}
+
+// ─────────────────────────────────────────────
+// Status polling
+// ─────────────────────────────────────────────
+setInterval(() => {
+  document.getElementById("stats").textContent = `MIDI: ${midiCount} | Audio: ${audioCount}`;
+}, 500);
+
+// ─────────────────────────────────────────────
+// Log
+// ─────────────────────────────────────────────
+function log(msg) {
+  const el = document.getElementById("log");
+  const d = document.createElement("div");
+  d.textContent = `[${new Date().toLocaleTimeString("en-GB",{hour12:false})}] ${msg}`;
+  el.appendChild(d); el.scrollTop = el.scrollHeight;
+  while (el.children.length > 200) el.removeChild(el.firstChild);
+}
+
+// ─────────────────────────────────────────────
+// Init
+// ─────────────────────────────────────────────
+buildPanel();
+buildKeyboard();
+buildBankButtons();
+initWebMidi().then(() => { loadMappings(); autoDetectController(); });
+log("Ready. Use computer keys (A-L) or connect a MIDI controller.");
+log("Double-click any knob to MIDI learn.");
+
+// URL param + auto-connect
+const sp = new URLSearchParams(location.search);
+if (sp.get("server")) document.getElementById("ws-host").value = sp.get("server");
+const ah = document.getElementById("ws-host").value;
+if (ah && !ah.startsWith("localhost")) setTimeout(() => toggleConnection(), 1000);
+
+</script>
 </body>
 </html>
