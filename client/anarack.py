@@ -320,15 +320,16 @@ class AnarackApp:
     def _midi_loop(self):
         while self.connected:
             try:
-                for msg in self.midi_in.iter_pending():
+                msg = self.midi_in.poll()
+                if msg is not None:
                     raw = msg.bytes()
                     self.midi_sock.sendto(bytes(raw), self.server_addr)
                     self.midi_count += 1
 
                     if msg.type == "note_on" and msg.velocity > 0:
                         self.note_send_times[msg.note] = time.perf_counter()
-
-                time.sleep(0.001)
+                else:
+                    time.sleep(0.0001)  # 0.1ms — tight spin when idle
             except:
                 if self.connected:
                     continue
