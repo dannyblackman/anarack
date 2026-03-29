@@ -29,6 +29,17 @@
       "Read(.git/**)"
     ]
   },
+  "enabledPlugins": {
+    "allium@juxt-plugins": true
+  },
+  "extraKnownMarketplaces": {
+    "juxt-plugins": {
+      "source": {
+        "source": "github",
+        "repo": "juxt/claude-plugins"
+      }
+    }
+  },
   "statusLine": {
     "type": "command",
     "command": "BRANCH=$(git -C /Users/Danny_1/Sites/Anarack branch --show-current 2>/dev/null || echo 'detached'); if [ \"$BRANCH\" = \"main\" ]; then echo \"🔴 WARNING: MAIN | Anarack | http://localhost:8080\"; else echo \"branch: $BRANCH | Anarack | http://localhost:8080\"; fi"
