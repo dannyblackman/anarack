@@ -55,11 +55,11 @@
     .bank-btn.active { background: #6366f1 !important; }
 
     /* Keyboard */
-    .keyboard-wrap { padding: 8px; width: 100%; display: flex; justify-content: center; }
-    .keyboard { display: flex; position: relative; height: 80px; user-select: none; -webkit-user-select: none; }
+    .keyboard-wrap { padding: 8px 0; width: 100%; }
+    .keyboard { display: flex; position: relative; user-select: none; -webkit-user-select: none; width: 100%; }
     .key { position: relative; border-radius: 0 0 4px 4px; cursor: pointer; }
-    .key.white { width: 24px; height: 80px; background: #d4d4d4; border: 1px solid #888; z-index: 1; }
-    .key.black { width: 15px; height: 48px; background: #1a1a1a; border: 1px solid #000; margin-left: -8px; margin-right: -7px; z-index: 2; }
+    .key.white { flex: 1; aspect-ratio: 1/4; background: #d4d4d4; border: 1px solid #888; z-index: 1; }
+    .key.black { flex: 0.6; aspect-ratio: 1/3; background: #1a1a1a; border: 1px solid #000; margin-left: -0.3%; margin-right: -0.3%; z-index: 2; }
     .key.white.active { background: #6366f1; }
     .key.black.active { background: #6366f1; }
 
