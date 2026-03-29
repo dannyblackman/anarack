@@ -227,46 +227,32 @@ def audio_midi_engine(server_ip, midi_port_name, audio_port, midi_udp_port,
                 except:
                     break
 
-            # MIDI input — primary port (notes + CCs forwarded to synth)
+            # MIDI input — both ports
             got_msg = False
-            msg = midi_in.poll()
-            if msg is not None:
-                got_msg = True
-                raw = msg.bytes()
-                midi_sock.sendto(bytes(raw), server_addr)
-                stats["midi_count"] += 1
-
-                if msg.type == "note_on" and msg.velocity > 0:
-                    note_send_times[msg.note] = time.perf_counter()
-                    stats["last_note_on"] = msg.note
-                elif msg.type == "note_off" or (msg.type == "note_on" and msg.velocity == 0):
-                    stats["last_note_off"] = msg.note
-
-            # Secondary port (DAW port — knobs/CCs for learn and mapping only, NOT forwarded raw)
-            if midi_in2:
-                msg2 = midi_in2.poll()
-                if msg2 is not None:
+            for mi in ([midi_in, midi_in2] if midi_in2 else [midi_in]):
+                msg = mi.poll()
+                if msg is not None:
                     got_msg = True
 
-                    # MIDI learn
-                    if learn_flag.value and msg2.type == "control_change":
-                        learn_result.value = msg2.control
-                        learn_flag.value = 0
+                    if msg.type == "control_change":
+                        # CCs never forwarded raw — GUI handles all CC routing
+                        # via knob drag or MIDI learn mapping
+                        stats["incoming_cc"] = msg.control
+                        stats["incoming_val"] = msg.value
 
-                    # Report CC for mapped knob updates (GUI will remap and send correct CC)
-                    if msg2.type == "control_change":
-                        stats["incoming_cc"] = msg2.control
-                        stats["incoming_val"] = msg2.value
-
-                    # Forward notes from DAW port too (some controllers send on both)
-                    if msg2.type in ("note_on", "note_off"):
-                        midi_sock.sendto(bytes(msg2.bytes()), server_addr)
+                        if learn_flag.value:
+                            learn_result.value = msg.control
+                            learn_flag.value = 0
+                    else:
+                        # Notes, pitch bend, etc. — forward directly
+                        midi_sock.sendto(bytes(msg.bytes()), server_addr)
                         stats["midi_count"] += 1
-                        if msg2.type == "note_on" and msg2.velocity > 0:
-                            note_send_times[msg2.note] = time.perf_counter()
-                            stats["last_note_on"] = msg2.note
-                        else:
-                            stats["last_note_off"] = msg2.note
+
+                        if msg.type == "note_on" and msg.velocity > 0:
+                            note_send_times[msg.note] = time.perf_counter()
+                            stats["last_note_on"] = msg.note
+                        elif msg.type == "note_off" or (msg.type == "note_on" and msg.velocity == 0):
+                            stats["last_note_off"] = msg.note
 
             if not got_msg:
                 time.sleep(0.0001)
