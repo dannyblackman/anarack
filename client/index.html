@@ -478,7 +478,8 @@
       // Init audio on first user interaction (browser requires this)
       initAudio();
 
-      const proto = location.protocol === "https:" ? "wss" : "ws";
+      const isLocal = host.startsWith("localhost") || host.startsWith("192.168") || host.startsWith("127.0");
+      const proto = isLocal ? "ws" : "wss";
       ws = new WebSocket(`${proto}://${host}`);
 
       ws.onopen = () => {
