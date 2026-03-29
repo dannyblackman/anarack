@@ -240,12 +240,18 @@ def audio_midi_engine(server_ip, midi_port_name, audio_port, midi_udp_port,
                             learn_result.value = msg.control
                             learn_flag.value = 0
 
+                        # Debug: show what the controller is actually sending
+                        stats["debug_cc"] = f"CC{msg.control}={msg.value}"
+
                         # Check if this CC is mapped to a synth CC
                         mapped_to = cc_map[msg.control]
                         if mapped_to >= 0:
                             # Send the remapped CC directly to the synth
                             midi_sock.sendto(bytes([0xB0, mapped_to, msg.value]), server_addr)
                             stats["midi_count"] += 1
+                            # Feed back to GUI for visual knob update
+                            stats["mapped_knob_cc"] = msg.control
+                            stats["mapped_knob_val"] = msg.value
                         # Unmapped CCs are dropped (use GUI knobs instead)
                     else:
                         # Notes, pitch bend, etc. — forward directly
@@ -423,6 +429,7 @@ class AnarackApp:
             "status": 0, "midi_count": 0, "audio_count": 0,
             "latency_avg": 0.0, "latency_min": 0.0, "latency_max": 0.0,
             "error": "", "last_note_on": -1, "last_note_off": -1,
+            "debug_cc": "", "mapped_knob_cc": -1, "mapped_knob_val": 0,
         })
         self.control = self.mgr.dict({"running": False})
         self.cc_queue = mp.Queue()
@@ -684,6 +691,18 @@ class AnarackApp:
         if noff >= 0:
             self.kbd.note_off(noff)
             self.stats["last_note_off"] = -1
+
+        # Update GUI knob from mapped controller input
+        mkcc = self.stats.get("mapped_knob_cc", -1)
+        if mkcc >= 0 and mkcc in self.cc_to_knob:
+            val = self.stats.get("mapped_knob_val", 0)
+            self.cc_to_knob[mkcc].set_value(val, send=False)  # Visual only, engine already sent
+            self.stats["mapped_knob_cc"] = -1
+
+        # Show debug CC info
+        debug = self.stats.get("debug_cc", "")
+        if debug:
+            self.learn_lbl.config(text=debug, fg="#666")
 
         # MIDI learn — check Value (reliable)
         if self.learning_knob and self.learn_result.value >= 0:
