@@ -20,10 +20,12 @@ private:
     juce::Label titleLabel;
     juce::Label hostLabel;
     juce::TextEditor hostInput;
+    juce::ToggleButton wgToggle;
     juce::TextButton connectButton;
     juce::Label statusLabel;
     juce::Label bufferLabel;
     juce::Label packetLabel;
+    juce::Label rttLabel;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(AnarackEditor)
 };

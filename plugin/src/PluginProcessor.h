@@ -36,6 +36,9 @@ public:
     // Public access for the editor
     NetworkTransport& getTransport() { return transport; }
     juce::String serverHost { "192.168.1.131" };
+    juce::String wgServerPubkey { "xrJHNeB2o8CyQJEbKiwfslF+iXjkekCR5KbkkHqtzi0=" };
+    int wgPort = 51820;
+    bool useWireGuard = false;
 
 private:
     static constexpr double SERVER_SAMPLE_RATE = 48000.0;

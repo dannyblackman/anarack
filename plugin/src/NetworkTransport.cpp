@@ -92,9 +92,9 @@ void NetworkTransport::connectWireGuard(const juce::String& serverEndpoint,
     serverMidiPort = midiPort;
     serverAudioPort = audioPort;
 
-    // Generate ephemeral keypair
-    auto [privKey, pubKey] = WgTunnel::generateKeypair();
-    DBG("WireGuard pubkey: " + pubKey);
+    // TODO: ephemeral keys via session API. For now, use static test keypair.
+    auto privKey = juce::String("XTmhMhpKGEhfNtqff4GUQ5cS281pfScf+1x2Cd6aF44=");
+    auto pubKey = juce::String("arRpxSMBrlWstnbjoHA5sL6ONaVHIeH5pcWAhZPsXEM=");
 
     wgTunnel = std::make_unique<WgTunnel>();
     if (!wgTunnel->connect(privKey, serverPubkey, serverEndpoint))

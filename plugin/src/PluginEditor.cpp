@@ -3,7 +3,7 @@
 AnarackEditor::AnarackEditor(AnarackProcessor& p)
     : AudioProcessorEditor(&p), processor(p)
 {
-    setSize(340, 200);
+    setSize(340, 220);
 
     titleLabel.setText("ANARACK REV2", juce::dontSendNotification);
     titleLabel.setFont(juce::FontOptions(20.0f, juce::Font::bold));
@@ -19,6 +19,12 @@ AnarackEditor::AnarackEditor(AnarackProcessor& p)
     hostInput.onReturnKey = [this] { toggleConnection(); };
     addAndMakeVisible(hostInput);
 
+    wgToggle.setButtonText("WireGuard");
+    wgToggle.setToggleState(processor.useWireGuard, juce::dontSendNotification);
+    wgToggle.setColour(juce::ToggleButton::textColourId, juce::Colours::grey);
+    wgToggle.setColour(juce::ToggleButton::tickColourId, juce::Colour(0xff6366f1));
+    addAndMakeVisible(wgToggle);
+
     connectButton.setButtonText("Connect");
     connectButton.onClick = [this] { toggleConnection(); };
     addAndMakeVisible(connectButton);
@@ -28,7 +34,7 @@ AnarackEditor::AnarackEditor(AnarackProcessor& p)
     statusLabel.setColour(juce::Label::textColourId, juce::Colours::grey);
     addAndMakeVisible(statusLabel);
 
-    bufferLabel.setText("Buffer: —", juce::dontSendNotification);
+    bufferLabel.setText("Buffer: --", juce::dontSendNotification);
     bufferLabel.setFont(juce::FontOptions(12.0f));
     bufferLabel.setColour(juce::Label::textColourId, juce::Colours::grey);
     addAndMakeVisible(bufferLabel);
@@ -38,7 +44,12 @@ AnarackEditor::AnarackEditor(AnarackProcessor& p)
     packetLabel.setColour(juce::Label::textColourId, juce::Colours::grey);
     addAndMakeVisible(packetLabel);
 
-    startTimerHz(10); // Update UI 10 times per second
+    rttLabel.setText("", juce::dontSendNotification);
+    rttLabel.setFont(juce::FontOptions(12.0f));
+    rttLabel.setColour(juce::Label::textColourId, juce::Colours::grey);
+    addAndMakeVisible(rttLabel);
+
+    startTimerHz(10);
 }
 
 AnarackEditor::~AnarackEditor()
@@ -58,7 +69,17 @@ void AnarackEditor::toggleConnection()
     else
     {
         processor.serverHost = hostInput.getText();
-        transport.connect(processor.serverHost);
+        processor.useWireGuard = wgToggle.getToggleState();
+
+        if (processor.useWireGuard)
+        {
+            auto endpoint = processor.serverHost + ":" + juce::String(processor.wgPort);
+            transport.connectWireGuard(endpoint, processor.wgServerPubkey);
+        }
+        else
+        {
+            transport.connect(processor.serverHost);
+        }
         connectButton.setButtonText("Disconnect");
     }
 }
@@ -68,15 +89,29 @@ void AnarackEditor::timerCallback()
     auto& transport = processor.getTransport();
     bool conn = transport.isConnected();
 
-    statusLabel.setText(conn ? "Connected" : "Disconnected", juce::dontSendNotification);
+    auto statusText = juce::String("Disconnected");
+    if (conn)
+        statusText = transport.isWireGuard() ? "Connected (WireGuard)" : "Connected (LAN)";
+
+    statusLabel.setText(statusText, juce::dontSendNotification);
     statusLabel.setColour(juce::Label::textColourId,
                           conn ? juce::Colour(0xff4ade80) : juce::Colours::grey);
 
     if (conn)
     {
-        float bufMs = (float)transport.getBufferLevel() / 48.0f; // ms at 48kHz
+        float bufMs = (float)transport.getBufferLevel() / 48.0f;
         bufferLabel.setText("Buffer: " + juce::String(bufMs, 1) + " ms", juce::dontSendNotification);
         packetLabel.setText("Packets: " + juce::String(transport.getPacketsReceived()), juce::dontSendNotification);
+
+        int rtt = transport.getEstimatedRtt();
+        if (rtt > 0)
+            rttLabel.setText("RTT: " + juce::String(rtt) + " ms", juce::dontSendNotification);
+        else
+            rttLabel.setText("", juce::dontSendNotification);
+    }
+    else
+    {
+        rttLabel.setText("", juce::dontSendNotification);
     }
 }
 
@@ -98,9 +133,13 @@ void AnarackEditor::resized()
     row.removeFromRight(8);
     hostInput.setBounds(row);
 
-    area.removeFromTop(12);
+    area.removeFromTop(4);
+    wgToggle.setBounds(area.removeFromTop(22).removeFromLeft(140));
+
+    area.removeFromTop(8);
     statusLabel.setBounds(area.removeFromTop(20));
     area.removeFromTop(4);
     bufferLabel.setBounds(area.removeFromTop(18));
     packetLabel.setBounds(area.removeFromTop(18));
+    rttLabel.setBounds(area.removeFromTop(18));
 }
