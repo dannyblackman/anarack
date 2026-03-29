@@ -267,6 +267,132 @@
       { label: "Amp Release",   cc: 76,  default: 40 },
     ];
 
+    // --- MIDI Controller Mapping ---
+    // Maps controller CC → synth CC. Stored as { controllerCC: synthCC }
+    let ccMap = {};           // Active mapping: controller CC → synth CC
+    let learningSliderIdx = -1; // Which slider is in learn mode (-1 = none)
+
+    // Pre-built profiles for common controllers
+    const CONTROLLER_PROFILES = {
+      "launchkey": {
+        name: "Novation LaunchKey",
+        // LaunchKey MK4 knobs typically send CC 21-28 in MIDI mode
+        mappings: { 21: 102, 22: 103, 23: 22, 24: 28, 25: 118, 26: 119, 27: 75, 28: 76 }
+      },
+      "mpk": {
+        name: "Akai MPK Mini",
+        // MPK Mini knobs send CC 70-77 by default
+        mappings: { 70: 102, 71: 103, 72: 22, 73: 28, 74: 118, 75: 119, 76: 75, 77: 76 }
+      },
+      "keylab": {
+        name: "Arturia KeyLab",
+        // KeyLab knobs typically send CC 74, 71, 18, 19, 16, 17, 91, 79
+        mappings: { 74: 102, 71: 103, 18: 22, 19: 28, 16: 118, 17: 119, 91: 75, 79: 76 }
+      }
+    };
+
+    function loadMappings() {
+      try {
+        const saved = localStorage.getItem("anarack_cc_map");
+        if (saved) {
+          ccMap = JSON.parse(saved);
+          log(`Loaded ${Object.keys(ccMap).length} CC mappings`);
+          updateSliderMappingLabels();
+        }
+      } catch(e) {}
+    }
+
+    function saveMappings() {
+      localStorage.setItem("anarack_cc_map", JSON.stringify(ccMap));
+    }
+
+    function autoDetectController() {
+      if (!midiAccess) return;
+      for (const [id, input] of midiAccess.inputs) {
+        const name = (input.name || "").toLowerCase();
+        for (const [key, profile] of Object.entries(CONTROLLER_PROFILES)) {
+          if (name.includes(key)) {
+            // Only auto-apply if no saved mappings
+            if (Object.keys(ccMap).length === 0) {
+              ccMap = { ...profile.mappings };
+              saveMappings();
+              log(`Auto-detected ${profile.name} — mapped ${Object.keys(ccMap).length} knobs`);
+              updateSliderMappingLabels();
+            }
+            return;
+          }
+        }
+      }
+    }
+
+    function updateSliderMappingLabels() {
+      const groups = document.querySelectorAll(".slider-group");
+      groups.forEach((group, idx) => {
+        let badge = group.querySelector(".cc-badge");
+        if (!badge) {
+          badge = document.createElement("span");
+          badge.className = "cc-badge";
+          badge.style.cssText = "font-size:0.6rem;color:#6366f1;display:block;margin-top:2px;";
+          group.appendChild(badge);
+        }
+        // Find which controller CC maps to this slider's synth CC
+        const synthCC = SLIDERS[idx].cc;
+        const controllerCC = Object.entries(ccMap).find(([k,v]) => v === synthCC);
+        badge.textContent = controllerCC ? `← CC${controllerCC[0]}` : "dbl-click to map";
+        badge.style.color = controllerCC ? "#6366f1" : "#444";
+      });
+    }
+
+    function startMidiLearn(sliderIdx) {
+      if (learningSliderIdx === sliderIdx) {
+        // Cancel learn
+        learningSliderIdx = -1;
+        updateLearnUI();
+        return;
+      }
+      learningSliderIdx = sliderIdx;
+      updateLearnUI();
+      log(`MIDI Learn: move a knob on your controller to map it to ${SLIDERS[sliderIdx].label}...`);
+    }
+
+    function updateLearnUI() {
+      const groups = document.querySelectorAll(".slider-group");
+      groups.forEach((group, idx) => {
+        const input = group.querySelector("input");
+        if (idx === learningSliderIdx) {
+          input.style.accentColor = "#facc15";
+          group.style.outline = "1px solid #facc15";
+        } else {
+          input.style.accentColor = "";
+          group.style.outline = "";
+        }
+      });
+    }
+
+    function handleMidiLearn(controllerCC) {
+      if (learningSliderIdx < 0) return false;
+
+      const synthCC = SLIDERS[learningSliderIdx].cc;
+
+      // Remove any existing mapping TO this synth CC
+      for (const [k, v] of Object.entries(ccMap)) {
+        if (v === synthCC) delete ccMap[k];
+      }
+
+      // Remove any existing mapping FROM this controller CC
+      delete ccMap[controllerCC];
+
+      // Set new mapping
+      ccMap[controllerCC] = synthCC;
+      saveMappings();
+
+      log(`Mapped: controller CC${controllerCC} → ${SLIDERS[learningSliderIdx].label} (CC${synthCC})`);
+      learningSliderIdx = -1;
+      updateLearnUI();
+      updateSliderMappingLabels();
+      return true;
+    }
+
     // Notes in one octave (C to B)
     const NOTE_NAMES = ["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"];
     const BLACK_INDICES = new Set([1, 3, 6, 8, 10]);
@@ -626,44 +752,73 @@
     }
 
     function selectMidiInput(id) {
-      // Detach previous listener
-      if (activeMidiInput) {
-        activeMidiInput.onmidimessage = null;
-        activeMidiInput = null;
+      // Detach all previous listeners
+      if (midiAccess) {
+        for (const [, input] of midiAccess.inputs) {
+          input.onmidimessage = null;
+        }
       }
+      activeMidiInput = null;
 
       if (!id || !midiAccess) return;
 
-      const input = midiAccess.inputs.get(id);
-      if (!input) return;
+      // Listen on the selected port AND any related ports (e.g. DAW port for knobs)
+      const selected = midiAccess.inputs.get(id);
+      if (!selected) return;
 
-      input.onmidimessage = onMidiMessage;
-      activeMidiInput = input;
-      log(`MIDI input: ${input.name}`);
+      const selectedBase = selected.name.split(" ")[0].toLowerCase();
+      for (const [, input] of midiAccess.inputs) {
+        if (input.name.toLowerCase().startsWith(selectedBase)) {
+          input.onmidimessage = onMidiMessage;
+          log(`Listening on: ${input.name}`);
+        }
+      }
+      activeMidiInput = selected;
     }
 
     function onMidiMessage(e) {
       const [status, data1, data2] = e.data;
       const type = status & 0xF0;
+      const val2 = data2 ?? 0;
 
-      // Forward everything to the server
-      sendMidi(status, data1, data2 ?? 0);
+      if (type === 0xB0) {
+        // CC message — check for MIDI learn first
+        if (learningSliderIdx >= 0) {
+          handleMidiLearn(data1);
+          return; // Don't forward during learn
+        }
 
-      // Visual feedback for notes
-      if (type === 0x90 && data2 > 0) {
-        activeNotes.add(data1);
-        highlightKey(data1, true);
-        log(`Note On: ${noteName(data1)} (${data1}) vel=${data2}`);
-      } else if (type === 0x80 || (type === 0x90 && data2 === 0)) {
-        activeNotes.delete(data1);
-        highlightKey(data1, false);
-        log(`Note Off: ${noteName(data1)} (${data1})`);
-      } else if (type === 0xB0) {
-        // Update slider UI if it matches one of our CC sliders
-        updateSliderFromMidi(data1, data2);
-        log(`CC ${data1}: ${data2}`);
-      } else if (type === 0xE0) {
-        log(`Pitch Bend: ${data1 | (data2 << 7)}`);
+        // Check if this CC is mapped to a synth CC
+        const mappedCC = ccMap[data1];
+        if (mappedCC !== undefined) {
+          // Send the REMAPPED CC to the synth (on channel 1)
+          sendMidi(0xB0, mappedCC, val2);
+          // Update the on-screen slider
+          updateSliderFromMidi(mappedCC, val2);
+        }
+        // Don't forward unmapped CCs — they could conflict with synth parameters
+        return;
+      }
+
+      // Notes — force to channel 1 and forward
+      if (type === 0x90 || type === 0x80) {
+        sendMidi(type, data1, val2); // Channel 1
+
+        if (type === 0x90 && val2 > 0) {
+          activeNotes.add(data1);
+          highlightKey(data1, true);
+        } else {
+          activeNotes.delete(data1);
+          highlightKey(data1, false);
+        }
+        return;
+      }
+
+      // Everything else (pitch bend, aftertouch, etc.) — forward on channel 1
+      sendMidi(type, data1, val2);
+
+      if (type === 0xE0) {
+        log(`Pitch Bend: ${data1 | (val2 << 7)}`);
       }
     }
 
@@ -761,9 +916,11 @@
     // --- Sliders ---
     function buildSliders() {
       const container = document.getElementById("sliders");
-      for (const s of SLIDERS) {
+      for (let i = 0; i < SLIDERS.length; i++) {
+        const s = SLIDERS[i];
         const group = document.createElement("div");
         group.className = "slider-group";
+        group.style.cursor = "pointer";
 
         const label = document.createElement("label");
         label.textContent = s.label;
@@ -782,6 +939,13 @@
           const val = parseInt(input.value);
           value.textContent = val;
           cc(s.cc, val);
+        });
+
+        // Double-click to MIDI learn
+        const idx = i;
+        group.addEventListener("dblclick", (e) => {
+          e.preventDefault();
+          startMidiLearn(idx);
         });
 
         group.appendChild(label);
@@ -857,9 +1021,14 @@
     // --- Init ---
     buildKeyboard();
     buildSliders();
-    initWebMidi();
+    initWebMidi().then(() => {
+      loadMappings();
+      autoDetectController();
+      updateSliderMappingLabels();
+    });
     checkServerStatus();
     log("Ready. Connect a MIDI keyboard or use computer keys (A-L row) as fallback.");
+    log("Double-click any slider to MIDI learn a controller knob.");
 
     // Allow server override via URL parameter: ?server=your-tunnel.trycloudflare.com
     const urlParams = new URLSearchParams(window.location.search);
