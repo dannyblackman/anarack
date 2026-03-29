@@ -200,7 +200,7 @@
 
   <div class="controls">
     <label>Server:
-      <input type="text" id="ws-host" value="192.168.1.131:8765" style="width: 140px">
+      <input type="text" id="ws-host" value="scenic-transparent-blogging-cohen.trycloudflare.com" style="width: 340px">
     </label>
     <button id="connect-btn" onclick="toggleConnection()">Connect</button>
     <button onclick="measureLatency()">Measure Latency</button>
@@ -860,6 +860,12 @@
     initWebMidi();
     checkServerStatus();
     log("Ready. Connect a MIDI keyboard or use computer keys (A-L row) as fallback.");
+
+    // Auto-connect if server field is pre-filled
+    const autoHost = document.getElementById("ws-host").value;
+    if (autoHost && autoHost !== "localhost:8765") {
+      setTimeout(() => toggleConnection(), 1000);
+    }
   </script>
 </body>
 </html>
