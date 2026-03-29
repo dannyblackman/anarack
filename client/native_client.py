@@ -160,24 +160,54 @@ def main():
     print(f"  Buffer:     {args.buffer_frames} frames ({args.buffer_frames/SAMPLE_RATE*1000:.1f}ms)")
     print(f"\n  Play your MIDI controller. Press Ctrl+C to quit.\n")
 
+    # Computer keyboard → MIDI note mapping (same as browser client)
+    import sys, tty, termios, select
+    KEY_MAP = {
+        'a': 0, 'w': 1, 's': 2, 'e': 3, 'd': 4, 'f': 5,
+        't': 6, 'g': 7, 'y': 8, 'h': 9, 'u': 10, 'j': 11,
+        'k': 12, 'o': 13, 'l': 14, 'p': 15,
+    }
+    BASE_NOTE = 60  # C4
+    held_keys = set()
+    old_term = termios.tcgetattr(sys.stdin)
+    tty.setcbreak(sys.stdin.fileno())
+
+    print("  Computer keyboard: A-L row plays notes (C4+). Press Q to quit.\n")
+
     # --- MIDI Input Loop ---
     try:
         with mido.open_input(port_name) as midi_in:
             while True:
+                # Check computer keyboard
+                if select.select([sys.stdin], [], [], 0)[0]:
+                    key = sys.stdin.read(1).lower()
+                    if key == 'q':
+                        break
+                    if key in KEY_MAP and key not in held_keys:
+                        note = BASE_NOTE + KEY_MAP[key]
+                        midi_sock.sendto(bytes([0x90, note, 100]), server_addr)
+                        midi_count += 1
+                        note_send_times[note] = time.perf_counter()
+                        held_keys.add(key)
+                    # Note: can't detect key-up in cbreak mode, so notes sustain.
+                    # Press same key again to send note-off
+                    elif key in KEY_MAP and key in held_keys:
+                        note = BASE_NOTE + KEY_MAP[key]
+                        midi_sock.sendto(bytes([0x80, note, 0]), server_addr)
+                        midi_count += 1
+                        held_keys.discard(key)
+
+                # Check MIDI controller
                 for msg in midi_in.iter_pending():
-                    # Convert mido message to raw bytes and send over UDP
                     raw = msg.bytes()
                     midi_sock.sendto(bytes(raw), server_addr)
                     midi_count += 1
 
-                    # Track note-on times for latency measurement
                     if msg.type == 'note_on' and msg.velocity > 0:
                         note_send_times[msg.note] = time.perf_counter()
 
-                # Print stats periodically
-                time.sleep(0.001)  # 1ms poll
+                time.sleep(0.001)
 
-                # Update display every ~500 iterations
                 if midi_count % 100 == 0 or audio_count % 500 == 0:
                     if latency_measurements:
                         recent = latency_measurements[-10:]
@@ -189,6 +219,9 @@ def main():
                               end="\r")
 
     except KeyboardInterrupt:
+        pass
+    finally:
+        termios.tcsetattr(sys.stdin, termios.TCSADRAIN, old_term)
         print("\n\nShutting down...")
         running = False
         stream.stop_stream()
