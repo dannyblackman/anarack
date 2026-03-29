@@ -307,8 +307,8 @@
 
     function connectAudio(host) {
       // Audio WebSocket on same host, /audio path
-      // Support both ws:// and wss:// (Cloudflare Tunnel uses wss)
-      const proto = location.protocol === "https:" ? "wss" : "ws";
+      const isLocal = host.startsWith("localhost") || host.startsWith("192.168") || host.startsWith("127.0");
+      const proto = isLocal ? "ws" : "wss";
       audioWs = new WebSocket(`${proto}://${host}/audio`);
       audioWs.binaryType = "arraybuffer";
 
@@ -812,7 +812,8 @@
       el.className = "server-status checking";
       el.textContent = "Server: checking...";
 
-      const probe = new WebSocket(`ws://${host}`);
+      const isLocal = host.startsWith("localhost") || host.startsWith("192.168") || host.startsWith("127.0");
+      const probe = new WebSocket(`${isLocal ? "ws" : "wss"}://${host}`);
       const timeout = setTimeout(() => {
         probe.close();
         setServerStatus(false);
