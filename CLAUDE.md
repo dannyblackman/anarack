@@ -19,18 +19,40 @@ Currently in **Phase 0 — Prototype**. Proving that remote synth control with <
 plan/           — Business plan docs
 server/         — Runs on Raspberry Pi 5 (MIDI routing, audio engine, session management)
 client/         — Browser-based demo UI (virtual keyboard + CC sliders)
-scripts/        — Setup and utility scripts (JACK config, Pi setup, etc.)
+scripts/        — Setup and utility scripts (JACK config, Pi setup, dev server)
+worktrees/      — Git worktrees for feature branches (gitignored)
 ```
 
-## Commands
+## Development Workflow
+
+### Branches
+
+- `main` is the default branch — always deployable
+- Feature branches: `feat/description`
+- Bug fixes: `fix/description`
+- Chores/maintenance: `chore/description`
+
+### Worktrees
+
+Use git worktrees for parallel work on feature branches:
 
 ```bash
+# Create a worktree for a new feature branch
+git worktree add worktrees/feat-my-feature -b feat/my-feature
+
+# Clean up when done (after merging)
+git worktree remove worktrees/feat-my-feature
+```
+
+### Commands
+
+```bash
+# Local dev (serves client UI)
+./scripts/dev.sh                   # http://localhost:8080
+
 # Server (on Pi)
 cd server && pip install -r requirements.txt
 python midi_router.py              # Start MIDI routing server
-
-# Client (local)
-cd client && python -m http.server 8080   # Serve the web UI
 ```
 
 ## Key Decisions

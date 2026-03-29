@@ -33,6 +33,9 @@ Thumbs.db
 # Obsidian
 .obsidian/
 
+# Worktrees
+worktrees/
+
 # Audio files (large, don't commit)
 *.wav
 *.aif
