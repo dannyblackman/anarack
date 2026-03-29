@@ -248,7 +248,7 @@ def audio_midi_engine(server_ip, midi_port_name, audio_port, midi_udp_port,
                             learn_flag.value = 0
 
                         # Debug: show what the controller is actually sending
-                        stats["debug_cc"] = f"CC{msg.control}={msg.value}"
+                        stats["debug_cc"] = f"CC{msg.control}={msg.value} ch{msg.channel+1}"
 
                         # Check if this CC is mapped to a synth CC
                         mapped_to = cc_map[msg.control]
@@ -261,8 +261,10 @@ def audio_midi_engine(server_ip, midi_port_name, audio_port, midi_udp_port,
                             stats["mapped_knob_val"] = msg.value
                         # Unmapped CCs are dropped (use GUI knobs instead)
                     else:
-                        # Notes, pitch bend, etc. — forward directly
-                        midi_sock.sendto(bytes(msg.bytes()), server_addr)
+                        # Notes, pitch bend, etc. — forward on channel 1
+                        raw = msg.bytes()
+                        raw[0] = (raw[0] & 0xF0) | 0  # Force channel 1
+                        midi_sock.sendto(bytes(raw), server_addr)
                         stats["midi_count"] += 1
 
                         if msg.type == "note_on" and msg.velocity > 0:
