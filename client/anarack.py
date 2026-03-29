@@ -52,7 +52,7 @@ GROUP_ORDER = ["OSC 1", "OSC 2", "MIXER", "FILTER", "FILT ENV", "AMP ENV"]
 # Audio/MIDI Engine (separate process)
 # ──────────────────────────────────────────────────────────────
 def audio_midi_engine(server_ip, midi_port_name, audio_port, midi_udp_port,
-                      buffer_frames, stats, control, cc_queue, midi_learn_queue):
+                      buffer_frames, stats, control, cc_queue):
     """Runs in a separate process — zero GUI interference."""
     import mido
     import pyaudio
@@ -83,9 +83,6 @@ def audio_midi_engine(server_ip, midi_port_name, audio_port, midi_udp_port,
         latency_count = 0
         latency_min = 999.0
         latency_max = 0.0
-
-        # MIDI learn state
-        learn_active = False
 
         def audio_loop():
             nonlocal latency_sum, latency_count, latency_min, latency_max
@@ -136,13 +133,6 @@ def audio_midi_engine(server_ip, midi_port_name, audio_port, midi_udp_port,
                 except:
                     break
 
-            # Check for MIDI learn toggle
-            while not midi_learn_queue.empty():
-                try:
-                    learn_active = midi_learn_queue.get_nowait()
-                except:
-                    break
-
             # Read MIDI input
             msg = midi_in.poll()
             if msg is not None:
@@ -154,7 +144,7 @@ def audio_midi_engine(server_ip, midi_port_name, audio_port, midi_udp_port,
                     note_send_times[msg.note] = time.perf_counter()
 
                 # If MIDI learn is active, report CC messages back to GUI
-                if learn_active and msg.type == "control_change":
+                if control.get("learn", False) and msg.type == "control_change":
                     stats["learn_cc"] = msg.control
             else:
                 time.sleep(0.0001)
@@ -313,9 +303,8 @@ class AnarackApp:
             "latency_avg": 0.0, "latency_min": 0.0, "latency_max": 0.0,
             "error": "", "learn_cc": -1,
         })
-        self.control = self.manager.dict({"running": False})
+        self.control = self.manager.dict({"running": False, "learn": False})
         self.cc_queue = mp.Queue()
-        self.midi_learn_queue = mp.Queue()
 
         self.knobs = {}  # param_name -> Knob widget
         self.learning_knob = None  # Currently learning knob
@@ -466,12 +455,12 @@ class AnarackApp:
                 self.learning_knob.set_learning(False)
             self.learning_knob = knob
             self.learn_hint.config(text="Move a knob on your controller...", fg="#facc15")
-            self.midi_learn_queue.put(True)
+            self.control["learn"] = True
             self.stats["learn_cc"] = -1
         else:
             self.learning_knob = None
             self.learn_hint.config(text="Double-click a knob to MIDI learn", fg="#333")
-            self.midi_learn_queue.put(False)
+            self.control["learn"] = False
 
     def toggle_connection(self):
         if self.engine_process and self.engine_process.is_alive():
@@ -494,7 +483,7 @@ class AnarackApp:
         self.engine_process = mp.Process(
             target=audio_midi_engine,
             args=(server, midi_port, 9999, 5555, 128,
-                  self.stats, self.control, self.cc_queue, self.midi_learn_queue),
+                  self.stats, self.control, self.cc_queue),
             daemon=True,
         )
         self.engine_process.start()
@@ -570,7 +559,7 @@ class AnarackApp:
             self.learn_hint.config(
                 text=f"Mapped CC {learn_cc} -> {knob.label_text}", fg="#4ade80"
             )
-            self.midi_learn_queue.put(False)
+            self.control["learn"] = False
             self.stats["learn_cc"] = -1
 
         self.root.after(100, self.update_ui)
