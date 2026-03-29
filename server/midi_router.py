@@ -16,6 +16,7 @@ import json
 import signal
 import struct
 import threading
+import time
 import queue
 
 import rtmidi
@@ -43,6 +44,39 @@ def list_midi_ports():
             print(f"  [{i}] {port}")
     midi_out.delete()
     return ports
+
+
+def open_midi_input(port_name: str | None) -> rtmidi.MidiIn:
+    """Open a MIDI input port by name (substring match) or index."""
+    midi_in = rtmidi.MidiIn()
+    ports = midi_in.get_ports()
+
+    if not ports:
+        raise RuntimeError("No MIDI input ports available")
+
+    if port_name is None:
+        midi_in.open_port(0)
+        print(f"Opened MIDI input port: {ports[0]}")
+        return midi_in
+
+    # Try numeric index first
+    try:
+        idx = int(port_name)
+        if 0 <= idx < len(ports):
+            midi_in.open_port(idx)
+            print(f"Opened MIDI input port: {ports[idx]}")
+            return midi_in
+    except ValueError:
+        pass
+
+    # Substring match
+    for i, port in enumerate(ports):
+        if port_name.lower() in port.lower():
+            midi_in.open_port(i)
+            print(f"Opened MIDI input port: {port}")
+            return midi_in
+
+    raise RuntimeError(f"MIDI input port matching '{port_name}' not found. Available: {ports}")
 
 
 def open_midi_port(port_name: str | None) -> rtmidi.MidiOut:
@@ -79,14 +113,62 @@ def open_midi_port(port_name: str | None) -> rtmidi.MidiOut:
 
 
 class MidiRouter:
+    ECHO_SUPPRESS_MS = 50  # Suppress echoed CCs within this window
+
+    # SysEx constants for Prophet Rev2
+    SYSEX_MFR = 0x01        # Sequential/DSI manufacturer ID
+    SYSEX_DEV = 0x2F        # Rev2 model ID
+    SYSEX_EDIT_BUF_REQ = [0xF0, 0x01, 0x2F, 0x06, 0xF7]
+    SYSEX_EDIT_BUF_RESP = 0x03  # Edit buffer data dump command
+
+    # Map SysEx byte offset (Layer A) → (CC number, native max value)
+    # Native max is used to scale SysEx values to 0-127 CC range
+    SYSEX_OFFSET_TO_CC = {
+        0: (20, 120),    # Osc 1 Freq
+        2: (21, 100),    # Osc 1 Fine
+        4: (22, 4),      # Osc 1 Shape
+        8: (23, 127),    # Osc 1 Glide
+        1: (24, 120),    # Osc 2 Freq
+        3: (25, 100),    # Osc 2 Fine
+        5: (26, 4),      # Osc 2 Shape
+        9: (27, 127),    # Osc 2 Glide
+        14: (28, 127),   # Osc Mix
+        16: (29, 127),   # Noise Level
+        15: (8, 127),    # Sub Osc Level
+        21: (9, 127),    # Osc Slop
+        22: (102, 164),  # Filter Cutoff
+        23: (103, 127),  # Filter Resonance
+        24: (104, 127),  # Filter Key Amount
+        32: (106, 254),  # Filter Env Amount
+        41: (109, 127),  # Filter Env Attack
+        44: (110, 127),  # Filter Env Decay
+        47: (111, 127),  # Filter Env Sustain
+        50: (112, 127),  # Filter Env Release
+        27: (113, 127),  # VCA Level
+        29: (114, 127),  # Pan Spread
+        42: (118, 127),  # Amp Env Attack
+        45: (119, 127),  # Amp Env Decay
+        48: (75, 127),   # Amp Env Sustain
+        51: (76, 127),   # Amp Env Release
+        117: (17, 127),  # FX Mix
+        118: (12, 255),  # FX Param 1
+        119: (13, 127),  # FX Param 2
+    }
+
     def __init__(self, midi_out: rtmidi.MidiOut):
         self.midi_out = midi_out
         self.message_count = 0
+        self.midi_ws_clients: set = set()  # MIDI WebSocket clients for sending CC updates
+        self._last_sent: dict[int, float] = {}  # {cc: timestamp} for echo suppression
+        self._loop: asyncio.AbstractEventLoop | None = None
 
     def send(self, message: list[int]):
         """Send a MIDI message to the hardware synth."""
         self.midi_out.send_message(message)
         self.message_count += 1
+        # Track sent CCs for echo suppression
+        if len(message) >= 3 and (message[0] & 0xF0) == 0xB0:
+            self._last_sent[message[1]] = time.monotonic()
 
     def send_from_udp(self, data: bytes):
         """Parse and forward a UDP MIDI packet."""
@@ -102,8 +184,102 @@ class MidiRouter:
         # Program Change (0xC0) and Channel Pressure (0xD0) are 2-byte messages
         if (status & 0xF0) in (0xC0, 0xD0):
             self.send([status, data1])
+            # On program change, request edit buffer so UI knobs update
+            if (status & 0xF0) == 0xC0 and self._loop:
+                self._loop.call_soon_threadsafe(
+                    self._loop.call_later, 0.1, self.request_edit_buffer
+                )
         else:
             self.send([status, data1, data2])
+
+    def request_edit_buffer(self):
+        """Send SysEx request for the Rev2's current edit buffer."""
+        self.midi_out.send_message(self.SYSEX_EDIT_BUF_REQ)
+        print("[SYSEX] Requested edit buffer from Rev2")
+
+    def _unpack_sysex(self, packed: list[int]) -> list[int]:
+        """Unpack DSI 7-bit encoded SysEx data into raw bytes."""
+        raw = []
+        i = 0
+        while i + 7 < len(packed):
+            ms_bits = packed[i]
+            for x in range(7):
+                if i + 1 + x < len(packed):
+                    raw.append(packed[i + 1 + x] | ((ms_bits >> x) & 1) << 7)
+            i += 8
+        return raw
+
+    def _handle_sysex(self, message: list[int]):
+        """Parse a SysEx edit buffer dump and broadcast CC values."""
+        # Minimum: F0 01 2F 03 ... F7
+        if len(message) < 6:
+            return
+        if message[1] != self.SYSEX_MFR or message[2] != self.SYSEX_DEV:
+            return
+        if message[3] != self.SYSEX_EDIT_BUF_RESP:
+            return
+
+        # Unpack the data (skip F0, header bytes, and trailing F7)
+        packed = message[4:-1]
+        raw = self._unpack_sysex(packed)
+        print(f"[SYSEX] Edit buffer received: {len(raw)} bytes unpacked")
+
+        # Broadcast each mapped parameter as a CC update (scaled to 0-127)
+        for offset, (cc, native_max) in self.SYSEX_OFFSET_TO_CC.items():
+            if offset < len(raw):
+                if native_max <= 127:
+                    value = min(127, raw[offset])
+                else:
+                    value = round(raw[offset] * 127 / native_max)
+                self._broadcast_cc(cc, value)
+
+    def _is_echo(self, cc: int) -> bool:
+        """Check if a received CC is likely an echo of one we just sent."""
+        sent_time = self._last_sent.get(cc)
+        if sent_time is None:
+            return False
+        elapsed_ms = (time.monotonic() - sent_time) * 1000
+        return elapsed_ms < self.ECHO_SUPPRESS_MS
+
+    def on_synth_message(self, event, data=None):
+        """Callback invoked by rtmidi when the Rev2 sends a MIDI message."""
+        message, _ = event
+        if not message:
+            return
+
+        # SysEx message
+        if message[0] == 0xF0:
+            self._handle_sysex(message)
+            return
+
+        # Program Change — request edit buffer to get all parameter values
+        if (message[0] & 0xF0) == 0xC0:
+            if self._loop:
+                self._loop.call_soon_threadsafe(
+                    self._loop.call_later, 0.05, self.request_edit_buffer
+                )
+            return
+
+        if len(message) < 3:
+            return
+        status = message[0] & 0xF0
+        if status == 0xB0:
+            cc, value = message[1], message[2]
+            if not self._is_echo(cc):
+                self._broadcast_cc(cc, value)
+
+    def _broadcast_cc(self, cc: int, value: int):
+        """Send a CC update to all connected MIDI WebSocket clients."""
+        if not self.midi_ws_clients or not self._loop:
+            return
+        msg = json.dumps({"type": "cc", "cc": cc, "value": value})
+        dead = set()
+        for ws in self.midi_ws_clients:
+            try:
+                asyncio.run_coroutine_threadsafe(ws.send(msg), self._loop)
+            except Exception:
+                dead.add(ws)
+        self.midi_ws_clients -= dead
 
 
 class AudioStreamer:
@@ -286,6 +462,7 @@ async def ws_handler(router: MidiRouter, ws, path=None):
     else:
         # MIDI client (default)
         print(f"MIDI client connected: {remote}")
+        router.midi_ws_clients.add(ws)
         try:
             async for message in ws:
                 try:
@@ -295,6 +472,7 @@ async def ws_handler(router: MidiRouter, ws, path=None):
         except websockets.ConnectionClosed:
             pass
         finally:
+            router.midi_ws_clients.discard(ws)
             print(f"MIDI client disconnected: {remote}")
 
 
@@ -316,6 +494,17 @@ async def main():
 
     midi_out = open_midi_port(args.midi_port)
     router = MidiRouter(midi_out)
+    router._loop = asyncio.get_running_loop()
+
+    # Open MIDI input from synth (bidirectional: receive CCs for UI sync)
+    try:
+        midi_in = open_midi_input(args.midi_port)
+        midi_in.ignore_types(sysex=False, timing=True, active_sense=True)
+        midi_in.set_callback(router.on_synth_message)
+        print("Bidirectional MIDI active — synth parameter changes will sync to clients")
+    except RuntimeError as e:
+        midi_in = None
+        print(f"WARNING: No MIDI input port — synth→browser sync disabled ({e})")
 
     # Start UDP server
     udp_transport = await udp_server(router, args.host, args.udp_port)
@@ -357,6 +546,8 @@ async def main():
     udp_transport.close()
     ws_server.close()
     await ws_server.wait_closed()
+    if midi_in:
+        midi_in.close_port()
     midi_out.close_port()
     print(f"\nShutdown complete. Sent {router.message_count} MIDI messages.")
 

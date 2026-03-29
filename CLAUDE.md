@@ -56,6 +56,29 @@ cd server && pip install -r requirements.txt
 python midi_router.py              # Start MIDI routing server
 ```
 
+## Raspberry Pi Deployment
+
+The server runs on a Raspberry Pi 5. Deploy directly via SSH — never ask the user to SSH manually.
+
+```bash
+# Connection
+ssh pi@anarack.local              # also: 100.94.117.51 via Tailscale
+
+# Deploy server
+scp server/midi_router.py pi@anarack.local:~/anarack/server/midi_router.py
+
+# Restart server (use venv Python, PYTHONUNBUFFERED for log visibility)
+ssh pi@anarack.local "cd /home/pi/anarack && PYTHONUNBUFFERED=1 nohup venv/bin/python server/midi_router.py --midi-port 'Prophet Rev2' > /tmp/anarack.log 2>&1 &"
+
+# Check logs
+ssh pi@anarack.local "cat /tmp/anarack.log"
+```
+
+**Important:**
+- Python venv is at `~/anarack/venv/` — always use `venv/bin/python`
+- JACK runs as a separate process (`jackd -R -d alsa -d hw:0 -r 48000 -p 128 -n 3`)
+- Scarlett 18i16 is `hw:0`, Rev2 MIDI is on USB
+
 ## Key Decisions
 
 - Prototype uses Tailscale for networking simplicity; production uses embedded boringtun (WireGuard)

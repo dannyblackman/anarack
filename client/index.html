@@ -428,6 +428,17 @@ function toggleConnection() {
     document.getElementById("connect-btn").classList.add("disconnect");
     connectAudio(host); log("Connected to " + host);
   };
+  ws.onmessage = (e) => {
+    if (typeof e.data === "string") {
+      try {
+        const data = JSON.parse(e.data);
+        if (data.type === "cc") {
+          const knob = knobs.find(k => k.cc === data.cc);
+          if (knob) setKnobValue(knob, data.value, false);
+        }
+      } catch(err) {}
+    }
+  };
   ws.onclose = () => {
     setStatus("disconnected");
     document.getElementById("connect-btn").textContent = "Connect";
