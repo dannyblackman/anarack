@@ -328,9 +328,7 @@ async def main():
         audio_task = asyncio.create_task(audio_streamer.stream_to_clients())
 
     print(f"\nAnarack Server running. Ctrl+C to stop.")
-    print(f"  MIDI WebSocket: ws://{args.host}:{args.ws_port}")
-    if HAS_JACK:
-        print(f"  Audio WebSocket: ws://{args.host}:{args.audio_ws_port}")
+    print(f"  WebSocket: ws://{args.host}:{args.ws_port} (MIDI: / , Audio: /audio)")
     print()
 
     # Run until interrupted
