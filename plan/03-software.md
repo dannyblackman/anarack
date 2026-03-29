@@ -467,9 +467,58 @@ The browser demo uses the same synth panels but without controller support (Web 
 
 ### 9. Networking Layer
 
-**Principle: one install, zero configuration.** The user downloads the plugin and that's it. No VPN clients, no Tailscale, no port forwarding.
+Four networking phases, each building on the last:
 
-**Plugin (production path):** Embedded WireGuard via boringtun (Cloudflare's Rust userspace WireGuard)
+#### Phase 0 — Prototype: Tailscale (private, local testing)
+
+- Tailscale VPN between Pi and Mac — quick to set up, proves the concept
+- Only accessible to you — no public access, no sharing
+- Tests the full MIDI + audio chain over a real network
+- **Status: done.** Proven working with <20ms LAN latency
+
+#### Phase 1 — Shareable Demo: Cloudflare Tunnel (public, send a link)
+
+This is the **market validation phase** — the most important networking layer before investing in the JUCE plugin. Send a URL to producer friends, they play your Rev2 from their browser, and you prove demand.
+
+**How it works:**
+- `cloudflared` runs on the Pi, creating a persistent tunnel to Cloudflare's edge network
+- Cloudflare provides a public HTTPS/WSS URL (e.g. `anarack.yourdomain.com`)
+- The browser client is hosted on GitHub Pages (static HTML/JS)
+- Anyone opens the page → connects via WSS to Cloudflare → tunnels to Pi → plays the synth
+- No Tailscale, no VPN, no port forwarding, no router config on either end
+
+**Why Cloudflare Tunnel for this phase:**
+- **Free tier** — no cost
+- **Handles HTTPS/WSS** — required because GitHub Pages is HTTPS, and browsers block insecure WebSocket (`ws://`) from secure pages
+- **Zero router config** — tunnel is outbound from Pi, works through any NAT/firewall
+- **Stable URL** — can use a custom domain or a `*.trycloudflare.com` subdomain
+- **Low overhead** — adds ~5-15ms latency (Cloudflare edge servers are everywhere)
+- **Production-grade reliability** — Cloudflare handles DDoS, SSL certs, connection management
+
+**Expected latency (browser client via Cloudflare):**
+- Same city/country: ~30-50ms total (playable for recording)
+- Cross-Europe: ~40-70ms (usable for sound design)
+- Transatlantic: ~80-120ms (demo-able, not ideal for playing)
+- Mobile/5G (UK): ~30-60ms (fine for noodling)
+
+**This phase replaces the "browser demo" in the original plan.** Instead of building WebRTC separately, the existing WebSocket browser client works through Cloudflare Tunnel with WSS. Simpler, faster to ship, and validates demand before building the plugin.
+
+#### Phase 2 — Browser Product: Cloudflare Tunnel + polished web app
+
+Same infrastructure as Phase 1, but with:
+- Account system, payments (Paddle), session management
+- Polished synth browser and parameter panels
+- Queue system, booking
+- Multiple synths
+- Still browser-based, still via Cloudflare Tunnel
+
+This is the **soft launch** product. Revenue starts here.
+
+#### Phase 3 — DAW Plugin: Embedded WireGuard (production, lowest latency)
+
+**Principle: one install, zero configuration.** The user downloads the plugin and that's it.
+
+**Embedded WireGuard via boringtun** (Cloudflare's Rust userspace WireGuard):
 - Compiled into the JUCE plugin as a static library — no separate install
 - Session start flow:
   1. Plugin calls API: "start session for user X on synth Y"
@@ -482,17 +531,16 @@ The browser demo uses the same synth panels but without controller support (Web 
 - Latency: identical to raw WireGuard (~10-20ms between UK residential connections)
 - Security: each session gets unique keys, no persistent VPN, no access to anything except the assigned synth's audio/MIDI streams
 
-**Browser demo (conversion path):** WebRTC
-- Browser-native, zero install
-- Higher latency (~100-150ms) — acceptable for a 5-minute demo
-- Opus audio codec (browser doesn't support raw PCM over WebRTC)
-- WebSocket for MIDI (browser can't send raw UDP)
-- Purpose: let someone hear a real Moog in 10 seconds, then convert to plugin download
+The plugin is the premium experience — lowest latency, DAW integration, automation, project recall. The browser version (Phase 2) continues to run alongside as the free demo/conversion tool.
 
-**Prototype (Phase 0):** Tailscale between Pi and laptop
-- Quick to set up, proves the concept
-- Tailscale is only used during prototyping, never in production
-- Replaced by embedded boringtun when building the JUCE plugin
+#### Networking Evolution Summary
+
+| Phase | Transport | Access | Latency | Purpose |
+|---|---|---|---|---|
+| 0. Prototype | Tailscale | Private (you only) | ~5ms LAN | Prove the tech |
+| 1. Shareable Demo | Cloudflare Tunnel | Public URL | ~30-60ms | Validate demand with friends/producers |
+| 2. Browser Product | Cloudflare Tunnel | Public (with accounts) | ~30-60ms | Soft launch, first revenue |
+| 3. DAW Plugin | Embedded WireGuard | Public (with accounts) | ~10-20ms | Production, lowest latency |
 
 ### 10. Payments & Sessions
 

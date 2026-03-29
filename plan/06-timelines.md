@@ -5,30 +5,33 @@
 **Goal:** Prove that remote synth control with acceptable latency is possible.
 
 ### Week 1-2: Core Audio/MIDI Path
-- [ ] Set up Raspberry Pi 5 with PREEMPT_RT kernel
-- [ ] Install and configure JACK at 64 samples / 48kHz
-- [ ] Connect Scarlett 2i2 via USB, verify low-buffer audio works
-- [ ] Connect Prophet Rev2 via USB MIDI
-- [ ] Write Python script: receive UDP MIDI → forward to Rev2 via rtmidi
-- [ ] Test locally: send a CC message, hear the synth respond
+- [x] Set up Raspberry Pi 5 with Lite OS
+- [x] Install and configure JACK at 64 samples / 48kHz
+- [x] Connect Scarlett 18i16 via USB, verify low-buffer audio works
+- [x] Connect Prophet Rev2 via USB MIDI
+- [x] Write Python server: receive UDP/WebSocket MIDI → forward to Rev2 via rtmidi
+- [x] Test locally: send a note, hear the synth respond
+- [x] Audio streaming from Pi to Mac (JACK → WebSocket → Web Audio API)
+- [x] Native client with 4ms round-trip latency (UDP MIDI + UDP audio + PyAudio)
+- [x] Auto-start on Pi boot via systemd
 
-### Week 2-3: Network Audio
-- [ ] Set up netjack2 between Pi and laptop (same LAN first)
-- [ ] Route Rev2 audio (Scarlett input → JACK → netjack2 → laptop)
-- [ ] Measure end-to-end latency (knob twist to audio change at laptop)
-- [ ] Tune network buffer for minimum latency without dropouts
-- [ ] Test with Tailscale over the actual internet (laptop on phone hotspot or different network)
+### Week 2-3: Network Audio + Remote Testing
+- [x] Audio streaming working over LAN (both browser and native client)
+- [x] Tailscale configured for remote access
+- [ ] Test over real internet from a different location (friend's house / cafe)
+- [ ] Measure internet latency — confirm <50ms is achievable
 
-### Week 3-4: Minimal UI + Recording
-- [ ] Simple web page: virtual keyboard + 6 CC sliders (filter, resonance, envelope ADSR)
-- [ ] WebSocket bridge: browser MIDI → UDP → Pi
-- [ ] JACK capture: record session to WAV on Pi
-- [ ] Test with 2-3 friendly producers — get honest latency feedback
+### Week 3-4: Shareable Demo
+- [ ] Set up Cloudflare Tunnel on Pi (public WSS URL, no Tailscale needed)
+- [ ] Host browser client on GitHub Pages
+- [ ] Anyone with the link can play the Rev2 from their browser
+- [ ] Send to 5-10 producer friends — collect feedback and reactions
+- [ ] Test mobile (phone on 5G) — can you play on the bus?
 
-### Milestone: Demo Video
-Record a short video of someone tweaking the Rev2 remotely and hearing it respond. This becomes the first marketing asset and proof of concept.
+### Milestone: Shareable Demo Link
+A URL that anyone can click to play a real Prophet Rev2 from their browser. This is the proof of concept AND the first marketing asset. Record reactions.
 
-**Go/no-go decision:** If latency is >80ms or feels unusable, investigate further before investing in Phase 1. If <50ms and usable, proceed.
+**Go/no-go decision:** If latency is >80ms or feels unusable over real internet, investigate further. If friends are excited and it feels playable, proceed to Phase 1.
 
 ## Phase 1 — MVP Product (Months 2-3)
 

@@ -142,10 +142,28 @@ The pitch to label/management contacts isn't "get your A-list on this" — it's 
 
 ## Launch Strategy
 
+### Phase 0: Shareable Demo (now)
+
+The most powerful marketing tool: a URL that lets anyone play the Rev2 from their browser. No install, no sign-up, no cost. Just send a link.
+
+- Browser client hosted on GitHub Pages
+- Pi accessible via Cloudflare Tunnel (public WSS URL)
+- Send to producer friends, label contacts, synth enthusiasts
+- "Play my Prophet Rev2 from your browser — click this link"
+- Collect reactions, feedback, gauge excitement
+- This is the "wow" moment that validates demand before investing in infrastructure
+
+**Why this changes everything:**
+- Previously, someone had to install software or visit your studio to try it
+- Now, anyone with a browser can play a real synth in 10 seconds
+- The shareable demo IS the marketing — every link sent is a pitch
+- Reddit posts with a working demo link will get massively more traction than text descriptions
+- Synth YouTubers can try it live on stream
+
 ### Phase 1: Beta (Month 1-2)
 
-- 5-10 beta users from Reddit/Discord
-- Free or heavily discounted (£5/hour)
+- 5-10 beta users from Reddit/Discord — now easy because they just click a link
+- Free — shareable demo has no payment system, just open access
 - Focused on feedback: is the latency OK? Is the UI usable? Would you pay for this?
 - Collect testimonials and screen recordings
 
