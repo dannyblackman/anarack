@@ -16,7 +16,8 @@ Currently in **Phase 0 — Prototype**. Proving that remote synth control with <
 ## Project Structure
 
 ```
-plan/           — Business plan docs
+docs/strategy/  — Business plan & strategy docs (overview, financials, timelines, etc.)
+docs/plans/     — Implementation plans and allium specs (from /plan and /interview)
 server/         — Runs on Raspberry Pi 5 (MIDI routing, audio engine, session management)
 client/         — Browser-based demo UI (virtual keyboard + CC sliders)
 scripts/        — Setup and utility scripts (JACK config, Pi setup, dev server)
