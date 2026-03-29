@@ -221,6 +221,13 @@ def audio_midi_engine(server_ip, midi_port_name, audio_port, midi_udp_port,
                     cc_num, cc_val = cc_queue.get_nowait()
                     if cc_num == -1:
                         midi_sock.sendto(bytes([0xC0, cc_val]), server_addr)
+                    elif cc_num == -2:
+                        note = cc_val & 0x7F
+                        vel = (cc_val >> 7) & 0x7F
+                        midi_sock.sendto(bytes([0x90, note, vel]), server_addr)
+                        note_send_times[note] = time.perf_counter()
+                    elif cc_num == -3:
+                        midi_sock.sendto(bytes([0x80, cc_val, 0]), server_addr)
                     else:
                         midi_sock.sendto(bytes([0xB0, cc_num, cc_val]), server_addr)
                     stats["midi_count"] += 1
@@ -365,14 +372,19 @@ class PianoKeyboard(tk.Canvas):
     BH = 36  # black key height
     BLACK = {1: -6, 3: -4, 6: -7, 8: -5, 10: -3}
 
-    def __init__(self, parent, start=36, octaves=5, **kwargs):
+    def __init__(self, parent, start=36, octaves=5, on_note=None, **kwargs):
         self.start = start
         self.octaves = octaves
         self.active = set()
+        self.on_note = on_note  # callback(note, velocity) — velocity 0 = note off
+        self._mouse_note = None
         nw = octaves * 7 + 1
         super().__init__(parent, width=nw * self.WW + 2, height=self.WH + 2,
                          bg="#0a0a0a", highlightthickness=0, **kwargs)
         self._draw()
+        self.bind("<ButtonPress-1>", self._press)
+        self.bind("<B1-Motion>", self._drag)
+        self.bind("<ButtonRelease-1>", self._release)
 
     def _draw(self):
         self.delete("all")
@@ -399,6 +411,59 @@ class PianoKeyboard(tk.Canvas):
                     bx = 1 + (o * 7 + wi) * self.WW + self.WW + self.BLACK[i]
                     f = "#6366f1" if n in self.active else "#1a1a1a"
                     self.create_rectangle(bx, 1, bx + self.BW, self.BH, fill=f, outline="#000")
+
+    def _hit_test(self, x, y):
+        """Return the MIDI note at pixel position (x, y), or None."""
+        # Check black keys first (they're on top)
+        for o in range(self.octaves):
+            for i in range(12):
+                if i in self.BLACK:
+                    wi = [0, 0, 1, 1, 2, 3, 3, 4, 4, 5, 5, 6][i]
+                    bx = 1 + (o * 7 + wi) * self.WW + self.WW + self.BLACK[i]
+                    if bx <= x <= bx + self.BW and 1 <= y <= self.BH:
+                        return self.start + o * 12 + i
+        # Check white keys
+        whites = [0, 2, 4, 5, 7, 9, 11]
+        wx = 1
+        for o in range(self.octaves):
+            for w in whites:
+                if wx <= x <= wx + self.WW - 1 and 1 <= y <= self.WH:
+                    return self.start + o * 12 + w
+                wx += self.WW
+        # Final C
+        if wx <= x <= wx + self.WW - 1 and 1 <= y <= self.WH:
+            return self.start + self.octaves * 12
+        return None
+
+    def _press(self, e):
+        note = self._hit_test(e.x, e.y)
+        if note is not None:
+            self._mouse_note = note
+            self.note_on(note)
+            if self.on_note:
+                self.on_note(note, 100)
+
+    def _drag(self, e):
+        note = self._hit_test(e.x, e.y)
+        if note != self._mouse_note:
+            if self._mouse_note is not None:
+                self.note_off(self._mouse_note)
+                if self.on_note:
+                    self.on_note(self._mouse_note, 0)
+            if note is not None:
+                self._mouse_note = note
+                self.note_on(note)
+                if self.on_note:
+                    self.on_note(note, 100)
+            else:
+                self._mouse_note = None
+
+    def _release(self, e):
+        if self._mouse_note is not None:
+            self.note_off(self._mouse_note)
+            if self.on_note:
+                self.on_note(self._mouse_note, 0)
+            self._mouse_note = None
 
     def note_on(self, n):
         self.active.add(n)
@@ -513,7 +578,7 @@ class AnarackApp:
         # ── Keyboard ──
         kf = tk.Frame(self.root, bg=bg, pady=4)
         kf.pack()
-        self.kbd = PianoKeyboard(kf, start=36, octaves=5)
+        self.kbd = PianoKeyboard(kf, start=36, octaves=5, on_note=self.on_keyboard_note)
         self.kbd.pack()
 
         # ── Footer ──
@@ -583,6 +648,14 @@ class AnarackApp:
                     self.mc.current(i)
                     return
             self.mc.current(0)
+
+    def on_keyboard_note(self, note, velocity):
+        """Called when a key is clicked on the on-screen keyboard."""
+        if self.engine and self.engine.is_alive():
+            if velocity > 0:
+                self.cc_queue.put((-2, note | (velocity << 7)))  # note on
+            else:
+                self.cc_queue.put((-3, note))  # note off
 
     def on_cc(self, cc, val):
         if self.engine and self.engine.is_alive():
