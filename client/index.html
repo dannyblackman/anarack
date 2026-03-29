@@ -56,10 +56,10 @@
 
     /* Keyboard */
     .keyboard-wrap { padding: 8px 0; width: 100%; }
-    .keyboard { display: flex; position: relative; user-select: none; -webkit-user-select: none; width: 100%; }
-    .key { position: relative; border-radius: 0 0 4px 4px; cursor: pointer; }
-    .key.white { flex: 1; aspect-ratio: 1/4; background: #d4d4d4; border: 1px solid #888; z-index: 1; }
-    .key.black { flex: 0.6; aspect-ratio: 1/3; background: #1a1a1a; border: 1px solid #000; margin-left: -0.3%; margin-right: -0.3%; z-index: 2; }
+    .keyboard { position: relative; user-select: none; -webkit-user-select: none; width: 100%; }
+    .key { position: absolute; border-radius: 0 0 4px 4px; cursor: pointer; }
+    .key.white { background: #d4d4d4; border: 1px solid #888; z-index: 1; }
+    .key.black { background: #1a1a1a; border: 1px solid #000; z-index: 2; }
     .key.white.active { background: #6366f1; }
     .key.black.active { background: #6366f1; }
 
@@ -520,29 +520,74 @@ function buildKeyboard() {
   kb.innerHTML = "";
   const startNote = 36; // C2
   const octaves = 5;
+  const numWhites = octaves * 7 + 1;
+  const totalWidth = kb.parentElement.clientWidth;
+  const whiteW = totalWidth / numWhites;
+  const whiteH = whiteW * 4;
+  const blackW = whiteW * 0.65;
+  const blackH = whiteH * 0.6;
+  const blackOffsets = { 1: 0.55, 3: 0.75, 6: 0.5, 8: 0.65, 10: 0.8 };
+
+  kb.style.height = whiteH + "px";
+
+  let whiteIdx = 0;
+  const whites = [0, 2, 4, 5, 7, 9, 11];
+
+  // White keys first
   for (let o = 0; o < octaves; o++) {
-    for (let i = 0; i < 12; i++) {
-      const note = startNote + o * 12 + i;
-      const isBlack = BLACK_SET.has(i);
+    for (const w of whites) {
+      const note = startNote + o * 12 + w;
       const key = document.createElement("div");
-      key.className = `key ${isBlack ? "black" : "white"}`;
+      key.className = "key white";
       key.dataset.note = note;
-      key.addEventListener("mousedown", (e) => { e.preventDefault(); noteOn(note); mouseNote = note; });
-      key.addEventListener("mouseenter", (e) => { if (e.buttons === 1 && mouseNote !== note) { if (mouseNote !== null) noteOff(mouseNote); noteOn(note); mouseNote = note; }});
-      key.addEventListener("touchstart", (e) => { e.preventDefault(); noteOn(note); mouseNote = note; });
+      key.style.left = (whiteIdx * whiteW) + "px";
+      key.style.width = (whiteW - 1) + "px";
+      key.style.height = whiteH + "px";
+      addKeyEvents(key, note);
       kb.appendChild(key);
+      whiteIdx++;
     }
   }
   // Final C
   const lastNote = startNote + octaves * 12;
   const lastKey = document.createElement("div");
   lastKey.className = "key white"; lastKey.dataset.note = lastNote;
-  lastKey.addEventListener("mousedown", (e) => { e.preventDefault(); noteOn(lastNote); mouseNote = lastNote; });
+  lastKey.style.left = (whiteIdx * whiteW) + "px";
+  lastKey.style.width = (whiteW - 1) + "px";
+  lastKey.style.height = whiteH + "px";
+  addKeyEvents(lastKey, lastNote);
   kb.appendChild(lastKey);
+
+  // Black keys
+  for (let o = 0; o < octaves; o++) {
+    for (const [noteInOct, offset] of Object.entries(blackOffsets)) {
+      const i = parseInt(noteInOct);
+      const note = startNote + o * 12 + i;
+      const whitesBefore = whites.filter(w => w < i).length;
+      const x = (o * 7 + whitesBefore + offset) * whiteW - blackW / 2;
+      const key = document.createElement("div");
+      key.className = "key black";
+      key.dataset.note = note;
+      key.style.left = x + "px";
+      key.style.width = blackW + "px";
+      key.style.height = blackH + "px";
+      addKeyEvents(key, note);
+      kb.appendChild(key);
+    }
+  }
 
   document.addEventListener("mouseup", () => { if (mouseNote !== null) { noteOff(mouseNote); mouseNote = null; }});
   document.addEventListener("touchend", () => { if (mouseNote !== null) { noteOff(mouseNote); mouseNote = null; }});
 }
+
+function addKeyEvents(key, note) {
+  key.addEventListener("mousedown", (e) => { e.preventDefault(); noteOn(note); mouseNote = note; });
+  key.addEventListener("mouseenter", (e) => { if (e.buttons === 1 && mouseNote !== note) { if (mouseNote !== null) noteOff(mouseNote); noteOn(note); mouseNote = note; }});
+  key.addEventListener("touchstart", (e) => { e.preventDefault(); noteOn(note); mouseNote = note; });
+}
+
+// Rebuild keyboard on resize
+window.addEventListener("resize", () => { buildKeyboard(); });
 
 function noteOn(n) { sendMidi(0x90, n, 100); activeNotes.add(n); highlightKey(n, true); }
 function noteOff(n) { sendMidi(0x80, n, 0); activeNotes.delete(n); highlightKey(n, false); }
