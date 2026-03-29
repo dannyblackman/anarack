@@ -3,158 +3,551 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Anarack — Remote Synth Studio</title>
+  <title>Anarack</title>
   <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      background: #0a0a0a; color: #e0e0e0;
-      display: flex; flex-direction: column; align-items: center;
-      min-height: 100vh;
+    @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=JetBrains+Mono:wght@300;400;500;600&display=swap');
+
+    :root {
+      --bg: #121110;
+      --surface: #1a1918;
+      --surface-raised: #222120;
+      --border: rgba(255,255,255,0.06);
+      --border-strong: rgba(255,255,255,0.1);
+      --text: #e8e4de;
+      --text-dim: rgba(255,255,255,0.35);
+      --text-muted: rgba(255,255,255,0.18);
+      --accent: #E8A849;
+      --accent-dim: rgba(232,168,73,0.15);
+      --accent-glow: rgba(232,168,73,0.4);
+      --live: #5BDB7E;
+      --live-glow: rgba(91,219,126,0.5);
+      --danger: #E85454;
+      --mono: 'JetBrains Mono', monospace;
+      --display: 'Syne', sans-serif;
     }
 
-    /* Header */
-    .header { background: #111; width: 100%; padding: 12px 20px; display: flex; align-items: center; gap: 12px; }
-    .header h1 { font-size: 18px; font-weight: 700; letter-spacing: 1px; }
-    .header .synth-name { font-size: 13px; color: #555; }
-    .header .status { font-size: 13px; margin-left: auto; }
-    .header .status.connected { color: #4ade80; }
-    .header .status.disconnected { color: #f87171; }
-    .header .status.connecting { color: #facc15; }
-    .header .latency { font-family: "SF Mono", monospace; font-size: 16px; font-weight: 700; color: #4ade80; }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
 
-    /* Connection bar */
-    .conn-bar { background: #131313; width: 100%; padding: 8px 20px; display: flex; align-items: center; gap: 12px; font-size: 13px; flex-wrap: wrap; }
-    .conn-bar label { color: #777; }
-    .conn-bar input[type="text"] { background: #222; color: #eee; border: 1px solid #333; border-radius: 4px; padding: 5px 8px; font-family: "SF Mono", monospace; font-size: 12px; }
-    .conn-bar select { background: #222; color: #eee; border: 1px solid #333; border-radius: 4px; padding: 5px 8px; font-size: 12px; }
-    .conn-bar button { background: #6366f1; color: white; border: none; border-radius: 4px; padding: 6px 18px; font-size: 12px; font-weight: 600; cursor: pointer; }
-    .conn-bar button.disconnect { background: #dc2626; }
-    .conn-bar .midi-status { font-size: 11px; color: #666; }
+    html, body {
+      height: 100%;
+    }
+    body {
+      font-family: var(--mono);
+      background: var(--bg);
+      color: var(--text);
+      height: 100%;
+      overflow: hidden;
+    }
 
-    /* Synth Panel */
-    .panel { display: flex; gap: 4px; padding: 10px; flex-wrap: wrap; justify-content: center; width: 100%; }
-    .group { background: #1a1a1a; padding: 10px 8px; border-radius: 6px; display: flex; flex-direction: column; align-items: center; flex: 1; min-width: 140px; }
-    .group-title { font-size: 10px; font-weight: 700; color: #6366f1; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; }
-    .group-knobs { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; }
+    /* ── Noise grain overlay ── */
+    body::before {
+      content: '';
+      position: fixed; inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");
+      pointer-events: none;
+      z-index: 9999;
+    }
 
-    /* Knob */
-    .knob-wrap { display: flex; flex-direction: column; align-items: center; cursor: pointer; width: 72px; }
+    /* ── Shell ── */
+    .shell {
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      padding: 0 16px;
+    }
+
+    /* ── Top bar ── */
+    .topbar {
+      display: flex;
+      align-items: center;
+      padding: 10px 0;
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+    .brand {
+      font-family: var(--display);
+      font-weight: 800;
+      font-size: 15px;
+      letter-spacing: 6px;
+      text-transform: uppercase;
+      color: var(--accent);
+    }
+    .topbar-right {
+      margin-left: auto;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+    .conn-group {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .conn-label {
+      font-size: 9px;
+      font-weight: 500;
+      color: var(--text-dim);
+      text-transform: uppercase;
+      letter-spacing: 2px;
+    }
+    .conn-input {
+      background: var(--surface);
+      color: var(--text);
+      border: 1px solid var(--border-strong);
+      padding: 5px 10px;
+      font-family: var(--mono);
+      font-size: 11px;
+      font-weight: 400;
+      border-radius: 3px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    .conn-input:focus { border-color: var(--accent); }
+    .conn-select {
+      background: var(--surface);
+      color: var(--text);
+      border: 1px solid var(--border-strong);
+      padding: 5px 10px;
+      font-family: var(--mono);
+      font-size: 11px;
+      border-radius: 3px;
+      outline: none;
+    }
+    .conn-btn {
+      background: var(--accent);
+      color: var(--bg);
+      border: none;
+      padding: 5px 16px;
+      font-family: var(--mono);
+      font-size: 10px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+      border-radius: 3px;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .conn-btn:hover { filter: brightness(1.1); }
+    .conn-btn.disconnect { background: var(--danger); color: #fff; }
+    .conn-btn.secondary {
+      background: var(--surface-raised);
+      color: var(--text-dim);
+      border: 1px solid var(--border-strong);
+    }
+    .conn-btn.secondary:hover { color: var(--text); background: #2a2928; }
+    .midi-status { font-size: 9px; color: var(--text-muted); }
+
+    /* ── Session header ── */
+    .session {
+      display: flex;
+      align-items: baseline;
+      padding: 14px 0 12px;
+      gap: 16px;
+      flex-shrink: 0;
+    }
+    .session-synth {
+      font-family: var(--display);
+      font-weight: 700;
+      font-size: 32px;
+      letter-spacing: -0.5px;
+      color: var(--text);
+      line-height: 1;
+    }
+    .session-meta {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-left: auto;
+    }
+    .status-pill {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 10px;
+      border-radius: 20px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+    }
+    .status-dot {
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: var(--text-muted);
+      transition: all 0.3s;
+    }
+    .status-dot.connected { background: var(--live); box-shadow: 0 0 8px var(--live-glow); }
+    .status-dot.connecting { background: var(--accent); box-shadow: 0 0 8px var(--accent-glow); animation: pulse 1.5s infinite; }
+    @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
+    .status-label {
+      font-size: 9px;
+      font-weight: 500;
+      color: var(--text-dim);
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+    }
+    .latency-val {
+      font-family: var(--mono);
+      font-size: 20px;
+      font-weight: 300;
+      color: var(--live);
+      letter-spacing: -1px;
+    }
+    .latency-unit {
+      font-size: 10px;
+      color: var(--text-dim);
+      margin-left: 2px;
+      font-weight: 500;
+    }
+
+    /* ── Parameter surface ── */
+    .param-surface {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 16px 16px;
+      margin-bottom: 8px;
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+    }
+    .sections {
+      display: flex;
+      gap: 0;
+      width: 100%;
+    }
+    .section {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 0 6px;
+      border-right: 1px solid var(--border);
+    }
+    .section:last-child { border-right: none; }
+    .section-title {
+      font-family: var(--display);
+      font-size: 9px;
+      font-weight: 600;
+      color: var(--text-dim);
+      text-transform: uppercase;
+      letter-spacing: 3px;
+      margin-bottom: 14px;
+      white-space: nowrap;
+    }
+    .section-knobs {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 4px;
+    }
+
+    /* ── Knob ── */
+    .knob-wrap {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      cursor: pointer;
+      width: 70px;
+      padding: 4px 0;
+      border-radius: 6px;
+      transition: background 0.15s;
+    }
+    .knob-wrap:hover { background: rgba(255,255,255,0.02); }
     .knob-wrap canvas { cursor: grab; }
     .knob-wrap canvas:active { cursor: grabbing; }
-    .knob-label { font-size: 10px; color: #999; margin-top: 2px; }
-    .knob-map { font-size: 8px; color: #6366f1; height: 12px; }
-    .knob-wrap.learning .knob-map { color: #facc15; }
+    .knob-label {
+      font-family: var(--mono);
+      font-size: 8px;
+      font-weight: 500;
+      color: var(--text-dim);
+      margin-top: 4px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+    .knob-map {
+      font-size: 7px;
+      color: var(--text-muted);
+      height: 10px;
+      font-weight: 400;
+    }
+    .knob-wrap.learning .knob-label { color: var(--accent); }
 
-    /* Program bar */
-    .prog-bar { background: #131313; width: 100%; padding: 5px 16px; display: flex; align-items: center; gap: 8px; font-size: 11px; }
-    .prog-bar label { color: #777; font-size: 9px; font-weight: 600; }
-    .prog-bar button { background: #444; color: white; border: none; border-radius: 3px; padding: 3px 8px; font-size: 12px; font-weight: 700; cursor: pointer; }
-    .prog-bar input { background: #222; color: #eee; border: 1px solid #333; border-radius: 3px; padding: 2px; width: 40px; text-align: center; font-family: "SF Mono", monospace; font-size: 11px; }
-    .bank-btn { background: #444 !important; color: white !important; border: none; border-radius: 3px; padding: 2px 6px; font-family: "SF Mono", monospace; font-size: 10px; font-weight: 700; cursor: pointer; margin: 0 1px; }
-    .bank-btn.active { background: #6366f1 !important; }
+    /* ── Program strip ── */
+    .prog-strip {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 16px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      margin-bottom: 8px;
+      flex-shrink: 0;
+    }
+    .prog-label {
+      font-size: 9px;
+      font-weight: 500;
+      color: var(--text-dim);
+      text-transform: uppercase;
+      letter-spacing: 2px;
+    }
+    .prog-btn {
+      background: var(--surface-raised);
+      color: var(--text-dim);
+      border: 1px solid var(--border-strong);
+      border-radius: 3px;
+      padding: 3px 8px;
+      font-family: var(--mono);
+      font-size: 12px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.1s;
+      line-height: 1;
+    }
+    .prog-btn:hover { color: var(--text); background: #2e2d2c; }
+    .prog-num {
+      background: var(--bg);
+      color: var(--accent);
+      border: 1px solid var(--border-strong);
+      border-radius: 3px;
+      padding: 3px 4px;
+      width: 40px;
+      text-align: center;
+      font-family: var(--mono);
+      font-size: 13px;
+      font-weight: 500;
+      outline: none;
+    }
+    .prog-num:focus { border-color: var(--accent); }
+    .bank-btn {
+      background: transparent !important;
+      color: var(--text-muted) !important;
+      border: 1px solid var(--border) !important;
+      border-radius: 3px;
+      padding: 4px 8px;
+      font-family: var(--mono);
+      font-size: 9px;
+      font-weight: 600;
+      cursor: pointer;
+      margin: 0 1px;
+      transition: all 0.1s;
+      letter-spacing: 1px;
+    }
+    .bank-btn:hover { color: var(--text-dim) !important; border-color: var(--border-strong) !important; }
+    .bank-btn.active {
+      color: var(--accent) !important;
+      border-color: var(--accent) !important;
+      background: var(--accent-dim) !important;
+    }
 
-    /* Keyboard */
-    .keyboard-wrap { padding: 8px 0; width: 100%; }
-    .keyboard { position: relative; user-select: none; -webkit-user-select: none; width: 100%; }
-    .key { position: absolute; border-radius: 0 0 4px 4px; cursor: pointer; }
-    .key.white { background: #d4d4d4; border: 1px solid #888; z-index: 1; }
-    .key.black { background: #1a1a1a; border: 1px solid #000; z-index: 2; }
-    .key.white.active { background: #6366f1; }
-    .key.black.active { background: #6366f1; }
+    /* ── Keyboard ── */
+    .keyboard-surface {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 12px 12px 16px;
+      margin-bottom: 8px;
+      overflow: hidden;
+      flex: 1;
+      display: flex;
+      align-items: stretch;
+      min-height: 0;
+    }
+    .keyboard-wrap { width: 100%; display: flex; flex-direction: column; }
+    .keyboard {
+      position: relative;
+      user-select: none;
+      -webkit-user-select: none;
+      width: 100%;
+      flex: 1;
+    }
+    .key {
+      position: absolute;
+      cursor: pointer;
+      transition: background 0.04s, box-shadow 0.06s;
+    }
+    .key.white {
+      background: linear-gradient(180deg, #f2f0ec 0%, #e8e6e1 50%, #dfddd8 100%);
+      border: 1px solid rgba(0,0,0,0.15);
+      border-top: none;
+      border-radius: 0 0 4px 4px;
+      z-index: 1;
+    }
+    .key.white:hover {
+      background: linear-gradient(180deg, #f7f5f1 0%, #edebe6 50%, #e4e2dd 100%);
+    }
+    .key.white.active {
+      background: linear-gradient(180deg,
+        color-mix(in srgb, var(--accent) 15%, #e8e6e1) 0%,
+        color-mix(in srgb, var(--accent) 10%, #dfddd8) 100%);
+      box-shadow: inset 0 0 12px var(--accent-dim), 0 0 8px var(--accent-dim);
+    }
+    .key.black {
+      background: linear-gradient(180deg, #2a2928 0%, #1e1d1c 50%, #161514 100%);
+      border: 1px solid #000;
+      border-top: none;
+      border-radius: 0 0 3px 3px;
+      z-index: 2;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.5);
+    }
+    .key.black:hover {
+      background: linear-gradient(180deg, #333231 0%, #262524 50%, #1c1b1a 100%);
+    }
+    .key.black.active {
+      background: linear-gradient(180deg,
+        color-mix(in srgb, var(--accent) 25%, #2a2928) 0%,
+        color-mix(in srgb, var(--accent) 15%, #161514) 100%);
+      box-shadow: 0 0 12px var(--accent-dim);
+    }
 
-    /* Footer */
-    .footer { width: 100%; padding: 4px 16px; display: flex; justify-content: space-between; font-size: 9px; color: #444; font-family: "SF Mono", monospace; }
+    /* ── Footer ── */
+    .footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 6px 0;
+      flex-shrink: 0;
+    }
+    .footer-text {
+      font-size: 9px;
+      color: var(--text-muted);
+      letter-spacing: 0.5px;
+    }
+    .footer-text .accent { color: var(--text-dim); }
+    .footer-toggle { cursor: pointer; }
+    .footer-toggle:hover { color: var(--text-dim); }
 
-    /* Log */
-    #log { width: 100%; max-width: 900px; height: 80px; background: #111; border-top: 1px solid #222; padding: 4px 8px; font-family: "SF Mono", monospace; font-size: 9px; color: #555; overflow-y: auto; }
+    /* ── Log (hidden by default, toggle with footer click) ── */
+    #log {
+      display: none;
+      width: 100%;
+      height: 48px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 6px 10px;
+      margin-bottom: 8px;
+      font-family: var(--mono);
+      font-size: 9px;
+      font-weight: 400;
+      color: var(--text-muted);
+      overflow-y: auto;
+      line-height: 1.6;
+      flex-shrink: 0;
+    }
+    #log.visible { display: block; }
+    #log div { opacity: 0.6; }
+    #log div:last-child { opacity: 1; color: var(--text-dim); }
   </style>
 </head>
 <body>
+<div class="shell">
 
-  <!-- Header -->
-  <div class="header">
-    <h1>ANARACK</h1>
-    <span class="synth-name">Prophet Rev2</span>
-    <span class="status disconnected" id="status">Disconnected</span>
-    <span class="latency" id="latency"></span>
+  <!-- Top bar -->
+  <div class="topbar">
+    <div class="brand">Anarack</div>
+    <div class="topbar-right">
+      <div class="conn-group">
+        <span class="conn-label">Server</span>
+        <input class="conn-input" type="text" id="ws-host" value="play.anarack.com" style="width:180px">
+      </div>
+      <div class="conn-group">
+        <span class="conn-label">MIDI</span>
+        <select class="conn-select" id="midi-input"><option value="">None</option></select>
+        <span class="midi-status" id="midi-input-status"></span>
+      </div>
+      <button class="conn-btn" id="connect-btn" onclick="toggleConnection()">Connect</button>
+      <button class="conn-btn secondary" onclick="measureLatency()">Ping</button>
+    </div>
   </div>
 
-  <!-- Connection -->
-  <div class="conn-bar">
-    <label>Server</label>
-    <input type="text" id="ws-host" value="play.anarack.com" style="width:220px">
-    <label>MIDI In</label>
-    <select id="midi-input"><option value="">None</option></select>
-    <button id="connect-btn" onclick="toggleConnection()">Connect</button>
-    <button onclick="measureLatency()" style="background:#333">Measure</button>
-    <span class="midi-status" id="midi-input-status"></span>
+  <!-- Session header -->
+  <div class="session">
+    <div class="session-synth" id="synth-name">Prophet Rev2</div>
+    <div class="session-meta">
+      <div class="status-pill">
+        <div class="status-dot" id="status-led"></div>
+        <span class="status-label" id="status">Offline</span>
+      </div>
+      <span class="latency-val" id="latency"></span>
+    </div>
   </div>
 
-  <!-- Synth Panel -->
-  <div class="panel" id="panel"></div>
+  <!-- Parameters -->
+  <div class="param-surface">
+    <div class="sections" id="panel"></div>
+  </div>
 
   <!-- Program / Bank -->
-  <div class="prog-bar">
-    <label>PROGRAM</label>
-    <button onclick="changeProgram(-1)"> < </button>
-    <input type="number" id="program-num" value="0" min="0" max="127">
-    <button onclick="changeProgram(1)"> > </button>
-    <label style="margin-left:12px">BANK</label>
+  <div class="prog-strip">
+    <span class="prog-label">Program</span>
+    <button class="prog-btn" onclick="changeProgram(-1)">&larr;</button>
+    <input class="prog-num" type="number" id="program-num" value="0" min="0" max="127">
+    <button class="prog-btn" onclick="changeProgram(1)">&rarr;</button>
+    <span class="prog-label" style="margin-left:12px">Bank</span>
     <span id="bank-buttons"></span>
+    <span class="footer-text accent" style="margin-left:auto" id="learn-hint">Double-click knob to MIDI learn</span>
   </div>
 
   <!-- Keyboard -->
-  <div class="keyboard-wrap">
-    <div class="keyboard" id="keyboard"></div>
-  </div>
-
-  <!-- Footer -->
-  <div class="footer">
-    <span id="stats">MIDI: 0 | Audio: 0</span>
-    <span id="learn-hint">Double-click knob to MIDI learn</span>
+  <div class="keyboard-surface">
+    <div class="keyboard-wrap">
+      <div class="keyboard" id="keyboard"></div>
+    </div>
   </div>
 
   <!-- Log -->
   <div id="log"></div>
 
+  <!-- Footer -->
+  <div class="footer">
+    <span class="footer-text" id="stats">MIDI: 0 &middot; Audio: 0</span>
+    <span class="footer-text footer-toggle" onclick="document.getElementById('log').classList.toggle('visible')">Log</span>
+  </div>
+
+</div>
+
 <script>
 // ─────────────────────────────────────────────
-// Rev2 Parameter Layout (matching front panel)
+// Synth config (swap this for different synths)
 // ─────────────────────────────────────────────
+const SYNTH_NAME = "Prophet Rev2";
+
 const PANEL = [
-  { name: "OSC 1", params: [
+  { name: "Osc 1", params: [
     { label: "Freq", cc: 20, def: 64 }, { label: "Fine", cc: 21, def: 64 },
     { label: "Shape", cc: 22, def: 0 }, { label: "Glide", cc: 23, def: 0 },
   ]},
-  { name: "OSC 2", params: [
+  { name: "Osc 2", params: [
     { label: "Freq", cc: 24, def: 64 }, { label: "Fine", cc: 25, def: 64 },
     { label: "Shape", cc: 26, def: 0 }, { label: "Glide", cc: 27, def: 0 },
   ]},
-  { name: "MIXER", params: [
+  { name: "Mixer", params: [
     { label: "Mix", cc: 28, def: 64 }, { label: "Noise", cc: 29, def: 0 },
     { label: "Sub", cc: 8, def: 0 }, { label: "Slop", cc: 9, def: 0 },
   ]},
-  { name: "FILTER", params: [
+  { name: "Filter", params: [
     { label: "Cutoff", cc: 102, def: 100 }, { label: "Reso", cc: 103, def: 0 },
-    { label: "Key", cc: 104, def: 0 }, { label: "EnvAmt", cc: 106, def: 64 },
+    { label: "Key", cc: 104, def: 0 }, { label: "Env", cc: 106, def: 64 },
   ]},
-  { name: "FILT ENV", params: [
+  { name: "Filter Env", params: [
     { label: "Atk", cc: 109, def: 0 }, { label: "Dec", cc: 110, def: 64 },
     { label: "Sus", cc: 111, def: 64 }, { label: "Rel", cc: 112, def: 40 },
   ]},
-  { name: "AMP", params: [
+  { name: "Amp", params: [
     { label: "Level", cc: 113, def: 100 }, { label: "Pan", cc: 114, def: 64 },
   ]},
-  { name: "AMP ENV", params: [
+  { name: "Amp Env", params: [
     { label: "Atk", cc: 118, def: 0 }, { label: "Dec", cc: 119, def: 64 },
     { label: "Sus", cc: 75, def: 100 }, { label: "Rel", cc: 76, def: 40 },
   ]},
-  { name: "EFFECTS", params: [
+  { name: "Effects", params: [
     { label: "Mix", cc: 17, def: 0 }, { label: "P1", cc: 12, def: 64 },
     { label: "P2", cc: 13, def: 64 },
   ]},
 ];
+
+document.getElementById("synth-name").textContent = SYNTH_NAME;
+document.title = `Anarack — ${SYNTH_NAME}`;
 
 // ─────────────────────────────────────────────
 // State
@@ -166,23 +559,31 @@ let nextPlayTime = 0, audioStarted = false;
 const SAMPLE_RATE = 48000;
 const BUFFER_AHEAD = 0.001;
 
-// Knob state
-const knobs = []; // { canvas, cc, value, label, mappedCC }
+const knobs = [];
 let learningKnob = null;
-
-// CC mapping: controller CC → synth CC
 let ccMap = {};
 let midiCount = 0, audioCount = 0;
 
 // ─────────────────────────────────────────────
-// Knob Rendering
+// Design system colors
+// ─────────────────────────────────────────────
+const ACCENT = '#E8A849';
+const ACCENT_DIM = 'rgba(232,168,73,0.2)';
+const TRACK_COLOR = 'rgba(255,255,255,0.06)';
+const TEXT_DIM = 'rgba(255,255,255,0.3)';
+
+// ─────────────────────────────────────────────
+// Knob — arc indicator style
 // ─────────────────────────────────────────────
 function createKnob(parent, label, cc, defaultVal) {
   const wrap = document.createElement("div");
   wrap.className = "knob-wrap";
 
   const canvas = document.createElement("canvas");
-  canvas.width = 60; canvas.height = 60;
+  const SIZE = 54;
+  const DPR = window.devicePixelRatio || 1;
+  canvas.width = SIZE * DPR; canvas.height = SIZE * DPR;
+  canvas.style.width = SIZE + "px"; canvas.style.height = SIZE + "px";
   const mapLabel = document.createElement("div");
   mapLabel.className = "knob-map";
   const nameLabel = document.createElement("div");
@@ -194,13 +595,12 @@ function createKnob(parent, label, cc, defaultVal) {
   wrap.appendChild(mapLabel);
   parent.appendChild(wrap);
 
-  const knob = { canvas, cc, value: defaultVal, label, mappedCC: null, wrap, mapLabel, dragY: null, dragVal: null };
+  const knob = { canvas, cc, value: defaultVal, label, mappedCC: null, wrap, mapLabel, dragY: null, dragVal: null, size: SIZE, dpr: DPR };
   knobs.push(knob);
 
   drawKnob(knob);
   updateKnobMapLabel(knob);
 
-  // Drag
   canvas.addEventListener("mousedown", (e) => { knob.dragY = e.clientY; knob.dragVal = knob.value; e.preventDefault(); });
   window.addEventListener("mousemove", (e) => {
     if (knob.dragY === null) return;
@@ -209,7 +609,6 @@ function createKnob(parent, label, cc, defaultVal) {
   });
   window.addEventListener("mouseup", () => { knob.dragY = null; });
 
-  // Touch
   canvas.addEventListener("touchstart", (e) => { knob.dragY = e.touches[0].clientY; knob.dragVal = knob.value; e.preventDefault(); });
   window.addEventListener("touchmove", (e) => {
     if (knob.dragY === null) return;
@@ -218,10 +617,7 @@ function createKnob(parent, label, cc, defaultVal) {
   });
   window.addEventListener("touchend", () => { knob.dragY = null; });
 
-  // Scroll
   canvas.addEventListener("wheel", (e) => { e.preventDefault(); setKnobValue(knob, knob.value + (e.deltaY < 0 ? 1 : -1), true); });
-
-  // Double-click = MIDI learn
   wrap.addEventListener("dblclick", (e) => { e.preventDefault(); startLearn(knob); });
 
   return knob;
@@ -229,40 +625,59 @@ function createKnob(parent, label, cc, defaultVal) {
 
 function drawKnob(knob, learning = false) {
   const ctx = knob.canvas.getContext("2d");
-  const w = 60, cx = w/2, cy = w/2, r = 24;
-  ctx.clearRect(0, 0, w, w);
+  const DPR = knob.dpr;
+  const S = knob.size * DPR;
+  const cx = S / 2, cy = S / 2;
+  const R = S * 0.40;
 
-  const startAng = (225 * Math.PI) / 180;
-  const sweep = (270 * Math.PI) / 180;
-  const valAng = (knob.value / 127) * sweep;
+  ctx.clearRect(0, 0, S, S);
 
-  // Track
+  const startAng = Math.PI * 0.75;   // 135 degrees — bottom-left
+  const endAng = Math.PI * 2.25;     // 405 degrees — bottom-right
+  const sweep = endAng - startAng;   // 270 degrees
+  const valAng = startAng + (knob.value / 127) * sweep;
+
+  // Track (background arc)
   ctx.beginPath();
-  ctx.arc(cx, cy, r, -startAng, -startAng + sweep);
-  ctx.strokeStyle = "#333"; ctx.lineWidth = 2; ctx.stroke();
+  ctx.arc(cx, cy, R, startAng, endAng);
+  ctx.strokeStyle = TRACK_COLOR;
+  ctx.lineWidth = 3 * DPR;
+  ctx.lineCap = 'round';
+  ctx.stroke();
 
   // Value arc
-  ctx.beginPath();
-  ctx.arc(cx, cy, r, -startAng, -startAng + valAng);
-  ctx.strokeStyle = learning ? "#facc15" : "#6366f1"; ctx.lineWidth = 2.5; ctx.stroke();
+  if (knob.value > 0) {
+    ctx.beginPath();
+    ctx.arc(cx, cy, R, startAng, valAng);
+    ctx.strokeStyle = learning ? ACCENT : 'rgba(255,255,255,0.5)';
+    ctx.lineWidth = 3 * DPR;
+    ctx.lineCap = 'round';
+    ctx.stroke();
+  }
 
-  // Body
+  // Position dot
+  const dotR = 3.5 * DPR;
+  const dotX = cx + Math.cos(valAng) * R;
+  const dotY = cy + Math.sin(valAng) * R;
   ctx.beginPath();
-  ctx.arc(cx, cy, r - 4, 0, Math.PI * 2);
-  ctx.fillStyle = learning ? "#33351a" : "#2a2a2a"; ctx.fill();
-  ctx.strokeStyle = "#444"; ctx.lineWidth = 0.5; ctx.stroke();
+  ctx.arc(dotX, dotY, dotR, 0, Math.PI * 2);
+  ctx.fillStyle = learning ? ACCENT : '#fff';
+  ctx.fill();
 
-  // Indicator
-  const ang = -startAng + valAng;
-  const il = r - 5;
-  ctx.beginPath();
-  ctx.moveTo(cx, cy);
-  ctx.lineTo(cx + Math.cos(ang) * il, cy + Math.sin(ang) * il);
-  ctx.strokeStyle = "white"; ctx.lineWidth = 2; ctx.stroke();
+  // Glow behind dot
+  if (learning) {
+    ctx.beginPath();
+    ctx.arc(dotX, dotY, dotR + 4 * DPR, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(232,168,73,0.15)';
+    ctx.fill();
+  }
 
-  // Value text
-  ctx.fillStyle = "#777"; ctx.font = "9px monospace"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
-  ctx.fillText(knob.value, cx, cy);
+  // Value text (center)
+  ctx.fillStyle = learning ? ACCENT : TEXT_DIM;
+  ctx.font = `${10 * DPR}px 'JetBrains Mono', monospace`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(knob.value, cx, cy + 1 * DPR);
 }
 
 function setKnobValue(knob, val, send) {
@@ -274,12 +689,11 @@ function setKnobValue(knob, val, send) {
 function updateKnobMapLabel(knob) {
   const controllerCC = Object.entries(ccMap).find(([k, v]) => v === knob.cc);
   if (controllerCC) {
-    knob.mapLabel.textContent = `← CC${controllerCC[0]}`;
-    knob.mapLabel.style.color = "#6366f1";
+    knob.mapLabel.textContent = `CC${controllerCC[0]}`;
+    knob.mapLabel.style.color = 'var(--text-muted)';
     knob.mappedCC = parseInt(controllerCC[0]);
   } else {
-    knob.mapLabel.textContent = "dbl-click";
-    knob.mapLabel.style.color = "#444";
+    knob.mapLabel.textContent = "";
     knob.mappedCC = null;
   }
 }
@@ -289,25 +703,21 @@ function updateKnobMapLabel(knob) {
 // ─────────────────────────────────────────────
 function startLearn(knob) {
   if (learningKnob === knob) { learningKnob = null; drawKnob(knob); setLearnHint("Double-click knob to MIDI learn"); return; }
-  if (learningKnob) drawKnob(learningKnob);
+  if (learningKnob) { learningKnob.wrap.classList.remove("learning"); drawKnob(learningKnob); }
   learningKnob = knob;
   drawKnob(knob, true);
   knob.wrap.classList.add("learning");
-  setLearnHint(`Twiddle a knob for ${knob.label}...`);
+  setLearnHint(`Waiting for input → ${knob.label}`);
 }
 
 function finishLearn(controllerCC) {
   if (!learningKnob) return false;
   const synthCC = learningKnob.cc;
-
-  // Remove old mappings
   for (const [k, v] of Object.entries(ccMap)) { if (v === synthCC) delete ccMap[k]; }
   delete ccMap[controllerCC];
-
   ccMap[controllerCC] = synthCC;
   saveMappings();
-
-  setLearnHint(`Mapped CC${controllerCC} → ${learningKnob.label} (CC${synthCC})`);
+  setLearnHint(`CC${controllerCC} → ${learningKnob.label}`);
   learningKnob.wrap.classList.remove("learning");
   drawKnob(learningKnob);
   learningKnob = null;
@@ -375,7 +785,6 @@ function playAudioChunk(buf) {
   audioCount++;
 }
 
-// Latency measurement
 let latencyMeasuring = false, latencySendTime = 0, latencyResults = [];
 function measureLatency() {
   if (!ws || ws.readyState !== 1 || !audioCtx) { log("Connect first"); return; }
@@ -384,8 +793,9 @@ function measureLatency() {
 function runLatencyTest(n) {
   if (n >= 5) {
     const avg = latencyResults.reduce((a,b)=>a+b,0)/latencyResults.length;
-    log(`Latency: avg ${avg.toFixed(0)}ms | min ${Math.min(...latencyResults).toFixed(0)}ms | max ${Math.max(...latencyResults).toFixed(0)}ms (${latencyResults.length} samples)`);
-    document.getElementById("latency").textContent = `${avg.toFixed(0)}ms`;
+    log(`Latency: avg ${avg.toFixed(0)}ms | min ${Math.min(...latencyResults).toFixed(0)}ms | max ${Math.max(...latencyResults).toFixed(0)}ms`);
+    const el = document.getElementById("latency");
+    el.innerHTML = `${avg.toFixed(0)}<span class="latency-unit">ms</span>`;
     return;
   }
   latencyMeasuring = true; latencySendTime = performance.now();
@@ -411,9 +821,10 @@ function playAudioChunkWithDetection(buf) {
 // WebSocket + MIDI
 // ─────────────────────────────────────────────
 function setStatus(s) {
-  const el = document.getElementById("status");
-  el.className = "status " + s;
-  el.textContent = s === "connected" ? "Connected" : s === "connecting" ? "Connecting..." : "Disconnected";
+  const dot = document.getElementById("status-led");
+  const text = document.getElementById("status");
+  dot.className = "status-dot " + s;
+  text.textContent = s === "connected" ? "Live" : s === "connecting" ? "Connecting" : "Offline";
 }
 
 function toggleConnection() {
@@ -503,12 +914,10 @@ function onMidiMessage(e) {
     if (mapped !== undefined) {
       const knob = knobs.find(k => k.cc === mapped);
       let absVal;
-      // Relative CC: values near 64 are increments (65+=CW, 63-=CCW)
-      // Skip extreme values (0, 127) — noise from multi-port controllers
       if (knob && val !== 0 && val !== 127 && val >= 57 && val <= 71 && val !== 64) {
         absVal = Math.max(0, Math.min(127, knob.value + (val - 64)));
       } else if (val === 0 || val === 127) {
-        return; // Ignore multi-port noise
+        return;
       } else {
         absVal = val;
       }
@@ -518,7 +927,6 @@ function onMidiMessage(e) {
     return;
   }
 
-  // Notes → channel 1
   if (type === 0x90 || type === 0x80) {
     sendMidi(type, d1, val);
     if (type === 0x90 && val > 0) { activeNotes.add(d1); highlightKey(d1, true); }
@@ -539,16 +947,15 @@ let mouseNote = null;
 function buildKeyboard() {
   const kb = document.getElementById("keyboard");
   kb.innerHTML = "";
-  const startNote = 36; // C2
+  const startNote = 36;
   const octaves = 5;
   const numWhites = octaves * 7 + 1;
   const totalWidth = kb.parentElement.clientWidth;
+  const containerH = kb.closest('.keyboard-surface').clientHeight - 28; // minus padding
   const whiteW = totalWidth / numWhites;
-  const whiteH = whiteW * 4;
-  const blackW = whiteW * 0.65;
-  const blackH = whiteH * 0.6;
-  // Black key positions: note-in-octave → which white key it sits between (as fraction)
-  // C#=between 0-1, D#=between 1-2, F#=between 3-4, G#=between 4-5, A#=between 5-6
+  const whiteH = Math.max(60, Math.min(containerH, whiteW * 5));
+  const blackW = whiteW * 0.6;
+  const blackH = whiteH * 0.58;
   const blackPositions = { 1: 1, 3: 2, 6: 4, 8: 5, 10: 6 };
 
   kb.style.height = whiteH + "px";
@@ -556,7 +963,6 @@ function buildKeyboard() {
   let whiteIdx = 0;
   const whites = [0, 2, 4, 5, 7, 9, 11];
 
-  // White keys first
   for (let o = 0; o < octaves; o++) {
     for (const w of whites) {
       const note = startNote + o * 12 + w;
@@ -571,7 +977,6 @@ function buildKeyboard() {
       whiteIdx++;
     }
   }
-  // Final C
   const lastNote = startNote + octaves * 12;
   const lastKey = document.createElement("div");
   lastKey.className = "key white"; lastKey.dataset.note = lastNote;
@@ -581,7 +986,6 @@ function buildKeyboard() {
   addKeyEvents(lastKey, lastNote);
   kb.appendChild(lastKey);
 
-  // Black keys
   for (let o = 0; o < octaves; o++) {
     for (const [noteInOct, whitePos] of Object.entries(blackPositions)) {
       const i = parseInt(noteInOct);
@@ -608,14 +1012,12 @@ function addKeyEvents(key, note) {
   key.addEventListener("touchstart", (e) => { e.preventDefault(); noteOn(note); mouseNote = note; });
 }
 
-// Rebuild keyboard on resize
 window.addEventListener("resize", () => { buildKeyboard(); });
 
 function noteOn(n) { sendMidi(0x90, n, 100); activeNotes.add(n); highlightKey(n, true); }
 function noteOff(n) { sendMidi(0x80, n, 0); activeNotes.delete(n); highlightKey(n, false); }
 function highlightKey(n, on) { const el = document.querySelector(`.key[data-note="${n}"]`); if (el) el.classList.toggle("active", on); }
 
-// Computer keyboard fallback
 const KEY_MAP = { a:0, w:1, s:2, e:3, d:4, f:5, t:6, g:7, y:8, h:9, u:10, j:11, k:12, o:13, l:14, p:15 };
 const heldKeys = new Set();
 document.addEventListener("keydown", (e) => {
@@ -664,12 +1066,12 @@ function buildPanel() {
   const panel = document.getElementById("panel");
   for (const group of PANEL) {
     const div = document.createElement("div");
-    div.className = "group";
+    div.className = "section";
     const title = document.createElement("div");
-    title.className = "group-title"; title.textContent = group.name;
+    title.className = "section-title"; title.textContent = group.name;
     div.appendChild(title);
     const knobsDiv = document.createElement("div");
-    knobsDiv.className = "group-knobs";
+    knobsDiv.className = "section-knobs";
     for (const p of group.params) createKnob(knobsDiv, p.label, p.cc, p.def);
     div.appendChild(knobsDiv);
     panel.appendChild(div);
@@ -680,7 +1082,7 @@ function buildPanel() {
 // Status polling
 // ─────────────────────────────────────────────
 setInterval(() => {
-  document.getElementById("stats").textContent = `MIDI: ${midiCount} | Audio: ${audioCount}`;
+  document.getElementById("stats").textContent = `MIDI: ${midiCount} \u00b7 Audio: ${audioCount}`;
 }, 500);
 
 // ─────────────────────────────────────────────
@@ -689,7 +1091,7 @@ setInterval(() => {
 function log(msg) {
   const el = document.getElementById("log");
   const d = document.createElement("div");
-  d.textContent = `[${new Date().toLocaleTimeString("en-GB",{hour12:false})}] ${msg}`;
+  d.textContent = `${new Date().toLocaleTimeString("en-GB",{hour12:false})} ${msg}`;
   el.appendChild(d); el.scrollTop = el.scrollHeight;
   while (el.children.length > 200) el.removeChild(el.firstChild);
 }
@@ -701,10 +1103,8 @@ buildPanel();
 buildKeyboard();
 buildBankButtons();
 initWebMidi().then(() => { loadMappings(); autoDetectController(); });
-log("Ready. Use computer keys (A-L) or connect a MIDI controller.");
-log("Double-click any knob to MIDI learn.");
+log("Ready");
 
-// URL param + auto-connect
 const sp = new URLSearchParams(location.search);
 if (sp.get("server")) document.getElementById("ws-host").value = sp.get("server");
 const ah = document.getElementById("ws-host").value;
