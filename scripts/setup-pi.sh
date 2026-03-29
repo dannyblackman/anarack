@@ -187,6 +187,62 @@ SVCEOF
 sudo systemctl daemon-reload
 sudo systemctl enable anarack.service
 
+# --- Cloudflare Tunnel service ---
+echo "[8/8] Setting up Cloudflare Tunnel..."
+
+# Install cloudflared if not present
+if ! command -v cloudflared &>/dev/null; then
+  curl -L --output /tmp/cloudflared.deb https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-arm64.deb
+  sudo dpkg -i /tmp/cloudflared.deb
+  rm /tmp/cloudflared.deb
+fi
+
+# Create a wrapper script that captures the tunnel URL
+cat > "$HOME/anarack/tunnel.sh" << 'TUNSCRIPT'
+#!/usr/bin/env bash
+# Start Cloudflare Tunnel and capture the URL
+set -euo pipefail
+
+URL_FILE="$HOME/anarack/tunnel_url.txt"
+
+# Start cloudflared and capture the URL from its output
+cloudflared tunnel --url http://127.0.0.1:8765 2>&1 | while IFS= read -r line; do
+  echo "$line"
+  # Extract the trycloudflare.com URL
+  if echo "$line" | grep -q "trycloudflare.com"; then
+    url=$(echo "$line" | grep -oP 'https://[a-z0-9-]+\.trycloudflare\.com')
+    if [ -n "$url" ]; then
+      echo "$url" > "$URL_FILE"
+      echo "Tunnel URL saved to $URL_FILE: $url"
+    fi
+  fi
+done
+TUNSCRIPT
+chmod +x "$HOME/anarack/tunnel.sh"
+
+# Cloudflare Tunnel systemd service
+sudo tee /etc/systemd/system/anarack-tunnel.service > /dev/null << TUNSVC
+[Unit]
+Description=Anarack Cloudflare Tunnel
+After=anarack.service
+Wants=anarack.service
+
+[Service]
+Type=simple
+User=$USER
+WorkingDirectory=$HOME/anarack
+ExecStartPre=/bin/sleep 5
+ExecStart=$HOME/anarack/tunnel.sh
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
+TUNSVC
+
+sudo systemctl daemon-reload
+sudo systemctl enable anarack-tunnel.service
+
 echo ""
 echo "=== Setup complete ==="
 echo ""
