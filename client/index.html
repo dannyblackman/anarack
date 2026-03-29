@@ -306,11 +306,10 @@
     }
 
     function connectAudio(host) {
-      // Derive audio port from MIDI host (replace port with 8766)
-      const parts = host.split(":");
-      const audioHost = parts[0] + ":8766";
-
-      audioWs = new WebSocket(`ws://${audioHost}`);
+      // Audio WebSocket on same host, /audio path
+      // Support both ws:// and wss:// (Cloudflare Tunnel uses wss)
+      const proto = location.protocol === "https:" ? "wss" : "ws";
+      audioWs = new WebSocket(`${proto}://${host}/audio`);
       audioWs.binaryType = "arraybuffer";
 
       audioWs.onopen = () => {
@@ -479,7 +478,8 @@
       // Init audio on first user interaction (browser requires this)
       initAudio();
 
-      ws = new WebSocket(`ws://${host}`);
+      const proto = location.protocol === "https:" ? "wss" : "ws";
+      ws = new WebSocket(`${proto}://${host}`);
 
       ws.onopen = () => {
         setStatus("connected", "Connected");
