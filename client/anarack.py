@@ -454,22 +454,22 @@ class AnarackApp:
         pf.pack(fill=tk.X)
 
         tk.Label(pf, text="PROGRAM", font=("Helvetica", 8, "bold"), bg=bar, fg="#777").pack(side=tk.LEFT)
-        tk.Button(pf, text=" ◀ ", font=("Helvetica", 9), bg="#333", fg="#eee",
-                  activebackground="#555", activeforeground="white", relief=tk.FLAT,
-                  command=lambda: self.prog(-1)).pack(side=tk.LEFT, padx=(8, 2))
+        tk.Button(pf, text=" ◀ ", font=("Helvetica", 11), bg="#444", fg="white",
+                  activebackground="#666", activeforeground="white", relief=tk.FLAT,
+                  padx=6, pady=2, command=lambda: self.prog(-1)).pack(side=tk.LEFT, padx=(8, 2))
         self.pv = tk.StringVar(value="0")
         tk.Entry(pf, textvariable=self.pv, font=("SF Mono", 10), bg="#222", fg="#eee",
                  insertbackground="#eee", relief=tk.FLAT, width=4, justify=tk.CENTER).pack(side=tk.LEFT)
-        tk.Button(pf, text=" ▶ ", font=("Helvetica", 9), bg="#333", fg="#eee",
-                  activebackground="#555", activeforeground="white", relief=tk.FLAT,
-                  command=lambda: self.prog(1)).pack(side=tk.LEFT, padx=(2, 16))
+        tk.Button(pf, text=" ▶ ", font=("Helvetica", 11), bg="#444", fg="white",
+                  activebackground="#666", activeforeground="white", relief=tk.FLAT,
+                  padx=6, pady=2, command=lambda: self.prog(1)).pack(side=tk.LEFT, padx=(2, 16))
 
         tk.Label(pf, text="BANK", font=("Helvetica", 8, "bold"), bg=bar, fg="#777").pack(side=tk.LEFT, padx=(0, 6))
         self.bv = tk.StringVar(value="A")
         for l in "ABCDEFGH":
-            tk.Radiobutton(pf, text=l, variable=self.bv, value=l, font=("SF Mono", 9),
-                          bg=bar, fg="#ccc", selectcolor="#6366f1", activebackground=bar,
-                          activeforeground="white", indicatoron=0, padx=5, pady=1,
+            tk.Radiobutton(pf, text=l, variable=self.bv, value=l, font=("SF Mono", 10, "bold"),
+                          bg="#444", fg="white", selectcolor="#6366f1", activebackground="#555",
+                          activeforeground="white", indicatoron=0, padx=6, pady=2,
                           relief=tk.FLAT, command=self.send_prog).pack(side=tk.LEFT, padx=1)
 
         # ── Keyboard ──
@@ -592,7 +592,7 @@ class AnarackApp:
             daemon=True,
         )
         self.engine.start()
-        self.cbtn.config(text="Disconnect", bg="#ef4444", activebackground="#dc2626")
+        self.cbtn.config(text="Disconnect", bg="#dc2626", fg="white", activebackground="#b91c1c")
 
     def disconnect(self):
         self.control["running"] = False
@@ -602,7 +602,7 @@ class AnarackApp:
                 self.engine.terminate()
             self.engine = None
         self.status_lbl.config(text="Disconnected", fg="#f87171")
-        self.cbtn.config(text="Connect", bg="#6366f1", activebackground="#4f46e5")
+        self.cbtn.config(text="Connect", bg="#6366f1", fg="white", activebackground="#4f46e5")
         self.lat_lbl.config(text="")
         self.kbd.clear()
 
