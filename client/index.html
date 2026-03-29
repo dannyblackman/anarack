@@ -340,7 +340,7 @@
     // Gapless audio playback with adaptive buffering
     let nextPlayTime = 0;
     let audioStarted = false;
-    const BUFFER_AHEAD = 0.005; // 5ms buffer — minimal, may glitch but lowest possible latency
+    const BUFFER_AHEAD = 0.001; // 1ms buffer — absolute minimum, trades glitches for latency
 
     function playAudioChunk(arrayBuffer) {
       if (!audioCtx) return;
