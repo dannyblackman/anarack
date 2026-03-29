@@ -501,9 +501,19 @@ function onMidiMessage(e) {
     if (learningKnob) { finishLearn(d1); return; }
     const mapped = ccMap[d1];
     if (mapped !== undefined) {
-      sendMidi(0xB0, mapped, val);
       const knob = knobs.find(k => k.cc === mapped);
-      if (knob) setKnobValue(knob, val, false);
+      let absVal;
+      // Relative CC: values near 64 are increments (65+=CW, 63-=CCW)
+      // Skip extreme values (0, 127) — noise from multi-port controllers
+      if (knob && val !== 0 && val !== 127 && val >= 57 && val <= 71 && val !== 64) {
+        absVal = Math.max(0, Math.min(127, knob.value + (val - 64)));
+      } else if (val === 0 || val === 127) {
+        return; // Ignore multi-port noise
+      } else {
+        absVal = val;
+      }
+      sendMidi(0xB0, mapped, absVal);
+      if (knob) setKnobValue(knob, absVal, false);
     }
     return;
   }
