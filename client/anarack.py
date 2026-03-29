@@ -248,6 +248,11 @@ def audio_midi_engine(server_ip, midi_port_name, audio_port, midi_udp_port,
                         learn_result.value = msg.control
                         learn_flag.value = 0
 
+                    # Report all incoming CCs for mapped knob updates
+                    if msg.type == "control_change":
+                        stats["incoming_cc"] = msg.control
+                        stats["incoming_val"] = msg.value
+
             if not got_msg:
                 time.sleep(0.0001)
 
@@ -413,6 +418,7 @@ class AnarackApp:
             "status": 0, "midi_count": 0, "audio_count": 0,
             "latency_avg": 0.0, "latency_min": 0.0, "latency_max": 0.0,
             "error": "", "last_note_on": -1, "last_note_off": -1,
+            "incoming_cc": -1, "incoming_val": 0,
         })
         self.control = self.mgr.dict({"running": False})
         self.cc_queue = mp.Queue()
@@ -672,6 +678,14 @@ class AnarackApp:
         if noff >= 0:
             self.kbd.note_off(noff)
             self.stats["last_note_off"] = -1
+
+        # Incoming CC → update mapped knobs
+        inc_cc = self.stats.get("incoming_cc", -1)
+        if inc_cc >= 0 and inc_cc in self.cc_to_knob:
+            val = self.stats.get("incoming_val", 0)
+            knob = self.cc_to_knob[inc_cc]
+            knob.set_value(val, send=True)  # Updates knob AND sends the synth's CC
+            self.stats["incoming_cc"] = -1
 
         # MIDI learn — check Value (reliable)
         if self.learning_knob and self.learn_result.value >= 0:
