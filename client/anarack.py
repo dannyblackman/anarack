@@ -138,7 +138,7 @@ PANEL_LAYOUT = [
 # ──────────────────────────────────────────────────────────────
 def audio_midi_engine(server_ip, midi_port_name, audio_port, midi_udp_port,
                       buffer_frames, stats, control, cc_queue,
-                      learn_flag, learn_result, incoming_cc_queue):
+                      learn_flag, learn_result, cc_map):
     import mido
     import pyaudio
     import threading
@@ -235,15 +235,18 @@ def audio_midi_engine(server_ip, midi_port_name, audio_port, midi_udp_port,
                     got_msg = True
 
                     if msg.type == "control_change":
-                        # CCs never forwarded raw — GUI handles all CC routing
-                        try:
-                            incoming_cc_queue.put_nowait((msg.control, msg.value))
-                        except:
-                            pass  # Drop if queue full
-
+                        # MIDI learn
                         if learn_flag.value:
                             learn_result.value = msg.control
                             learn_flag.value = 0
+
+                        # Check if this CC is mapped to a synth CC
+                        mapped_to = cc_map[msg.control]
+                        if mapped_to >= 0:
+                            # Send the remapped CC directly to the synth
+                            midi_sock.sendto(bytes([0xB0, mapped_to, msg.value]), server_addr)
+                            stats["midi_count"] += 1
+                        # Unmapped CCs are dropped (use GUI knobs instead)
                     else:
                         # Notes, pitch bend, etc. — forward directly
                         midi_sock.sendto(bytes(msg.bytes()), server_addr)
@@ -427,7 +430,8 @@ class AnarackApp:
         # Reliable IPC for MIDI learn
         self.learn_flag = mp.Value(ctypes.c_int, 0)
         self.learn_result = mp.Value(ctypes.c_int, -1)
-        self.incoming_cc_queue = mp.Queue(maxsize=256)
+        # CC mapping table: index = controller CC, value = synth CC (-1 = unmapped)
+        self.cc_map = mp.Array(ctypes.c_int, [-1] * 128)
 
         self.knobs = {}
         self.learning_knob = None
@@ -616,7 +620,7 @@ class AnarackApp:
             target=audio_midi_engine,
             args=(server, midi, 9999, 5555, 128,
                   self.stats, self.control, self.cc_queue,
-                  self.learn_flag, self.learn_result, self.incoming_cc_queue),
+                  self.learn_flag, self.learn_result, self.cc_map),
             daemon=True,
         )
         self.engine.start()
@@ -681,28 +685,26 @@ class AnarackApp:
             self.kbd.note_off(noff)
             self.stats["last_note_off"] = -1
 
-        # Incoming CC → update mapped knobs (drain the queue)
-        while not self.incoming_cc_queue.empty():
-            try:
-                inc_cc, inc_val = self.incoming_cc_queue.get_nowait()
-                if inc_cc in self.cc_to_knob:
-                    knob = self.cc_to_knob[inc_cc]
-                    knob.set_value(inc_val, send=True)
-            except:
-                break
-
         # MIDI learn — check Value (reliable)
         if self.learning_knob and self.learn_result.value >= 0:
-            cc = self.learn_result.value
+            controller_cc = self.learn_result.value
             knob = self.learning_knob
+            synth_cc = knob.cc
+
+            # Remove old mapping
             old = knob.mapped_cc
-            if old is not None and old in self.cc_to_knob:
-                del self.cc_to_knob[old]
-            knob.set_mapped_cc(cc)
+            if old is not None:
+                self.cc_map[old] = -1
+                if old in self.cc_to_knob:
+                    del self.cc_to_knob[old]
+
+            # Set new mapping in the shared table (engine reads this directly)
+            self.cc_map[controller_cc] = synth_cc
+            knob.set_mapped_cc(controller_cc)
             knob.set_learning(False)
-            self.cc_to_knob[cc] = knob
+            self.cc_to_knob[controller_cc] = knob
             self.learning_knob = None
-            self.learn_lbl.config(text=f"Mapped CC{cc} → {knob.label_text}", fg="#4ade80")
+            self.learn_lbl.config(text=f"Mapped CC{controller_cc} → {knob.label_text} (CC{synth_cc})", fg="#4ade80")
             self.learn_result.value = -1
 
         self.root.after(80, self.tick)
