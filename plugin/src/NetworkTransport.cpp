@@ -97,7 +97,9 @@ void NetworkTransport::connectWireGuard(const juce::String& serverEndpoint,
     auto pubKey = juce::String("arRpxSMBrlWstnbjoHA5sL6ONaVHIeH5pcWAhZPsXEM=");
 
     wgTunnel = std::make_unique<WgTunnel>();
-    if (!wgTunnel->connect(privKey, serverPubkey, serverEndpoint))
+    // Plugin is 10.0.0.3, Pi studio is 10.0.0.2 (via VPS relay at 10.0.0.1)
+    if (!wgTunnel->connect(privKey, serverPubkey, serverEndpoint,
+                           "10.0.0.3", "10.0.0.2"))
     {
         wgTunnel.reset();
         return;

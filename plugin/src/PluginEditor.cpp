@@ -73,7 +73,7 @@ void AnarackEditor::toggleConnection()
 
         if (processor.useWireGuard)
         {
-            auto endpoint = processor.serverHost + ":" + juce::String(processor.wgPort);
+            auto endpoint = processor.wgEndpoint + ":" + juce::String(processor.wgPort);
             transport.connectWireGuard(endpoint, processor.wgServerPubkey);
         }
         else

@@ -36,7 +36,8 @@ public:
     // Public access for the editor
     NetworkTransport& getTransport() { return transport; }
     juce::String serverHost { "192.168.1.131" };
-    juce::String wgServerPubkey { "xrJHNeB2o8CyQJEbKiwfslF+iXjkekCR5KbkkHqtzi0=" };
+    juce::String wgEndpoint { "66.245.195.65" };
+    juce::String wgServerPubkey { "uX4s7vVGT+B2tJl7+4plM3vO+LceS/LKe+8A8IPH934=" };
     int wgPort = 51820;
     bool useWireGuard = false;
 
@@ -52,13 +53,13 @@ private:
     double resampleRatio = 1.0; // serverRate / hostRate
     std::vector<float> resampleInputBuf;
 
-    // Pre-buffer: wait until we have enough audio before outputting
-    static constexpr int PREBUFFER_MS = 20; // ms to accumulate before playing
-    static constexpr int TARGET_BUFFER_MS = 20; // target fill level for adaptive ratio
+    // Adaptive pre-buffer: scales with network conditions
     int prebufferSamples = 0;
     int targetBufferSamples = 0;
     bool prebuffering = true;
     double baseResampleRatio = 1.0;
+
+    void updatePrebuffer();
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(AnarackProcessor)
 };

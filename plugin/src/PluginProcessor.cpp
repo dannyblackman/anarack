@@ -16,16 +16,15 @@ AnarackProcessor::~AnarackProcessor()
 
 void AnarackProcessor::prepareToPlay(double sampleRate, int samplesPerBlock)
 {
-    // Ring buffer: ~200ms at server sample rate (48kHz)
-    int bufferSize = (int)(SERVER_SAMPLE_RATE * 0.2);
+    // Ring buffer: ~500ms at server sample rate (48kHz) — enough for high-latency connections
+    int bufferSize = (int)(SERVER_SAMPLE_RATE * 0.5);
     audioRingBuffer.resize(bufferSize);
 
     // Resampling ratio: how many input (48kHz) samples per output sample
     baseResampleRatio = SERVER_SAMPLE_RATE / sampleRate;
     resampleRatio = baseResampleRatio;
     resampler.reset();
-    prebufferSamples = (int)(SERVER_SAMPLE_RATE * PREBUFFER_MS / 1000.0);
-    targetBufferSamples = (int)(SERVER_SAMPLE_RATE * TARGET_BUFFER_MS / 1000.0);
+    updatePrebuffer();
     prebuffering = true;
 
     // Pre-allocate buffer for resampler input (worst case: full block at highest ratio)
@@ -83,6 +82,7 @@ void AnarackProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::Midi
     {
         buffer.clear();
         prebuffering = true;
+        updatePrebuffer(); // Re-evaluate based on current RTT
         return;
     }
 
@@ -126,6 +126,22 @@ void AnarackProcessor::setStateInformation(const void* data, int sizeInBytes)
     auto state = juce::ValueTree::readFromData(data, (size_t)sizeInBytes);
     if (state.hasType("AnarackState"))
         serverHost = state.getProperty("serverHost", "anarack.local").toString();
+}
+
+void AnarackProcessor::updatePrebuffer()
+{
+    // Scale pre-buffer with RTT: low latency = small buffer, high latency = larger buffer
+    int rtt = transport.getEstimatedRtt();
+    int bufferMs;
+    if (rtt <= 0)
+        bufferMs = 20;          // No RTT data yet — conservative default
+    else if (rtt < 20)
+        bufferMs = 15;          // LAN / nearby VPS — keep it tight
+    else
+        bufferMs = rtt * 2;     // Internet — buffer at 2x RTT to absorb jitter
+
+    prebufferSamples = (int)(SERVER_SAMPLE_RATE * bufferMs / 1000.0);
+    targetBufferSamples = prebufferSamples;
 }
 
 juce::AudioProcessorEditor* AnarackProcessor::createEditor()
