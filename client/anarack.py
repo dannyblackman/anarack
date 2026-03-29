@@ -138,7 +138,7 @@ PANEL_LAYOUT = [
 # ──────────────────────────────────────────────────────────────
 def audio_midi_engine(server_ip, midi_port_name, audio_port, midi_udp_port,
                       buffer_frames, stats, control, cc_queue,
-                      learn_flag, learn_result):
+                      learn_flag, learn_result, incoming_cc_queue):
     import mido
     import pyaudio
     import threading
@@ -236,9 +236,10 @@ def audio_midi_engine(server_ip, midi_port_name, audio_port, midi_udp_port,
 
                     if msg.type == "control_change":
                         # CCs never forwarded raw — GUI handles all CC routing
-                        # via knob drag or MIDI learn mapping
-                        stats["incoming_cc"] = msg.control
-                        stats["incoming_val"] = msg.value
+                        try:
+                            incoming_cc_queue.put_nowait((msg.control, msg.value))
+                        except:
+                            pass  # Drop if queue full
 
                         if learn_flag.value:
                             learn_result.value = msg.control
@@ -419,7 +420,6 @@ class AnarackApp:
             "status": 0, "midi_count": 0, "audio_count": 0,
             "latency_avg": 0.0, "latency_min": 0.0, "latency_max": 0.0,
             "error": "", "last_note_on": -1, "last_note_off": -1,
-            "incoming_cc": -1, "incoming_val": 0,
         })
         self.control = self.mgr.dict({"running": False})
         self.cc_queue = mp.Queue()
@@ -427,6 +427,7 @@ class AnarackApp:
         # Reliable IPC for MIDI learn
         self.learn_flag = mp.Value(ctypes.c_int, 0)
         self.learn_result = mp.Value(ctypes.c_int, -1)
+        self.incoming_cc_queue = mp.Queue(maxsize=256)
 
         self.knobs = {}
         self.learning_knob = None
@@ -615,7 +616,7 @@ class AnarackApp:
             target=audio_midi_engine,
             args=(server, midi, 9999, 5555, 128,
                   self.stats, self.control, self.cc_queue,
-                  self.learn_flag, self.learn_result),
+                  self.learn_flag, self.learn_result, self.incoming_cc_queue),
             daemon=True,
         )
         self.engine.start()
@@ -680,13 +681,15 @@ class AnarackApp:
             self.kbd.note_off(noff)
             self.stats["last_note_off"] = -1
 
-        # Incoming CC → update mapped knobs
-        inc_cc = self.stats.get("incoming_cc", -1)
-        if inc_cc >= 0 and inc_cc in self.cc_to_knob:
-            val = self.stats.get("incoming_val", 0)
-            knob = self.cc_to_knob[inc_cc]
-            knob.set_value(val, send=True)  # Updates knob AND sends the synth's CC
-            self.stats["incoming_cc"] = -1
+        # Incoming CC → update mapped knobs (drain the queue)
+        while not self.incoming_cc_queue.empty():
+            try:
+                inc_cc, inc_val = self.incoming_cc_queue.get_nowait()
+                if inc_cc in self.cc_to_knob:
+                    knob = self.cc_to_knob[inc_cc]
+                    knob.set_value(inc_val, send=True)
+            except:
+                break
 
         # MIDI learn — check Value (reliable)
         if self.learning_knob and self.learn_result.value >= 0:
