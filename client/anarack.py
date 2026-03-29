@@ -454,15 +454,15 @@ class AnarackApp:
         pf.pack(fill=tk.X)
 
         tk.Label(pf, text="PROGRAM", font=("Helvetica", 8, "bold"), bg=bar, fg="#777").pack(side=tk.LEFT)
-        tk.Button(pf, text=" ◀ ", font=("Helvetica", 11), bg="#444", fg="white",
+        tk.Button(pf, text=" < ", font=("SF Mono", 12, "bold"), bg="#444", fg="white",
                   activebackground="#666", activeforeground="white", relief=tk.FLAT,
-                  padx=6, pady=2, command=lambda: self.prog(-1)).pack(side=tk.LEFT, padx=(8, 2))
+                  padx=8, pady=3, command=lambda: self.prog(-1)).pack(side=tk.LEFT, padx=(8, 2))
         self.pv = tk.StringVar(value="0")
         tk.Entry(pf, textvariable=self.pv, font=("SF Mono", 10), bg="#222", fg="#eee",
                  insertbackground="#eee", relief=tk.FLAT, width=4, justify=tk.CENTER).pack(side=tk.LEFT)
-        tk.Button(pf, text=" ▶ ", font=("Helvetica", 11), bg="#444", fg="white",
+        tk.Button(pf, text=" > ", font=("SF Mono", 12, "bold"), bg="#444", fg="white",
                   activebackground="#666", activeforeground="white", relief=tk.FLAT,
-                  padx=6, pady=2, command=lambda: self.prog(1)).pack(side=tk.LEFT, padx=(2, 16))
+                  padx=8, pady=3, command=lambda: self.prog(1)).pack(side=tk.LEFT, padx=(2, 16))
 
         tk.Label(pf, text="BANK", font=("Helvetica", 8, "bold"), bg=bar, fg="#777").pack(side=tk.LEFT, padx=(0, 6))
         self.bv = tk.StringVar(value="A")
@@ -549,6 +549,7 @@ class AnarackApp:
     def on_cc(self, cc, val):
         if self.engine and self.engine.is_alive():
             self.cc_queue.put((cc, val))
+            self.learn_lbl.config(text=f"Sent CC {cc} = {val}", fg="#666")
 
     def on_learn(self, knob, active):
         if active:
