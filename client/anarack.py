@@ -2,7 +2,7 @@
 Anarack — Native Client with Rev2 Panel
 
 Audio/MIDI engine in a separate process. GUI shows full Rev2 controls
-with draggable knobs, keyboard, and MIDI learn.
+matching the front panel layout with draggable knobs, keyboard, and MIDI learn.
 
 Usage:
     python anarack.py
@@ -13,6 +13,7 @@ Requirements:
 
 import math
 import multiprocessing as mp
+import ctypes
 import socket
 import struct
 import sys
@@ -22,76 +23,122 @@ from tkinter import ttk
 
 
 # ──────────────────────────────────────────────────────────────
-# Prophet Rev2 MIDI CC Map (complete, from official MIDI chart)
+# Prophet Rev2 MIDI CC Map (from official MIDI implementation)
+# Laid out to match the Rev2 front panel left → right
 # ──────────────────────────────────────────────────────────────
-REV2_PARAMS = {
-    # OSC 1
-    "osc1_freq":     {"cc": 20,  "label": "Freq",      "group": "OSC 1",     "default": 64},
-    "osc1_fine":     {"cc": 21,  "label": "Fine",      "group": "OSC 1",     "default": 64},
-    "osc1_shape":    {"cc": 22,  "label": "Shape",     "group": "OSC 1",     "default": 0},
-    "osc1_glide":    {"cc": 23,  "label": "Glide",     "group": "OSC 1",     "default": 0},
-    # OSC 2
-    "osc2_freq":     {"cc": 24,  "label": "Freq",      "group": "OSC 2",     "default": 64},
-    "osc2_fine":     {"cc": 25,  "label": "Fine",      "group": "OSC 2",     "default": 64},
-    "osc2_shape":    {"cc": 26,  "label": "Shape",     "group": "OSC 2",     "default": 0},
-    "osc2_glide":    {"cc": 27,  "label": "Glide",     "group": "OSC 2",     "default": 0},
-    # MIXER
-    "osc_mix":       {"cc": 28,  "label": "Mix",       "group": "MIXER",     "default": 64},
-    "noise":         {"cc": 29,  "label": "Noise",     "group": "MIXER",     "default": 0},
-    "sub_osc":       {"cc": 8,   "label": "Sub Osc",   "group": "MIXER",     "default": 0},
-    "slop":          {"cc": 9,   "label": "Slop",      "group": "MIXER",     "default": 0},
-    # OSC MOD
-    "osc1_shmod":    {"cc": 30,  "label": "O1 ShMod",  "group": "OSC MOD",   "default": 0},
-    "osc2_shmod":    {"cc": 31,  "label": "O2 ShMod",  "group": "OSC MOD",   "default": 0},
-    # FILTER
-    "filter_cutoff": {"cc": 102, "label": "Cutoff",    "group": "FILTER",    "default": 100},
-    "filter_reso":   {"cc": 103, "label": "Reso",      "group": "FILTER",    "default": 0},
-    "filter_key":    {"cc": 104, "label": "Key Amt",   "group": "FILTER",    "default": 0},
-    "filter_audio":  {"cc": 105, "label": "Audio Mod", "group": "FILTER",    "default": 0},
-    "filter_envamt": {"cc": 106, "label": "Env Amt",   "group": "FILTER",    "default": 64},
-    "filter_envvel": {"cc": 107, "label": "Env Vel",   "group": "FILTER",    "default": 0},
-    # FILTER ENV
-    "filt_delay":    {"cc": 108, "label": "Delay",     "group": "FILT ENV",  "default": 0},
-    "filt_attack":   {"cc": 109, "label": "Attack",    "group": "FILT ENV",  "default": 0},
-    "filt_decay":    {"cc": 110, "label": "Decay",     "group": "FILT ENV",  "default": 64},
-    "filt_sustain":  {"cc": 111, "label": "Sustain",   "group": "FILT ENV",  "default": 64},
-    "filt_release":  {"cc": 112, "label": "Release",   "group": "FILT ENV",  "default": 40},
-    # AMP
-    "amp_level":     {"cc": 113, "label": "Level",     "group": "AMP",       "default": 100},
-    "amp_envamt":    {"cc": 115, "label": "Env Amt",   "group": "AMP",       "default": 127},
-    "amp_envvel":    {"cc": 116, "label": "Env Vel",   "group": "AMP",       "default": 0},
-    "pan_spread":    {"cc": 114, "label": "Pan",       "group": "AMP",       "default": 64},
-    # AMP ENV
-    "amp_delay":     {"cc": 117, "label": "Delay",     "group": "AMP ENV",   "default": 0},
-    "amp_attack":    {"cc": 118, "label": "Attack",    "group": "AMP ENV",   "default": 0},
-    "amp_decay":     {"cc": 119, "label": "Decay",     "group": "AMP ENV",   "default": 64},
-    "amp_sustain":   {"cc": 75,  "label": "Sustain",   "group": "AMP ENV",   "default": 100},
-    "amp_release":   {"cc": 76,  "label": "Release",   "group": "AMP ENV",   "default": 40},
-    # ENV 3
-    "env3_dest":     {"cc": 85,  "label": "Dest",      "group": "ENV 3",     "default": 0},
-    "env3_amount":   {"cc": 86,  "label": "Amount",    "group": "ENV 3",     "default": 0},
-    "env3_attack":   {"cc": 89,  "label": "Attack",    "group": "ENV 3",     "default": 0},
-    "env3_decay":    {"cc": 90,  "label": "Decay",     "group": "ENV 3",     "default": 64},
-    "env3_sustain":  {"cc": 77,  "label": "Sustain",   "group": "ENV 3",     "default": 64},
-    "env3_release":  {"cc": 78,  "label": "Release",   "group": "ENV 3",     "default": 40},
-    # EFFECTS
-    "fx_type":       {"cc": 3,   "label": "Type",      "group": "EFFECTS",   "default": 0},
-    "fx_mix":        {"cc": 17,  "label": "Mix",       "group": "EFFECTS",   "default": 0},
-    "fx_param1":     {"cc": 12,  "label": "Param 1",   "group": "EFFECTS",   "default": 64},
-    "fx_param2":     {"cc": 13,  "label": "Param 2",   "group": "EFFECTS",   "default": 64},
-    "fx_onoff":      {"cc": 16,  "label": "On/Off",    "group": "EFFECTS",   "default": 0},
-}
 
-# Layout: two rows of groups
-ROW1_GROUPS = ["OSC 1", "OSC 2", "MIXER", "OSC MOD", "FILTER"]
-ROW2_GROUPS = ["FILT ENV", "AMP", "AMP ENV", "ENV 3", "EFFECTS"]
+# Each group in front-panel order
+PANEL_LAYOUT = [
+    {
+        "name": "OSC 1",
+        "params": [
+            {"id": "osc1_freq",   "cc": 20, "label": "Freq",   "default": 64, "type": "knob"},
+            {"id": "osc1_fine",   "cc": 21, "label": "Fine",   "default": 64, "type": "knob"},
+            {"id": "osc1_shape",  "cc": 22, "label": "Shape",  "default": 0,  "type": "knob"},
+            {"id": "osc1_glide",  "cc": 23, "label": "Glide",  "default": 0,  "type": "knob"},
+            {"id": "osc1_shmod",  "cc": 30, "label": "Sh Mod", "default": 0,  "type": "knob"},
+        ]
+    },
+    {
+        "name": "OSC 2",
+        "params": [
+            {"id": "osc2_freq",   "cc": 24, "label": "Freq",   "default": 64, "type": "knob"},
+            {"id": "osc2_fine",   "cc": 25, "label": "Fine",   "default": 64, "type": "knob"},
+            {"id": "osc2_shape",  "cc": 26, "label": "Shape",  "default": 0,  "type": "knob"},
+            {"id": "osc2_glide",  "cc": 27, "label": "Glide",  "default": 0,  "type": "knob"},
+            {"id": "osc2_shmod",  "cc": 31, "label": "Sh Mod", "default": 0,  "type": "knob"},
+        ]
+    },
+    {
+        "name": "MIXER",
+        "params": [
+            {"id": "osc_mix",    "cc": 28, "label": "Osc Mix", "default": 64, "type": "knob"},
+            {"id": "noise",      "cc": 29, "label": "Noise",   "default": 0,  "type": "knob"},
+            {"id": "sub_osc",    "cc": 8,  "label": "Sub Osc", "default": 0,  "type": "knob"},
+            {"id": "slop",       "cc": 9,  "label": "Slop",    "default": 0,  "type": "knob"},
+        ]
+    },
+    {
+        "name": "LOW-PASS FILTER",
+        "params": [
+            {"id": "filt_cutoff", "cc": 102, "label": "Cutoff",   "default": 100, "type": "knob"},
+            {"id": "filt_reso",   "cc": 103, "label": "Reso",     "default": 0,   "type": "knob"},
+            {"id": "filt_key",    "cc": 104, "label": "Key Amt",  "default": 0,   "type": "knob"},
+            {"id": "filt_audio",  "cc": 105, "label": "Aud Mod",  "default": 0,   "type": "knob"},
+            {"id": "filt_envamt", "cc": 106, "label": "Env Amt",  "default": 64,  "type": "knob"},
+            {"id": "filt_envvel", "cc": 107, "label": "Env Vel",  "default": 0,   "type": "knob"},
+        ]
+    },
+    {
+        "name": "FILT ENV",
+        "params": [
+            {"id": "fe_delay",   "cc": 108, "label": "Delay",   "default": 0,  "type": "knob"},
+            {"id": "fe_attack",  "cc": 109, "label": "Attack",  "default": 0,  "type": "knob"},
+            {"id": "fe_decay",   "cc": 110, "label": "Decay",   "default": 64, "type": "knob"},
+            {"id": "fe_sustain", "cc": 111, "label": "Sustain", "default": 64, "type": "knob"},
+            {"id": "fe_release", "cc": 112, "label": "Release", "default": 40, "type": "knob"},
+        ]
+    },
+    {
+        "name": "AMP",
+        "params": [
+            {"id": "amp_level",  "cc": 113, "label": "Level",   "default": 100, "type": "knob"},
+            {"id": "amp_envamt", "cc": 115, "label": "Env Amt", "default": 127, "type": "knob"},
+            {"id": "amp_envvel", "cc": 116, "label": "Env Vel", "default": 0,   "type": "knob"},
+            {"id": "pan",        "cc": 114, "label": "Pan",     "default": 64,  "type": "knob"},
+        ]
+    },
+    {
+        "name": "AMP ENV",
+        "params": [
+            {"id": "ae_delay",   "cc": 117, "label": "Delay",   "default": 0,   "type": "knob"},
+            {"id": "ae_attack",  "cc": 118, "label": "Attack",  "default": 0,   "type": "knob"},
+            {"id": "ae_decay",   "cc": 119, "label": "Decay",   "default": 64,  "type": "knob"},
+            {"id": "ae_sustain", "cc": 75,  "label": "Sustain", "default": 100, "type": "knob"},
+            {"id": "ae_release", "cc": 76,  "label": "Release", "default": 40,  "type": "knob"},
+        ]
+    },
+    {
+        "name": "ENV 3",
+        "params": [
+            {"id": "e3_dest",    "cc": 85, "label": "Dest",    "default": 0,  "type": "knob"},
+            {"id": "e3_amount",  "cc": 86, "label": "Amount",  "default": 0,  "type": "knob"},
+            {"id": "e3_attack",  "cc": 89, "label": "Attack",  "default": 0,  "type": "knob"},
+            {"id": "e3_decay",   "cc": 90, "label": "Decay",   "default": 64, "type": "knob"},
+            {"id": "e3_sustain", "cc": 77, "label": "Sustain", "default": 64, "type": "knob"},
+            {"id": "e3_release", "cc": 78, "label": "Release", "default": 40, "type": "knob"},
+        ]
+    },
+    {
+        "name": "EFFECTS",
+        "params": [
+            {"id": "fx_type",   "cc": 3,  "label": "Type",    "default": 0,  "type": "select",
+             "options": ["Off", "Delay", "Chorus", "Flanger", "Phaser", "Rotary",
+                         "Ring Mod", "Distort", "HP Filter"]},
+            {"id": "fx_onoff",  "cc": 16, "label": "On/Off",  "default": 0,  "type": "toggle"},
+            {"id": "fx_mix",    "cc": 17, "label": "Mix",     "default": 0,  "type": "knob"},
+            {"id": "fx_param1", "cc": 12, "label": "Param 1", "default": 64, "type": "knob"},
+            {"id": "fx_param2", "cc": 13, "label": "Param 2", "default": 64, "type": "knob"},
+        ]
+    },
+    {
+        "name": "GLOBAL",
+        "params": [
+            {"id": "volume",    "cc": 37, "label": "Volume",  "default": 100, "type": "knob"},
+            {"id": "master",    "cc": 7,  "label": "Master",  "default": 100, "type": "knob"},
+            {"id": "bpm",       "cc": 14, "label": "BPM",     "default": 64,  "type": "knob"},
+            {"id": "glide_on",  "cc": 65, "label": "Glide",   "default": 0,   "type": "toggle"},
+        ]
+    },
+]
 
 
 # ──────────────────────────────────────────────────────────────
 # Audio/MIDI Engine (separate process)
 # ──────────────────────────────────────────────────────────────
 def audio_midi_engine(server_ip, midi_port_name, audio_port, midi_udp_port,
-                      buffer_frames, stats, control, cc_queue):
+                      buffer_frames, stats, control, cc_queue,
+                      learn_flag, learn_result):
     import mido
     import pyaudio
     import threading
@@ -139,10 +186,8 @@ def audio_midi_engine(server_ip, midi_port_name, audio_port, midi_udp_port,
                             if latency < 200:
                                 latency_sum += latency
                                 latency_count += 1
-                                if latency < latency_min:
-                                    latency_min = latency
-                                if latency > latency_max:
-                                    latency_max = latency
+                                latency_min = min(latency_min, latency)
+                                latency_max = max(latency_max, latency)
                                 stats["latency_avg"] = latency_sum / latency_count
                                 stats["latency_min"] = latency_min
                                 stats["latency_max"] = latency_max
@@ -154,11 +199,10 @@ def audio_midi_engine(server_ip, midi_port_name, audio_port, midi_udp_port,
                         continue
                     break
 
-        audio_thread = threading.Thread(target=audio_loop, daemon=True)
-        audio_thread.start()
+        threading.Thread(target=audio_loop, daemon=True).start()
 
         while control["running"]:
-            # GUI CC/program messages
+            # GUI messages
             while not cc_queue.empty():
                 try:
                     cc_num, cc_val = cc_queue.get_nowait()
@@ -183,8 +227,10 @@ def audio_midi_engine(server_ip, midi_port_name, audio_port, midi_udp_port,
                 elif msg.type == "note_off" or (msg.type == "note_on" and msg.velocity == 0):
                     stats["last_note_off"] = msg.note
 
-                if control.get("learn", False) and msg.type == "control_change":
-                    stats["learn_cc"] = msg.control
+                # MIDI learn — use Value for reliable IPC
+                if learn_flag.value and msg.type == "control_change":
+                    learn_result.value = msg.control
+                    learn_flag.value = 0
             else:
                 time.sleep(0.0001)
 
@@ -205,16 +251,14 @@ def audio_midi_engine(server_ip, midi_port_name, audio_port, midi_udp_port,
 
 
 # ──────────────────────────────────────────────────────────────
-# Custom Knob Widget
+# Knob Widget
 # ──────────────────────────────────────────────────────────────
 class Knob(tk.Canvas):
-    R = 18
-    SWEEP = 270
-    START = 225
-
     def __init__(self, parent, label="", cc=0, default=0, on_change=None,
-                 on_learn=None, **kwargs):
-        super().__init__(parent, width=48, height=64, bg="#1a1a1a",
+                 on_learn=None, size=44, **kwargs):
+        self.sz = size
+        lh = 12
+        super().__init__(parent, width=size, height=size + lh, bg="#1a1a1a",
                          highlightthickness=0, **kwargs)
         self.cc = cc
         self.value = default
@@ -223,45 +267,38 @@ class Knob(tk.Canvas):
         self.label_text = label
         self.learning = False
         self.mapped_cc = None
-        self._drag_y = None
-        self._drag_val = None
-
+        self._dy = None
+        self._dv = None
         self._draw()
-        self.bind("<ButtonPress-1>", self._press)
-        self.bind("<B1-Motion>", self._drag)
-        self.bind("<ButtonRelease-1>", self._release)
-        self.bind("<Double-Button-1>", self._dbl)
-        self.bind("<MouseWheel>", self._scroll)
+        self.bind("<ButtonPress-1>", lambda e: self._set_drag(e))
+        self.bind("<B1-Motion>", lambda e: self._do_drag(e))
+        self.bind("<ButtonRelease-1>", lambda e: self._end_drag())
+        self.bind("<Double-Button-1>", lambda e: self._toggle_learn())
+        self.bind("<MouseWheel>", lambda e: self.set_value(self.value + (1 if e.delta > 0 else -1)))
 
     def _draw(self):
         self.delete("all")
-        cx, cy = 24, 26
-        r = self.R
+        s = self.sz
+        cx, cy = s // 2, s // 2
+        r = s // 2 - 4
 
-        # Track
         self.create_arc(cx-r, cy-r, cx+r, cy+r, start=-45, extent=270,
                         style=tk.ARC, outline="#333", width=2)
-        # Value arc
-        ext = (self.value / 127) * self.SWEEP
+        ext = (self.value / 127) * 270
         col = "#facc15" if self.learning else "#6366f1"
-        self.create_arc(cx-r, cy-r, cx+r, cy+r, start=self.START, extent=-ext,
+        self.create_arc(cx-r, cy-r, cx+r, cy+r, start=225, extent=-ext,
                         style=tk.ARC, outline=col, width=2)
-        # Body
         kr = r - 4
         self.create_oval(cx-kr, cy-kr, cx+kr, cy+kr,
                          fill="#333520" if self.learning else "#2a2a2a", outline="#444")
-        # Indicator
-        ang = math.radians(self.START - (self.value / 127) * self.SWEEP)
-        self.create_line(cx, cy, cx + math.cos(ang)*12, cy - math.sin(ang)*12,
+        ang = math.radians(225 - (self.value / 127) * 270)
+        il = r - 6
+        self.create_line(cx, cy, cx + math.cos(ang)*il, cy - math.sin(ang)*il,
                          fill="white", width=2)
-        # Value
-        self.create_text(cx, cy, text=str(self.value), fill="#888", font=("SF Mono", 6))
-        # Label
-        self.create_text(cx, 55, text=self.label_text, fill="#999", font=("Helvetica", 7))
-        # Mapped CC
+        self.create_text(cx, cy, text=str(self.value), fill="#777", font=("SF Mono", 6))
+        self.create_text(cx, s + 5, text=self.label_text, fill="#999", font=("Helvetica", 7))
         if self.mapped_cc is not None:
-            self.create_text(cx, 4, text=f"CC{self.mapped_cc}", fill="#6366f1",
-                             font=("SF Mono", 5))
+            self.create_text(cx, 3, text=f"CC{self.mapped_cc}", fill="#6366f1", font=("SF Mono", 5))
 
     def set_value(self, val, send=True):
         self.value = max(0, min(127, int(val)))
@@ -269,99 +306,80 @@ class Knob(tk.Canvas):
         if send and self.on_change:
             self.on_change(self.cc, self.value)
 
-    def _press(self, e): self._drag_y, self._drag_val = e.y, self.value
-    def _drag(self, e):
-        if self._drag_y is None: return
-        self.set_value(self._drag_val + (self._drag_y - e.y) * 0.8)
-    def _release(self, e): self._drag_y = None
-    def _dbl(self, e):
+    def _set_drag(self, e): self._dy, self._dv = e.y, self.value
+    def _do_drag(self, e):
+        if self._dy is not None:
+            self.set_value(self._dv + (self._dy - e.y) * 0.8)
+    def _end_drag(self): self._dy = None
+    def _toggle_learn(self):
         if self.on_learn:
             self.learning = not self.learning
             self._draw()
             self.on_learn(self, self.learning)
-    def _scroll(self, e): self.set_value(self.value + (1 if e.delta > 0 else -1))
     def set_learning(self, a): self.learning = a; self._draw()
     def set_mapped_cc(self, cc): self.mapped_cc = cc; self._draw()
 
 
 # ──────────────────────────────────────────────────────────────
-# Keyboard Widget
+# Piano Keyboard
 # ──────────────────────────────────────────────────────────────
 class PianoKeyboard(tk.Canvas):
-    """Visual keyboard showing active notes."""
+    WW = 18  # white key width
+    WH = 60  # white key height
+    BW = 11  # black key width
+    BH = 36  # black key height
+    BLACK = {1: -6, 3: -4, 6: -7, 8: -5, 10: -3}
 
-    WHITE_W = 14
-    WHITE_H = 50
-    BLACK_W = 9
-    BLACK_H = 30
-    BLACK_OFFSETS = {1: -5, 3: -3, 6: -6, 8: -4, 10: -2}  # relative to white key
-
-    def __init__(self, parent, start_note=36, num_octaves=4, **kwargs):
-        self.start_note = start_note
-        self.num_octaves = num_octaves
-        self.active_notes = set()
-
-        # Calculate width
-        num_whites = num_octaves * 7 + 1  # +1 for final C
-        w = num_whites * self.WHITE_W + 2
-        super().__init__(parent, width=w, height=self.WHITE_H + 2, bg="#0a0a0a",
-                         highlightthickness=0, **kwargs)
+    def __init__(self, parent, start=36, octaves=5, **kwargs):
+        self.start = start
+        self.octaves = octaves
+        self.active = set()
+        nw = octaves * 7 + 1
+        super().__init__(parent, width=nw * self.WW + 2, height=self.WH + 2,
+                         bg="#0a0a0a", highlightthickness=0, **kwargs)
         self._draw()
 
     def _draw(self):
         self.delete("all")
-        note = self.start_note
+        whites = [0, 2, 4, 5, 7, 9, 11]
         x = 1
-        white_positions = {}
-
-        # Draw white keys first
-        for octave in range(self.num_octaves):
-            for i in range(7):  # 7 white keys per octave
-                white_notes = [0, 2, 4, 5, 7, 9, 11]
-                midi_note = self.start_note + octave * 12 + white_notes[i]
-                active = midi_note in self.active_notes
-                fill = "#6366f1" if active else "#d0d0d0"
-                self.create_rectangle(x, 1, x + self.WHITE_W - 1, self.WHITE_H,
-                                       fill=fill, outline="#555")
-                white_positions[midi_note] = x
-                x += self.WHITE_W
-
+        # White keys
+        for o in range(self.octaves):
+            for w in whites:
+                n = self.start + o * 12 + w
+                f = "#6366f1" if n in self.active else "#d4d4d4"
+                self.create_rectangle(x, 1, x + self.WW - 1, self.WH, fill=f, outline="#888")
+                x += self.WW
         # Final C
-        final_c = self.start_note + self.num_octaves * 12
-        active = final_c in self.active_notes
-        fill = "#6366f1" if active else "#d0d0d0"
-        self.create_rectangle(x, 1, x + self.WHITE_W - 1, self.WHITE_H,
-                               fill=fill, outline="#555")
+        n = self.start + self.octaves * 12
+        f = "#6366f1" if n in self.active else "#d4d4d4"
+        self.create_rectangle(x, 1, x + self.WW - 1, self.WH, fill=f, outline="#888")
 
-        # Draw black keys on top
-        x = 1
-        for octave in range(self.num_octaves):
+        # Black keys
+        for o in range(self.octaves):
             for i in range(12):
-                if i in self.BLACK_OFFSETS:
-                    midi_note = self.start_note + octave * 12 + i
-                    # Find position relative to the white key
-                    white_idx = [0, 0, 1, 1, 2, 3, 3, 4, 4, 5, 5, 6][i]
-                    bx = 1 + (octave * 7 + white_idx) * self.WHITE_W + self.WHITE_W + self.BLACK_OFFSETS[i]
-                    active = midi_note in self.active_notes
-                    fill = "#6366f1" if active else "#222222"
-                    self.create_rectangle(bx, 1, bx + self.BLACK_W, self.BLACK_H,
-                                           fill=fill, outline="#111")
+                if i in self.BLACK:
+                    n = self.start + o * 12 + i
+                    wi = [0, 0, 1, 1, 2, 3, 3, 4, 4, 5, 5, 6][i]
+                    bx = 1 + (o * 7 + wi) * self.WW + self.WW + self.BLACK[i]
+                    f = "#6366f1" if n in self.active else "#1a1a1a"
+                    self.create_rectangle(bx, 1, bx + self.BW, self.BH, fill=f, outline="#000")
 
-    def note_on(self, note):
-        self.active_notes.add(note)
+    def note_on(self, n):
+        self.active.add(n)
         self._draw()
 
-    def note_off(self, note):
-        self.active_notes.discard(note)
+    def note_off(self, n):
+        self.active.discard(n)
         self._draw()
 
     def clear(self):
-        self.active_notes.clear()
+        self.active.clear()
         self._draw()
 
 
 # ──────────────────────────────────────────────────────────────
-# Main Application
+# Main App
 # ──────────────────────────────────────────────────────────────
 class AnarackApp:
     def __init__(self, root):
@@ -370,303 +388,286 @@ class AnarackApp:
         self.root.configure(bg="#0a0a0a")
         self.root.resizable(False, False)
 
-        self.engine_process = None
-        self.manager = mp.Manager()
-        self.stats = self.manager.dict({
+        self.engine = None
+        self.mgr = mp.Manager()
+        self.stats = self.mgr.dict({
             "status": 0, "midi_count": 0, "audio_count": 0,
             "latency_avg": 0.0, "latency_min": 0.0, "latency_max": 0.0,
-            "error": "", "learn_cc": -1,
-            "last_note_on": -1, "last_note_off": -1,
+            "error": "", "last_note_on": -1, "last_note_off": -1,
         })
-        self.control = self.manager.dict({"running": False, "learn": False})
+        self.control = self.mgr.dict({"running": False})
         self.cc_queue = mp.Queue()
+
+        # Reliable IPC for MIDI learn
+        self.learn_flag = mp.Value(ctypes.c_int, 0)
+        self.learn_result = mp.Value(ctypes.c_int, -1)
 
         self.knobs = {}
         self.learning_knob = None
         self.cc_to_knob = {}
 
         self.build_ui()
-        self.refresh_midi_ports()
-        self.update_ui()
+        self.refresh_midi()
+        self.tick()
         self.root.protocol("WM_DELETE_WINDOW", self.on_close)
 
     def build_ui(self):
         bg = "#0a0a0a"
-        dark = "#1a1a1a"
-        bar_bg = "#131313"
+        bar = "#131313"
 
         # ── Header ──
-        header = tk.Frame(self.root, bg="#111", padx=10, pady=6)
-        header.pack(fill=tk.X)
+        h = tk.Frame(self.root, bg="#111", padx=10, pady=5)
+        h.pack(fill=tk.X)
+        tk.Label(h, text="ANARACK", font=("Helvetica", 13, "bold"), bg="#111", fg="#e0e0e0").pack(side=tk.LEFT)
+        tk.Label(h, text="Prophet Rev2", font=("Helvetica", 10), bg="#111", fg="#555").pack(side=tk.LEFT, padx=8)
+        self.lat_lbl = tk.Label(h, text="", font=("SF Mono", 11, "bold"), bg="#111", fg="#4ade80")
+        self.lat_lbl.pack(side=tk.RIGHT)
+        self.status_lbl = tk.Label(h, text="Disconnected", font=("Helvetica", 9), bg="#111", fg="#f87171")
+        self.status_lbl.pack(side=tk.RIGHT, padx=(0, 12))
 
-        tk.Label(header, text="ANARACK", font=("Helvetica", 13, "bold"),
-                 bg="#111", fg="#e0e0e0").pack(side=tk.LEFT)
+        # ── Connection ──
+        c = tk.Frame(self.root, bg=bar, padx=10, pady=4)
+        c.pack(fill=tk.X)
+        tk.Label(c, text="Server", font=("Helvetica", 9), bg=bar, fg="#777").pack(side=tk.LEFT)
+        self.sv = tk.StringVar(value="192.168.1.131")
+        tk.Entry(c, textvariable=self.sv, font=("SF Mono", 10), bg="#222", fg="#eee",
+                 insertbackground="#eee", relief=tk.FLAT, width=14).pack(side=tk.LEFT, padx=(6, 12))
+        tk.Label(c, text="MIDI", font=("Helvetica", 9), bg=bar, fg="#777").pack(side=tk.LEFT)
+        self.mv = tk.StringVar()
+        self.mc = ttk.Combobox(c, textvariable=self.mv, font=("Helvetica", 9), width=24, state="readonly")
+        self.mc.pack(side=tk.LEFT, padx=(6, 12))
+        self.cbtn = tk.Button(c, text="Connect", font=("Helvetica", 10, "bold"),
+                               bg="#6366f1", fg="white", activebackground="#4f46e5",
+                               activeforeground="white", relief=tk.FLAT, padx=14, pady=2,
+                               command=self.toggle)
+        self.cbtn.pack(side=tk.RIGHT)
 
-        tk.Label(header, text="Prophet Rev2", font=("Helvetica", 10),
-                 bg="#111", fg="#555").pack(side=tk.LEFT, padx=(8, 0))
+        # ── Synth Panel — single row matching Rev2 left→right ──
+        panel = tk.Frame(self.root, bg=bg, padx=2, pady=4)
+        panel.pack(fill=tk.X)
 
-        self.lat_label = tk.Label(header, text="", font=("SF Mono", 11, "bold"),
-                                   bg="#111", fg="#4ade80")
-        self.lat_label.pack(side=tk.RIGHT)
-
-        self.status_label = tk.Label(header, text="Disconnected",
-                                      font=("Helvetica", 9), bg="#111", fg="#f87171")
-        self.status_label.pack(side=tk.RIGHT, padx=(0, 12))
-
-        # ── Connection bar ──
-        conn = tk.Frame(self.root, bg=bar_bg, padx=10, pady=5)
-        conn.pack(fill=tk.X)
-
-        tk.Label(conn, text="Server", font=("Helvetica", 9), bg=bar_bg, fg="#777").pack(side=tk.LEFT)
-        self.server_var = tk.StringVar(value="192.168.1.131")
-        tk.Entry(conn, textvariable=self.server_var, font=("SF Mono", 10),
-                 bg="#222", fg="#eee", insertbackground="#eee", relief=tk.FLAT,
-                 width=14).pack(side=tk.LEFT, padx=(6, 14))
-
-        tk.Label(conn, text="MIDI", font=("Helvetica", 9), bg=bar_bg, fg="#777").pack(side=tk.LEFT)
-        self.midi_var = tk.StringVar()
-        self.midi_combo = ttk.Combobox(conn, textvariable=self.midi_var,
-                                        font=("Helvetica", 9), width=24, state="readonly")
-        self.midi_combo.pack(side=tk.LEFT, padx=(6, 14))
-
-        self.connect_btn = tk.Button(
-            conn, text="Connect", font=("Helvetica", 10, "bold"),
-            bg="#6366f1", fg="white", activebackground="#4f46e5", activeforeground="white",
-            relief=tk.FLAT, padx=16, pady=3, command=self.toggle_connection
-        )
-        self.connect_btn.pack(side=tk.RIGHT)
-
-        # ── Synth Panel ──
-        panel = tk.Frame(self.root, bg=bg, padx=4, pady=6)
-        panel.pack(fill=tk.BOTH)
-
-        # Row 1
-        row1 = tk.Frame(panel, bg=bg)
-        row1.pack(fill=tk.X, pady=(0, 2))
-        for col, group_name in enumerate(ROW1_GROUPS):
-            self._build_group(row1, group_name, col)
-
-        # Row 2
-        row2 = tk.Frame(panel, bg=bg)
-        row2.pack(fill=tk.X, pady=(0, 2))
-        for col, group_name in enumerate(ROW2_GROUPS):
-            self._build_group(row2, group_name, col)
+        for col, group in enumerate(PANEL_LAYOUT):
+            self._build_group(panel, group, col)
 
         # ── Program / Bank ──
-        prog_frame = tk.Frame(self.root, bg=bar_bg, padx=10, pady=5)
-        prog_frame.pack(fill=tk.X)
+        pf = tk.Frame(self.root, bg=bar, padx=10, pady=4)
+        pf.pack(fill=tk.X)
 
-        tk.Label(prog_frame, text="PROGRAM", font=("Helvetica", 8, "bold"),
-                 bg=bar_bg, fg="#777").pack(side=tk.LEFT)
+        tk.Label(pf, text="PROGRAM", font=("Helvetica", 8, "bold"), bg=bar, fg="#777").pack(side=tk.LEFT)
+        tk.Button(pf, text=" ◀ ", font=("Helvetica", 9), bg="#333", fg="#eee",
+                  activebackground="#555", activeforeground="white", relief=tk.FLAT,
+                  command=lambda: self.prog(-1)).pack(side=tk.LEFT, padx=(8, 2))
+        self.pv = tk.StringVar(value="0")
+        tk.Entry(pf, textvariable=self.pv, font=("SF Mono", 10), bg="#222", fg="#eee",
+                 insertbackground="#eee", relief=tk.FLAT, width=4, justify=tk.CENTER).pack(side=tk.LEFT)
+        tk.Button(pf, text=" ▶ ", font=("Helvetica", 9), bg="#333", fg="#eee",
+                  activebackground="#555", activeforeground="white", relief=tk.FLAT,
+                  command=lambda: self.prog(1)).pack(side=tk.LEFT, padx=(2, 16))
 
-        tk.Button(prog_frame, text=" < ", font=("Helvetica", 10),
-                  bg="#333", fg="#eee", activebackground="#555", activeforeground="white",
-                  relief=tk.FLAT, command=lambda: self.change_program(-1)
-                  ).pack(side=tk.LEFT, padx=(8, 2))
-
-        self.prog_var = tk.StringVar(value="0")
-        tk.Entry(prog_frame, textvariable=self.prog_var, font=("SF Mono", 10),
-                 bg="#222", fg="#eee", insertbackground="#eee", relief=tk.FLAT,
-                 width=4, justify=tk.CENTER).pack(side=tk.LEFT)
-
-        tk.Button(prog_frame, text=" > ", font=("Helvetica", 10),
-                  bg="#333", fg="#eee", activebackground="#555", activeforeground="white",
-                  relief=tk.FLAT, command=lambda: self.change_program(1)
-                  ).pack(side=tk.LEFT, padx=(2, 16))
-
-        tk.Label(prog_frame, text="BANK", font=("Helvetica", 8, "bold"),
-                 bg=bar_bg, fg="#777").pack(side=tk.LEFT, padx=(0, 6))
-
-        self.bank_var = tk.StringVar(value="A")
-        for letter in "ABCDEFGH":
-            tk.Radiobutton(prog_frame, text=letter, variable=self.bank_var,
-                          value=letter, font=("SF Mono", 9), bg=bar_bg, fg="#ccc",
-                          selectcolor="#6366f1", activebackground=bar_bg,
-                          activeforeground="white",
-                          indicatoron=0, padx=5, pady=1, relief=tk.FLAT,
-                          command=self.send_bank_program).pack(side=tk.LEFT, padx=1)
+        tk.Label(pf, text="BANK", font=("Helvetica", 8, "bold"), bg=bar, fg="#777").pack(side=tk.LEFT, padx=(0, 6))
+        self.bv = tk.StringVar(value="A")
+        for l in "ABCDEFGH":
+            tk.Radiobutton(pf, text=l, variable=self.bv, value=l, font=("SF Mono", 9),
+                          bg=bar, fg="#ccc", selectcolor="#6366f1", activebackground=bar,
+                          activeforeground="white", indicatoron=0, padx=5, pady=1,
+                          relief=tk.FLAT, command=self.send_prog).pack(side=tk.LEFT, padx=1)
 
         # ── Keyboard ──
-        kb_frame = tk.Frame(self.root, bg=bg, pady=4)
-        kb_frame.pack(fill=tk.X)
+        kf = tk.Frame(self.root, bg=bg, pady=4)
+        kf.pack()
+        self.kbd = PianoKeyboard(kf, start=36, octaves=5)
+        self.kbd.pack()
 
-        self.keyboard = PianoKeyboard(kb_frame, start_note=36, num_octaves=4)
-        self.keyboard.pack()
+        # ── Footer ──
+        ff = tk.Frame(self.root, bg=bg, padx=10, pady=3)
+        ff.pack(fill=tk.X)
+        self.stat_lbl = tk.Label(ff, text="", font=("SF Mono", 8), bg=bg, fg="#444")
+        self.stat_lbl.pack(side=tk.LEFT)
+        self.learn_lbl = tk.Label(ff, text="Double-click knob to MIDI learn", font=("Helvetica", 8), bg=bg, fg="#444")
+        self.learn_lbl.pack(side=tk.RIGHT)
 
-        # ── Status bar ──
-        status_bar = tk.Frame(self.root, bg=bg, padx=10, pady=3)
-        status_bar.pack(fill=tk.X)
-
-        self.stats_label = tk.Label(status_bar, text="", font=("SF Mono", 8),
-                                     bg=bg, fg="#444", anchor="w")
-        self.stats_label.pack(side=tk.LEFT)
-
-        self.learn_hint = tk.Label(status_bar, text="Double-click knob to MIDI learn",
-                                    font=("Helvetica", 8), bg=bg, fg="#444")
-        self.learn_hint.pack(side=tk.RIGHT)
-
-    def _build_group(self, parent, group_name, col):
-        """Build a group of knobs for a synth section."""
+    def _build_group(self, parent, group, col):
         dark = "#1a1a1a"
-        params = [(k, v) for k, v in REV2_PARAMS.items() if v["group"] == group_name]
-        if not params:
-            return
+        f = tk.Frame(parent, bg=dark, padx=3, pady=3)
+        f.grid(row=0, column=col, padx=1, pady=1, sticky="n")
 
-        frame = tk.Frame(parent, bg=dark, padx=4, pady=4)
-        frame.grid(row=0, column=col, padx=2, pady=1, sticky="n")
-
-        tk.Label(frame, text=group_name, font=("Helvetica", 7, "bold"),
+        tk.Label(f, text=group["name"], font=("Helvetica", 6, "bold"),
                  bg=dark, fg="#6366f1").pack(pady=(0, 2))
 
-        knobs_frame = tk.Frame(frame, bg=dark)
-        knobs_frame.pack()
+        gf = tk.Frame(f, bg=dark)
+        gf.pack()
 
-        # Max 2 columns per group
-        for i, (param_name, param) in enumerate(params):
-            knob = Knob(
-                knobs_frame, label=param["label"], cc=param["cc"],
-                default=param["default"],
-                on_change=self.on_knob_change, on_learn=self.on_midi_learn,
-            )
-            knob.grid(row=i // 2, column=i % 2, padx=1, pady=1)
-            self.knobs[param_name] = knob
+        cols = 2 if len(group["params"]) > 3 else min(len(group["params"]), 3)
 
-    def refresh_midi_ports(self):
+        for i, p in enumerate(group["params"]):
+            if p["type"] == "knob":
+                w = Knob(gf, label=p["label"], cc=p["cc"], default=p["default"],
+                         on_change=self.on_cc, on_learn=self.on_learn, size=40)
+                w.grid(row=i // cols, column=i % cols, padx=1, pady=1)
+                self.knobs[p["id"]] = w
+
+            elif p["type"] == "select":
+                sf = tk.Frame(gf, bg=dark)
+                sf.grid(row=i // cols, column=i % cols, padx=1, pady=1)
+                tk.Label(sf, text=p["label"], font=("Helvetica", 6), bg=dark, fg="#999").pack()
+                var = tk.StringVar(value=p["options"][0])
+                om = ttk.Combobox(sf, textvariable=var, values=p["options"],
+                                   font=("Helvetica", 7), width=8, state="readonly")
+                om.pack()
+                cc = p["cc"]
+                opts = p["options"]
+                def on_select(event, cc=cc, var=var, opts=opts):
+                    idx = opts.index(var.get()) if var.get() in opts else 0
+                    val = int(idx * 127 / max(len(opts) - 1, 1))
+                    self.on_cc(cc, val)
+                om.bind("<<ComboboxSelected>>", on_select)
+
+            elif p["type"] == "toggle":
+                tf = tk.Frame(gf, bg=dark)
+                tf.grid(row=i // cols, column=i % cols, padx=1, pady=1)
+                var = tk.IntVar(value=p["default"])
+                cc = p["cc"]
+                def on_toggle(cc=cc, var=var):
+                    self.on_cc(cc, 127 if var.get() else 0)
+                cb = tk.Checkbutton(tf, text=p["label"], variable=var,
+                                    font=("Helvetica", 7), bg=dark, fg="#999",
+                                    selectcolor="#333", activebackground=dark,
+                                    activeforeground="#eee", command=lambda: on_toggle())
+                cb.pack()
+
+    def refresh_midi(self):
         import mido
         ports = mido.get_input_names()
-        self.midi_combo["values"] = ports
+        self.mc["values"] = ports
         if ports:
             for i, p in enumerate(ports):
                 if "launch" in p.lower() or "key" in p.lower():
-                    self.midi_combo.current(i)
+                    self.mc.current(i)
                     return
-            self.midi_combo.current(0)
+            self.mc.current(0)
 
-    def on_knob_change(self, cc, value):
-        if self.engine_process and self.engine_process.is_alive():
-            self.cc_queue.put((cc, value))
+    def on_cc(self, cc, val):
+        if self.engine and self.engine.is_alive():
+            self.cc_queue.put((cc, val))
 
-    def on_midi_learn(self, knob, active):
+    def on_learn(self, knob, active):
         if active:
             if self.learning_knob and self.learning_knob != knob:
                 self.learning_knob.set_learning(False)
             self.learning_knob = knob
-            self.learn_hint.config(text="Twiddle a knob on your controller...", fg="#facc15")
-            self.control["learn"] = True
-            self.stats["learn_cc"] = -1
+            self.learn_lbl.config(text="Twiddle a knob on your controller...", fg="#facc15")
+            self.learn_result.value = -1
+            self.learn_flag.value = 1
         else:
             self.learning_knob = None
-            self.learn_hint.config(text="Double-click knob to MIDI learn", fg="#444")
-            self.control["learn"] = False
+            self.learn_lbl.config(text="Double-click knob to MIDI learn", fg="#444")
+            self.learn_flag.value = 0
 
-    def toggle_connection(self):
-        if self.engine_process and self.engine_process.is_alive():
+    def toggle(self):
+        if self.engine and self.engine.is_alive():
             self.disconnect()
         else:
             self.connect()
 
     def connect(self):
-        server = self.server_var.get().strip()
-        midi_port = self.midi_var.get()
-        if not server or not midi_port:
+        server = self.sv.get().strip()
+        midi = self.mv.get()
+        if not server or not midi:
             return
 
-        for key in ["status", "midi_count", "audio_count", "latency_avg",
-                     "latency_min", "latency_max"]:
-            self.stats[key] = 0
+        for k in ["status", "midi_count", "audio_count", "latency_avg", "latency_min", "latency_max"]:
+            self.stats[k] = 0
         self.stats["error"] = ""
-        self.stats["learn_cc"] = -1
         self.stats["last_note_on"] = -1
         self.stats["last_note_off"] = -1
         self.control["running"] = True
-        self.control["learn"] = False
+        self.learn_flag.value = 0
+        self.learn_result.value = -1
 
-        self.engine_process = mp.Process(
+        self.engine = mp.Process(
             target=audio_midi_engine,
-            args=(server, midi_port, 9999, 5555, 128,
-                  self.stats, self.control, self.cc_queue),
+            args=(server, midi, 9999, 5555, 128,
+                  self.stats, self.control, self.cc_queue,
+                  self.learn_flag, self.learn_result),
             daemon=True,
         )
-        self.engine_process.start()
-        self.connect_btn.config(text="Disconnect", bg="#ef4444",
-                                 activebackground="#dc2626")
+        self.engine.start()
+        self.cbtn.config(text="Disconnect", bg="#ef4444", activebackground="#dc2626")
 
     def disconnect(self):
         self.control["running"] = False
-        if self.engine_process:
-            self.engine_process.join(timeout=2)
-            if self.engine_process.is_alive():
-                self.engine_process.terminate()
-            self.engine_process = None
-        self.status_label.config(text="Disconnected", fg="#f87171")
-        self.connect_btn.config(text="Connect", bg="#6366f1",
-                                 activebackground="#4f46e5")
-        self.lat_label.config(text="")
-        self.keyboard.clear()
+        if self.engine:
+            self.engine.join(timeout=2)
+            if self.engine.is_alive():
+                self.engine.terminate()
+            self.engine = None
+        self.status_lbl.config(text="Disconnected", fg="#f87171")
+        self.cbtn.config(text="Connect", bg="#6366f1", activebackground="#4f46e5")
+        self.lat_lbl.config(text="")
+        self.kbd.clear()
 
-    def change_program(self, delta):
+    def prog(self, d):
         try:
-            num = max(0, min(127, int(self.prog_var.get()) + delta))
-            self.prog_var.set(str(num))
-            self.send_bank_program()
+            n = max(0, min(127, int(self.pv.get()) + d))
+            self.pv.set(str(n))
+            self.send_prog()
         except ValueError:
             pass
 
-    def send_bank_program(self):
-        if not (self.engine_process and self.engine_process.is_alive()):
+    def send_prog(self):
+        if not (self.engine and self.engine.is_alive()):
             return
-        bank = ord(self.bank_var.get()) - ord("A")
+        b = ord(self.bv.get()) - 65
         try:
-            prog = int(self.prog_var.get())
+            p = int(self.pv.get())
         except ValueError:
-            prog = 0
-        self.cc_queue.put((0, bank))
-        self.cc_queue.put((-1, prog))
+            p = 0
+        self.cc_queue.put((0, b))
+        self.cc_queue.put((-1, p))
 
-    def update_ui(self):
-        status = self.stats.get("status", 0)
-        if status == 1:
-            self.status_label.config(text="Connected", fg="#4ade80")
-        elif status == -1:
-            self.status_label.config(text="Error", fg="#f87171")
+    def tick(self):
+        st = self.stats.get("status", 0)
+        if st == 1:
+            self.status_lbl.config(text="Connected", fg="#4ade80")
+        elif st == -1:
+            self.status_lbl.config(text="Error", fg="#f87171")
 
         avg = self.stats.get("latency_avg", 0)
         if avg > 0:
-            color = "#4ade80" if avg < 20 else "#facc15" if avg < 40 else "#f87171"
-            self.lat_label.config(text=f"{avg:.0f}ms", fg=color)
+            c = "#4ade80" if avg < 20 else "#facc15" if avg < 40 else "#f87171"
+            self.lat_lbl.config(text=f"{avg:.0f}ms", fg=c)
 
         mn = self.stats.get("latency_min", 0)
         mx = self.stats.get("latency_max", 0)
-        mc = self.stats.get("midi_count", 0)
-        ac = self.stats.get("audio_count", 0)
-        self.stats_label.config(text=f"MIDI: {mc}  |  Audio: {ac}  |  {mn:.0f}-{mx:.0f}ms")
+        self.stat_lbl.config(
+            text=f"MIDI: {self.stats.get('midi_count',0)}  |  Audio: {self.stats.get('audio_count',0)}  |  {mn:.0f}-{mx:.0f}ms"
+        )
 
-        # Keyboard note display
-        note_on = self.stats.get("last_note_on", -1)
-        note_off = self.stats.get("last_note_off", -1)
-        if note_on >= 0:
-            self.keyboard.note_on(note_on)
+        # Keyboard
+        non = self.stats.get("last_note_on", -1)
+        noff = self.stats.get("last_note_off", -1)
+        if non >= 0:
+            self.kbd.note_on(non)
             self.stats["last_note_on"] = -1
-        if note_off >= 0:
-            self.keyboard.note_off(note_off)
+        if noff >= 0:
+            self.kbd.note_off(noff)
             self.stats["last_note_off"] = -1
 
-        # MIDI learn
-        learn_cc = self.stats.get("learn_cc", -1)
-        if learn_cc >= 0 and self.learning_knob:
+        # MIDI learn — check Value (reliable)
+        if self.learning_knob and self.learn_result.value >= 0:
+            cc = self.learn_result.value
             knob = self.learning_knob
             old = knob.mapped_cc
             if old is not None and old in self.cc_to_knob:
                 del self.cc_to_knob[old]
-            knob.set_mapped_cc(learn_cc)
+            knob.set_mapped_cc(cc)
             knob.set_learning(False)
-            self.cc_to_knob[learn_cc] = knob
+            self.cc_to_knob[cc] = knob
             self.learning_knob = None
-            self.learn_hint.config(text=f"Mapped CC{learn_cc} -> {knob.label_text}", fg="#4ade80")
-            self.control["learn"] = False
-            self.stats["learn_cc"] = -1
+            self.learn_lbl.config(text=f"Mapped CC{cc} → {knob.label_text}", fg="#4ade80")
+            self.learn_result.value = -1
 
-        self.root.after(80, self.update_ui)
+        self.root.after(80, self.tick)
 
     def on_close(self):
         self.disconnect()
@@ -676,7 +677,7 @@ class AnarackApp:
 def main():
     mp.set_start_method("spawn", force=True)
     root = tk.Tk()
-    app = AnarackApp(root)
+    AnarackApp(root)
     root.mainloop()
 
 
