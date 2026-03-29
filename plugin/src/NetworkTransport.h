@@ -5,6 +5,7 @@
 #include <arpa/inet.h>
 #include <unistd.h>
 #include "AudioRingBuffer.h"
+#include "WgTunnel.h"
 
 // Lock-free MIDI message slot for audio thread -> network thread communication.
 struct MidiSlot
@@ -13,19 +14,27 @@ struct MidiSlot
     int size;
 };
 
-// Handles UDP communication with the Anarack server.
-// - Sends MIDI messages (from lock-free FIFO filled by audio thread)
-// - Receives audio (int16 PCM from server, converts to float, pushes to ring buffer)
-// - Runs on background threads, never blocks the audio thread.
+// Handles communication with the Anarack server.
+// Two modes:
+//   - Raw UDP: for LAN connections (direct IP, no encryption)
+//   - WireGuard: for internet connections (encrypted tunnel via boringtun)
 class NetworkTransport : private juce::Thread
 {
 public:
     NetworkTransport(AudioRingBuffer& audioBuffer);
     ~NetworkTransport() override;
 
-    void connect(const juce::String& host, int midiPort = 5555, int audioPort = 9999, int preallocatedSendFd = -1);
+    // Raw UDP connection (LAN)
+    void connect(const juce::String& host, int midiPort = 5555, int audioPort = 9999);
+
+    // WireGuard connection (internet)
+    void connectWireGuard(const juce::String& serverEndpoint,
+                          const juce::String& serverPubkey,
+                          int midiPort = 5555, int audioPort = 9999);
+
     void disconnect();
     bool isConnected() const { return connected.load(); }
+    bool isWireGuard() const { return useWireGuard; }
 
     // Called from audio thread — pushes a MIDI message into the lock-free FIFO.
     void sendMidi(const uint8_t* data, int size);
@@ -33,17 +42,25 @@ public:
     // Stats for UI
     int getPacketsReceived() const { return packetsReceived.load(); }
     int getBufferLevel() const { return audioBuffer.getNumReady(); }
+    int getEstimatedRtt() const;
 
 private:
-    void run() override; // Receive thread
+    void run() override; // Receive thread (raw UDP mode)
+    void runWireGuard();  // Receive loop (WireGuard mode)
     void sendPendingMidi();
     void sendRegistration();
 
     AudioRingBuffer& audioBuffer;
 
+    // Connection mode
+    bool useWireGuard = false;
+    std::unique_ptr<WgTunnel> wgTunnel;
+
+    // Raw UDP (LAN mode)
     int rawSendFd = -1;
     int rawRecvFd = -1;
     struct sockaddr_in serverAddr {};
+
     juce::String serverHost;
     int serverMidiPort = 5555;
     int serverAudioPort = 9999;

@@ -14,7 +14,7 @@ juce_add_plugin(AnarackRev2
     IS_MIDI_EFFECT FALSE
     PLUGIN_MANUFACTURER_CODE Anak
     PLUGIN_CODE Arv2
-    FORMATS AU Standalone
+    FORMATS AU VST3 Standalone
     PRODUCT_NAME "Anarack Rev2"
 )
 
@@ -23,11 +23,13 @@ target_sources(AnarackRev2
         src/PluginProcessor.cpp
         src/PluginEditor.cpp
         src/NetworkTransport.cpp
+        src/WgTunnel.cpp
 )
 
 target_include_directories(AnarackRev2
     PRIVATE
         src
+        lib
 )
 
 set_target_properties(AnarackRev2 PROPERTIES
@@ -46,6 +48,7 @@ target_link_libraries(AnarackRev2
     PRIVATE
         juce::juce_audio_utils
         juce::juce_core
+        ${CMAKE_CURRENT_SOURCE_DIR}/lib/libboringtun.a
     PUBLIC
         juce::juce_recommended_config_flags
         juce::juce_recommended_lto_flags

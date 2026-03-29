@@ -13,9 +13,12 @@ NetworkTransport::~NetworkTransport()
     disconnect();
 }
 
-void NetworkTransport::connect(const juce::String& host, int midiPort, int audioPort, int)
+// --- Raw UDP connection (LAN) ---
+
+void NetworkTransport::connect(const juce::String& host, int midiPort, int audioPort)
 {
     disconnect();
+    useWireGuard = false;
 
     // Resolve hostname to numeric IP
     struct addrinfo hints = {}, *res = nullptr;
@@ -40,8 +43,7 @@ void NetworkTransport::connect(const juce::String& host, int midiPort, int audio
 
     // Create send socket
     rawSendFd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
-    if (rawSendFd < 0)
-        return;
+    if (rawSendFd < 0) return;
 
     std::memset(&serverAddr, 0, sizeof(serverAddr));
     serverAddr.sin_family = AF_INET;
@@ -62,7 +64,6 @@ void NetworkTransport::connect(const juce::String& host, int midiPort, int audio
 
         if (::bind(rawRecvFd, (struct sockaddr*)&recvAddr, sizeof(recvAddr)) < 0)
         {
-            // Fall back to ephemeral port
             recvAddr.sin_port = 0;
             ::bind(rawRecvFd, (struct sockaddr*)&recvAddr, sizeof(recvAddr));
         }
@@ -73,16 +74,51 @@ void NetworkTransport::connect(const juce::String& host, int midiPort, int audio
     midiFifo.reset();
     audioBuffer.reset();
 
-    // Send registration byte to trigger audio return from server
     sendRegistration();
-
-    // Start receive thread
     startThread(juce::Thread::Priority::high);
 
-    // Start send thread
     sendThread = std::make_unique<SendThread>(*this);
     sendThread->startThread(juce::Thread::Priority::high);
 }
+
+// --- WireGuard connection (internet) ---
+
+void NetworkTransport::connectWireGuard(const juce::String& serverEndpoint,
+                                         const juce::String& serverPubkey,
+                                         int midiPort, int audioPort)
+{
+    disconnect();
+    useWireGuard = true;
+    serverMidiPort = midiPort;
+    serverAudioPort = audioPort;
+
+    // Generate ephemeral keypair
+    auto [privKey, pubKey] = WgTunnel::generateKeypair();
+    DBG("WireGuard pubkey: " + pubKey);
+
+    wgTunnel = std::make_unique<WgTunnel>();
+    if (!wgTunnel->connect(privKey, serverPubkey, serverEndpoint))
+    {
+        wgTunnel.reset();
+        return;
+    }
+
+    connected = true;
+    packetsReceived = 0;
+    midiFifo.reset();
+    audioBuffer.reset();
+
+    // Send registration through the tunnel
+    sendRegistration();
+
+    // Start receive thread (uses WireGuard path)
+    startThread(juce::Thread::Priority::high);
+
+    sendThread = std::make_unique<SendThread>(*this);
+    sendThread->startThread(juce::Thread::Priority::high);
+}
+
+// --- Shared ---
 
 void NetworkTransport::disconnect()
 {
@@ -96,17 +132,29 @@ void NetworkTransport::disconnect()
 
     stopThread(500);
 
+    if (wgTunnel)
+    {
+        wgTunnel->disconnect();
+        wgTunnel.reset();
+    }
+
     if (rawRecvFd >= 0) { ::close(rawRecvFd); rawRecvFd = -1; }
     if (rawSendFd >= 0) { ::close(rawSendFd); rawSendFd = -1; }
     audioBuffer.reset();
     midiFifo.reset();
+    useWireGuard = false;
 }
 
 void NetworkTransport::sendRegistration()
 {
-    if (rawSendFd >= 0)
+    uint8_t reg = 0xFE;
+
+    if (useWireGuard && wgTunnel)
     {
-        uint8_t reg = 0xFE; // Active Sensing — triggers server audio return
+        wgTunnel->send(&reg, 1, (uint16_t)serverMidiPort);
+    }
+    else if (rawSendFd >= 0)
+    {
         sendto(rawSendFd, &reg, 1, 0,
                (struct sockaddr*)&serverAddr, sizeof(serverAddr));
     }
@@ -134,34 +182,52 @@ void NetworkTransport::sendPendingMidi()
     int start1, size1, start2, size2;
     midiFifo.prepareToRead(midiFifo.getNumReady(), start1, size1, start2, size2);
 
-    if (rawSendFd < 0) { midiFifo.finishedRead(size1 + size2); return; }
-
     for (int i = 0; i < size1; ++i)
     {
         auto& slot = midiSlots[start1 + i];
-        sendto(rawSendFd, slot.data, (size_t)slot.size, 0,
-               (struct sockaddr*)&serverAddr, sizeof(serverAddr));
+        if (useWireGuard && wgTunnel)
+            wgTunnel->send(slot.data, slot.size, (uint16_t)serverMidiPort);
+        else if (rawSendFd >= 0)
+            sendto(rawSendFd, slot.data, (size_t)slot.size, 0,
+                   (struct sockaddr*)&serverAddr, sizeof(serverAddr));
     }
     for (int i = 0; i < size2; ++i)
     {
         auto& slot = midiSlots[start2 + i];
-        sendto(rawSendFd, slot.data, (size_t)slot.size, 0,
-               (struct sockaddr*)&serverAddr, sizeof(serverAddr));
+        if (useWireGuard && wgTunnel)
+            wgTunnel->send(slot.data, slot.size, (uint16_t)serverMidiPort);
+        else if (rawSendFd >= 0)
+            sendto(rawSendFd, slot.data, (size_t)slot.size, 0,
+                   (struct sockaddr*)&serverAddr, sizeof(serverAddr));
     }
 
     midiFifo.finishedRead(size1 + size2);
 }
 
-// Audio receive thread
+int NetworkTransport::getEstimatedRtt() const
+{
+    if (wgTunnel)
+        return wgTunnel->getStats().estimated_rtt;
+    return -1;
+}
+
+// --- Audio receive: raw UDP mode ---
+
 void NetworkTransport::run()
 {
+    if (useWireGuard)
+    {
+        runWireGuard();
+        return;
+    }
+
     constexpr int MAX_PACKET = 1024;
     uint8_t packetBuf[MAX_PACKET];
     float convBuf[MAX_PACKET / 2];
 
     struct timeval tv;
     tv.tv_sec = 0;
-    tv.tv_usec = 50000; // 50ms timeout for shutdown check
+    tv.tv_usec = 50000;
     setsockopt(rawRecvFd, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
 
     while (!threadShouldExit() && connected.load())
@@ -182,7 +248,45 @@ void NetworkTransport::run()
     }
 }
 
-// MIDI send thread
+// --- Audio receive: WireGuard mode ---
+
+void NetworkTransport::runWireGuard()
+{
+    constexpr int MAX_PACKET = 1024;
+    uint8_t packetBuf[MAX_PACKET];
+    float convBuf[MAX_PACKET / 2];
+
+    while (!threadShouldExit() && connected.load())
+    {
+        if (!wgTunnel) break;
+
+        uint16_t srcPort = 0;
+        int bytesRead = wgTunnel->recv(packetBuf, MAX_PACKET, srcPort);
+
+        if (bytesRead <= 0)
+        {
+            // No data ready — brief sleep to avoid busy spinning
+            std::this_thread::sleep_for(std::chrono::microseconds(500));
+            continue;
+        }
+
+        // Audio packets come from the server's audio port
+        if (srcPort == (uint16_t)serverAudioPort || bytesRead >= 128)
+        {
+            int numSamples = bytesRead / 2;
+            auto* int16Data = reinterpret_cast<const int16_t*>(packetBuf);
+            for (int i = 0; i < numSamples; ++i)
+                convBuf[i] = (float)int16Data[i] / 32768.0f;
+
+            audioBuffer.write(convBuf, numSamples);
+        }
+
+        packetsReceived.fetch_add(1, std::memory_order_relaxed);
+    }
+}
+
+// --- MIDI send thread ---
+
 void NetworkTransport::SendThread::run()
 {
     int keepaliveCounter = 0;
