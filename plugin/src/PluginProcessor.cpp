@@ -26,6 +26,7 @@ void AnarackProcessor::prepareToPlay(double sampleRate, int samplesPerBlock)
     resampler.reset();
     updatePrebuffer();
     prebuffering = true;
+    setLatencySamples(prebufferSamples);
 
     // Pre-allocate buffer for resampler input (worst case: full block at highest ratio)
     int maxInputSamples = (int)(samplesPerBlock * resampleRatio + 16);
@@ -142,6 +143,7 @@ void AnarackProcessor::updatePrebuffer()
 
     prebufferSamples = (int)(SERVER_SAMPLE_RATE * bufferMs / 1000.0);
     targetBufferSamples = prebufferSamples;
+    setLatencySamples(prebufferSamples);
 }
 
 juce::AudioProcessorEditor* AnarackProcessor::createEditor()
