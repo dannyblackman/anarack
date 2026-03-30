@@ -568,8 +568,12 @@ function connectToServer(host) {
   ws.onclose = () => {
     document.getElementById('status').className = 'status disconnected';
     document.getElementById('status').textContent = 'Disconnected';
-    // Reconnect after 3 seconds
+    document.getElementById('synth-name').textContent = 'Reconnecting to ' + host + '...';
     setTimeout(() => connectToServer(host), 3000);
+  };
+
+  ws.onerror = (e) => {
+    document.getElementById('synth-name').textContent = 'Error: ' + (e.message || 'connection failed') + ' (' + host + ')';
   };
 
   // Override sendCC to use this WebSocket for MIDI
@@ -584,6 +588,7 @@ function connectToServer(host) {
 // Auto-connect — get host from URL params or default
 const params = new URLSearchParams(location.search);
 const serverHost = params.get('server') || 'anarack.local:8765';
+document.getElementById('synth-name').textContent = 'Connecting to ' + serverHost + '...';
 connectToServer(serverHost);
 
 </script>

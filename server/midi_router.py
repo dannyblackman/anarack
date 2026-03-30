@@ -513,15 +513,44 @@ async def ws_handler(router: MidiRouter, ws, path=None):
             print(f"MIDI client disconnected: {remote}")
 
 
-async def http_handler(path, request_headers):
-    """Handle HTTP requests (synth definition API) before WebSocket upgrade."""
-    if path == '/api/synth/definition' and synth_mgr and synth_mgr.active_synth:
-        body = synth_mgr.active_synth.to_json().encode()
-        return (200, [("Content-Type", "application/json"), ("Access-Control-Allow-Origin", "*")], body)
-    if path == '/api/synths' and synth_mgr:
-        body = json.dumps(synth_mgr.list_synths()).encode()
-        return (200, [("Content-Type", "application/json"), ("Access-Control-Allow-Origin", "*")], body)
-    return None  # Continue to WebSocket handler
+def start_http_server(host: str, port: int):
+    """Simple HTTP server for serving the plugin UI and API."""
+    from http.server import HTTPServer, SimpleHTTPRequestHandler
+    import os
+
+    ui_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "plugin", "ui")
+
+    class Handler(SimpleHTTPRequestHandler):
+        def __init__(self, *args, **kwargs):
+            super().__init__(*args, directory=ui_dir, **kwargs)
+
+        def do_GET(self):
+            if self.path == '/api/synth/definition' and synth_mgr and synth_mgr.active_synth:
+                body = synth_mgr.active_synth.to_json().encode()
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Access-Control-Allow-Origin", "*")
+                self.end_headers()
+                self.wfile.write(body)
+            elif self.path == '/api/synths' and synth_mgr:
+                body = json.dumps(synth_mgr.list_synths()).encode()
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Access-Control-Allow-Origin", "*")
+                self.end_headers()
+                self.wfile.write(body)
+            else:
+                super().do_GET()
+
+        def log_message(self, format, *args):
+            pass  # Suppress HTTP logs
+
+    server = HTTPServer((host, port), Handler)
+    print(f"HTTP UI server: http://{host}:{port}")
+    # Run in a thread
+    import threading
+    t = threading.Thread(target=server.serve_forever, daemon=True)
+    t.start()
 
 
 async def main():
@@ -583,8 +612,12 @@ async def main():
         audio_streamer.start()
         audio_task = asyncio.create_task(audio_streamer.stream_to_clients())
 
+    # Start HTTP server for plugin UI
+    start_http_server(args.host, 8080)
+
     print(f"\nAnarack Server running. Ctrl+C to stop.")
     print(f"  WebSocket: ws://{args.host}:{args.ws_port} (MIDI: / , Audio: /audio)")
+    print(f"  Plugin UI: http://{args.host}:8080")
     print()
 
     # Run until interrupted

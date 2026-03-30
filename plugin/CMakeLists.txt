@@ -38,7 +38,7 @@ set_target_properties(AnarackRev2 PROPERTIES
 
 target_compile_definitions(AnarackRev2
     PUBLIC
-        JUCE_WEB_BROWSER=1
+        JUCE_WEB_BROWSER=0
         JUCE_USE_CURL=0
         JUCE_VST3_CAN_REPLACE_VST2=0
         JUCE_DISPLAY_SPLASH_SCREEN=0
@@ -47,7 +47,6 @@ target_compile_definitions(AnarackRev2
 target_link_libraries(AnarackRev2
     PRIVATE
         juce::juce_audio_utils
-        juce::juce_gui_extra
         juce::juce_core
         ${CMAKE_CURRENT_SOURCE_DIR}/lib/libboringtun.a
     PUBLIC
