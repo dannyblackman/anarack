@@ -42,15 +42,22 @@ private:
     int dragStartValue = 0;
 
     SynthControl* getControlAt(juce::Point<float> pos);
-    juce::Rectangle<int> getControlBounds(int groupIdx, int ctrlIdx);
+    void layoutGroups();
     void drawKnob(juce::Graphics& g, juce::Rectangle<int> bounds, SynthControl* ctrl);
     void drawSelector(juce::Graphics& g, juce::Rectangle<int> bounds, SynthControl* ctrl);
     void drawToggle(juce::Graphics& g, juce::Rectangle<int> bounds, SynthControl* ctrl);
 
-    static constexpr int GROUP_HEADER = 18;
-    static constexpr int CONTROL_W = 56;
-    static constexpr int CONTROL_H = 68;
-    static constexpr int GROUP_PAD = 4;
+    // Layout: each control has a computed position
+    struct ControlLayout { SynthControl* ctrl; juce::Rectangle<int> bounds; };
+    struct GroupLayout { SynthGroup* group; juce::Rectangle<int> bounds; std::vector<ControlLayout> controls; };
+    std::vector<GroupLayout> layout;
+
+    static constexpr int GROUP_HEADER = 16;
+    static constexpr int CONTROL_W = 62;
+    static constexpr int CONTROL_H = 64;
+    static constexpr int GROUP_PAD_X = 3;
+    static constexpr int GROUP_PAD_Y = 3;
+    static constexpr int ROW_GAP = 3;
 };
 
 class AnarackEditor : public juce::AudioProcessorEditor, private juce::Timer

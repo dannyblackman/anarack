@@ -55,15 +55,7 @@ void SynthPanel::loadDefinition(const juce::String& jsonStr)
             delete group;
     }
 
-    // Calculate total size needed
-    int totalHeight = 0;
-    for (auto* g : groups)
-    {
-        int cols = std::max(1, getWidth() / CONTROL_W);
-        int rows = ((int)g->controls.size() + cols - 1) / cols;
-        totalHeight += GROUP_HEADER + rows * CONTROL_H + GROUP_PAD;
-    }
-    setSize(std::max(600, getWidth()), std::max(totalHeight, 400));
+    layoutGroups();
     repaint();
 }
 
@@ -79,31 +71,59 @@ void SynthPanel::setParamValue(int cc, int value)
             }
 }
 
-juce::Rectangle<int> SynthPanel::getControlBounds(int groupIdx, int ctrlIdx)
+void SynthPanel::layoutGroups()
 {
-    int cols = std::max(1, getWidth() / CONTROL_W);
-    int y = 0;
-    for (int gi = 0; gi < groups.size(); gi++)
+    layout.clear();
+
+    int panelW = std::max(600, getWidth());
+    int x = 0, y = 0;
+    int rowHeight = 0;
+
+    // Filter out sequencer groups for display
+    for (auto* group : groups)
     {
-        int numCtrls = groups[gi]->controls.size();
-        int rows = (numCtrls + cols - 1) / cols;
-        if (gi == groupIdx)
+        if (group->name.containsIgnoreCase("Poly Seq") ||
+            group->name.containsIgnoreCase("Gated Seq"))
+            continue;
+
+        int numCtrls = group->controls.size();
+        int groupW = numCtrls * CONTROL_W + GROUP_PAD_X * 2;
+        int groupH = GROUP_HEADER + CONTROL_H + GROUP_PAD_Y;
+
+        // Wrap to next row if needed
+        if (x + groupW > panelW && x > 0)
         {
-            int row = ctrlIdx / cols;
-            int col = ctrlIdx % cols;
-            return { col * CONTROL_W, y + GROUP_HEADER + row * CONTROL_H, CONTROL_W, CONTROL_H };
+            x = 0;
+            y += rowHeight + ROW_GAP;
+            rowHeight = 0;
         }
-        y += GROUP_HEADER + rows * CONTROL_H + GROUP_PAD;
+
+        GroupLayout gl;
+        gl.group = group;
+        gl.bounds = { x, y, groupW, groupH };
+
+        for (int ci = 0; ci < numCtrls; ci++)
+        {
+            ControlLayout cl;
+            cl.ctrl = group->controls[ci];
+            cl.bounds = { x + GROUP_PAD_X + ci * CONTROL_W, y + GROUP_HEADER, CONTROL_W, CONTROL_H };
+            gl.controls.push_back(cl);
+        }
+
+        layout.push_back(std::move(gl));
+        x += groupW + GROUP_PAD_X;
+        rowHeight = std::max(rowHeight, groupH);
     }
-    return {};
+
+    setSize(panelW, y + rowHeight + ROW_GAP);
 }
 
 SynthControl* SynthPanel::getControlAt(juce::Point<float> pos)
 {
-    for (int gi = 0; gi < groups.size(); gi++)
-        for (int ci = 0; ci < groups[gi]->controls.size(); ci++)
-            if (getControlBounds(gi, ci).toFloat().contains(pos))
-                return groups[gi]->controls[ci];
+    for (auto& gl : layout)
+        for (auto& cl : gl.controls)
+            if (cl.bounds.toFloat().contains(pos))
+                return cl.ctrl;
     return nullptr;
 }
 
@@ -111,40 +131,28 @@ void SynthPanel::paint(juce::Graphics& g)
 {
     g.fillAll(juce::Colour(0xff0a0a0a));
 
-    int cols = std::max(1, getWidth() / CONTROL_W);
-    int y = 0;
-
-    for (int gi = 0; gi < groups.size(); gi++)
+    for (auto& gl : layout)
     {
-        auto* group = groups[gi];
-        int numCtrls = group->controls.size();
-        int rows = (numCtrls + cols - 1) / cols;
-
         // Group background
-        int groupH = GROUP_HEADER + rows * CONTROL_H;
-        g.setColour(juce::Colour(0xff1a1a1a));
-        g.fillRoundedRectangle(0, (float)y, (float)getWidth(), (float)groupH, 4);
+        g.setColour(juce::Colour(0xff141414));
+        g.fillRoundedRectangle(gl.bounds.toFloat(), 4);
 
         // Group title
         g.setColour(juce::Colour(0xff6366f1));
-        g.setFont(juce::FontOptions(9.0f, juce::Font::bold));
-        g.drawText(group->name, 6, y + 2, getWidth() - 12, 14, juce::Justification::centredLeft);
+        g.setFont(juce::FontOptions(8.0f, juce::Font::bold));
+        g.drawText(gl.group->name, gl.bounds.getX() + 4, gl.bounds.getY() + 1,
+                   gl.bounds.getWidth() - 8, 14, juce::Justification::centredLeft);
 
         // Controls
-        for (int ci = 0; ci < numCtrls; ci++)
+        for (auto& cl : gl.controls)
         {
-            auto bounds = getControlBounds(gi, ci);
-            auto* ctrl = group->controls[ci];
-
-            if (ctrl->type == "selector")
-                drawSelector(g, bounds, ctrl);
-            else if (ctrl->type == "toggle")
-                drawToggle(g, bounds, ctrl);
+            if (cl.ctrl->type == "selector")
+                drawSelector(g, cl.bounds, cl.ctrl);
+            else if (cl.ctrl->type == "toggle")
+                drawToggle(g, cl.bounds, cl.ctrl);
             else
-                drawKnob(g, bounds, ctrl);
+                drawKnob(g, cl.bounds, cl.ctrl);
         }
-
-        y += groupH + GROUP_PAD;
     }
 }
 
@@ -277,7 +285,7 @@ void SynthPanel::mouseDrag(const juce::MouseEvent& e)
     if (!dragControl || dragControl->type != "knob") return;
     float dy = dragStartY - e.position.y;
     int newVal = juce::jlimit(dragControl->min, dragControl->max,
-                              dragStartValue + (int)(dy * 0.5f));
+                              dragStartValue + (int)(dy * 0.7f));
     if (newVal != dragControl->value)
     {
         dragControl->value = newVal;
