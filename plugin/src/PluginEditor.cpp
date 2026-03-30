@@ -57,6 +57,17 @@ AnarackEditor::AnarackEditor(AnarackProcessor& p)
         {
             processor.clearLearn();
         })
+        // Program change from UI
+        .withEventListener("programChange", [this](const juce::var& payload)
+        {
+            int bank = (int)payload.getProperty("bank", 0);
+            int program = (int)payload.getProperty("program", 0);
+            // Send Bank Select MSB (CC 0) then Program Change
+            const uint8_t bankMsg[3] = { 0xB0, 0x00, (uint8_t)bank };
+            processor.getTransport().sendMidi(bankMsg, 3);
+            const uint8_t pgmMsg[2] = { 0xC0, (uint8_t)program };
+            processor.getTransport().sendMidi(pgmMsg, 2);
+        })
         // Encoder sensitivity
         .withEventListener("setSensitivity", [this](const juce::var& payload)
         {

@@ -207,6 +207,12 @@ class MidiRouter:
         packed = message[4:-1]
         raw = self._unpack_sysex(packed)
 
+        # Extract patch name (Rev2: 20 ASCII chars at offset 235-254)
+        if len(raw) >= 255:
+            name_bytes = raw[235:255]
+            patch_name = ''.join(chr(b) for b in name_bytes if 32 <= b < 127).strip()
+            self._broadcast_patch_name(patch_name)
+
         # Broadcast each mapped parameter as a CC update (scaled to 0-127)
         for offset, (cc, native_max) in self._sysex_offset_to_cc.items():
             if offset < len(raw):
@@ -250,6 +256,24 @@ class MidiRouter:
             cc, value = message[1], message[2]
             if not self._is_echo(cc):
                 self._broadcast_cc(cc, value)
+
+    def _broadcast_patch_name(self, name: str):
+        """Send a patch name update to all connected clients."""
+        if not self.midi_ws_clients or not self._loop:
+            return
+        msg = json.dumps({"type": "patchName", "name": name})
+        for ws in self.midi_ws_clients:
+            try:
+                asyncio.run_coroutine_threadsafe(ws.send(msg), self._loop)
+            except Exception:
+                pass
+        # Also broadcast via UDP to plugin clients
+        if audio_streamer:
+            for addr, sock in audio_streamer.udp_clients.items():
+                try:
+                    sock.sendto(msg.encode(), addr)
+                except Exception:
+                    pass
 
     def _broadcast_cc(self, cc: int, value: int):
         """Send a CC update to all connected MIDI WebSocket clients."""

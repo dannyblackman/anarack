@@ -888,12 +888,47 @@ screen.appendChild(screenHeader); screen.appendChild(screenName); screen.appendC
 screenWrap.appendChild(screen);
 progLayout.appendChild(screenWrap);
 
-// Right knobs in standard rows
+// Right knobs — Program and Bank with special handling
 const progRightRows = srows(progLayout);
+let currentBank = 0;
+let currentProgram = 0;
+const bankNames = ['U1','U2','U3','U4','F1','F2','F3','F4'];
+
+function sendProgramChange() {
+  // Send Bank Select (CC 0) then Program Change
+  sendCC(0, currentBank); // Bank select MSB — CC 0
+  if (_juce) _juce.emitEvent("programChange", { bank: currentBank, program: currentProgram });
+  // Update screen
+  screenLoc.textContent = bankNames[currentBank] + ' P' + (currentProgram + 1);
+  screenName.textContent = 'Loading...';
+}
+
 r = srow(progRightRows);
-knob(r, 'Program', 0, 127);
+const progKnob = knob(r, 'Program', 0, 127);
+// Override the knob's drag to send program changes
+const origProgSetValue = progKnob.setValue;
+const progCanvas = progKnob.el.querySelector('canvas');
+let progDy0 = null, progV0 = 0;
+progCanvas.onmousedown = (e) => { progDy0 = e.clientY; progV0 = currentProgram; e.preventDefault(); document.body.style.cursor = 'grabbing'; };
+window.addEventListener('mousemove', (e) => {
+  if (progDy0 === null) return;
+  const nv = Math.max(0, Math.min(127, Math.round(progV0 + (progDy0 - e.clientY) * 0.5)));
+  if (nv !== currentProgram) { currentProgram = nv; origProgSetValue(nv); sendProgramChange(); }
+});
+window.addEventListener('mouseup', () => { if (progDy0 !== null) { progDy0 = null; document.body.style.cursor = ''; } });
+
 r = srow(progRightRows);
-knob(r, 'Bank', 0, 7);
+const bankKnob = knob(r, 'Bank', 0, 7);
+const origBankSetValue = bankKnob.setValue;
+const bankCanvas = bankKnob.el.querySelector('canvas');
+let bankDy0 = null, bankV0 = 0;
+bankCanvas.onmousedown = (e) => { bankDy0 = e.clientY; bankV0 = currentBank; e.preventDefault(); document.body.style.cursor = 'grabbing'; };
+window.addEventListener('mousemove', (e) => {
+  if (bankDy0 === null) return;
+  const nv = Math.max(0, Math.min(7, Math.round(bankV0 + (bankDy0 - e.clientY) * 0.3)));
+  if (nv !== currentBank) { currentBank = nv; origBankSetValue(nv); sendProgramChange(); }
+});
+window.addEventListener('mouseup', () => { if (bankDy0 !== null) { bankDy0 = null; document.body.style.cursor = ''; } });
 
 // Buttons grid — vertically centered
 const pgWrap = document.createElement('div');
