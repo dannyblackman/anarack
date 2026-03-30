@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Prophet Rev2 — Anarack</title>
 <style>
+  /* Fonts: loaded from Google Fonts in browser, falls back to system fonts in plugin WebView */
   @import url('https://fonts.googleapis.com/css2?family=Archivo+Black&family=Inter:wght@400;500;600;700&display=swap');
 
   :root {
@@ -294,10 +295,34 @@ function drawKnob(canvas, value, max, center) {
   ctx.fillText(value, cx, cy);
 }
 
+// ── JUCE Bridge ──
+// Sends CC changes to the plugin backend (no-op when running in a regular browser)
+const _juce = window.__JUCE__ && window.__JUCE__.backend;
+function sendCC(cc, value) {
+  if (cc < 0) return;
+  // Clamp to MIDI range
+  const v = Math.max(0, Math.min(127, value));
+  if (_juce) _juce.emitEvent("ccChange", { cc, value: v });
+}
+
+// Registry of controls by CC for inbound param updates
+const ccRegistry = {};
+function registerCC(cc, ctrl) { if (cc >= 0) ccRegistry[cc] = ctrl; }
+
+// Listen for param updates pushed from C++ (e.g. program change on the hardware)
+if (_juce) {
+  _juce.addEventListener("paramUpdate", (e) => {
+    const ctrl = ccRegistry[e.cc];
+    if (ctrl) ctrl.setValue(e.value);
+  });
+}
+
 // ── Control Builders ──
 // opts.center: normalized center position for bipolar knobs (e.g. 0.5)
+// opts.cc: MIDI CC number for this control
 function knob(parent, label, value, max, opts) {
   const center = opts && opts.center;
+  const cc = (opts && opts.cc !== undefined) ? opts.cc : -1;
   const d = document.createElement('div'); d.className = 'ctrl';
   const c = document.createElement('canvas'); drawKnob(c, value, max, center);
   const l = document.createElement('div'); l.className = 'ctrl-label'; l.textContent = label;
@@ -308,18 +333,25 @@ function knob(parent, label, value, max, opts) {
     getValue() { return value; },
     setValue(v) { value = v; drawKnob(c, value, max, center); }
   };
+  registerCC(cc, ctrl);
+  function emitCC() {
+    // Scale to 0-127 if max > 127
+    const cv = max > 127 ? Math.round(value * 127 / max) : value;
+    sendCC(cc, cv);
+  }
   c.onmousedown = e => { dy0 = e.clientY; v0 = value; e.preventDefault(); };
   window.addEventListener('mousemove', e => {
     if (dy0 === null) return;
-    value = Math.max(0, Math.min(max, Math.round(v0 + (dy0 - e.clientY) * 0.5)));
-    drawKnob(c, value, max, center);
+    const nv = Math.max(0, Math.min(max, Math.round(v0 + (dy0 - e.clientY) * 0.5)));
+    if (nv !== value) { value = nv; drawKnob(c, value, max, center); emitCC(); }
   });
   window.addEventListener('mouseup', () => { dy0 = null; });
-  c.onwheel = e => { e.preventDefault(); value = Math.max(0, Math.min(max, value + (e.deltaY < 0 ? 1 : -1))); drawKnob(c, value, max, center); };
+  c.onwheel = e => { e.preventDefault(); const nv = Math.max(0, Math.min(max, value + (e.deltaY < 0 ? 1 : -1))); if (nv !== value) { value = nv; drawKnob(c, value, max, center); emitCC(); } };
   return ctrl;
 }
 
-function btn(parent, label, value, text) {
+function btn(parent, label, value, text, opts) {
+  const cc = (opts && opts.cc !== undefined) ? opts.cc : -1;
   const d = document.createElement('div'); d.className = 'ctrl-btn';
   const b = document.createElement('div');
   b.className = 'btn' + (value ? ' on' : '');
@@ -331,7 +363,8 @@ function btn(parent, label, value, text) {
     getValue() { return value; },
     setValue(v) { value = v; b.className = 'btn' + (value ? ' on' : ''); if (!text) b.textContent = value ? 'ON' : 'OFF'; }
   };
-  b.onclick = () => { ctrl.setValue(value ? 0 : 1); };
+  registerCC(cc, ctrl);
+  b.onclick = () => { ctrl.setValue(value ? 0 : 1); sendCC(cc, value); };
   return ctrl;
 }
 
