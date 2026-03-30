@@ -486,7 +486,7 @@ function registerCC(cc, ctrl) { if (cc >= 0) ccRegistry[cc] = ctrl; }
 // Listen for param updates pushed from C++ (e.g. controller knobs, program change)
 if (_juce) {
   _juce.addEventListener("paramUpdate", (e) => {
-    log('paramUpdate cc=' + e.cc + ' val=' + e.value + ' reg=' + !!ccRegistry[e.cc]);
+    if (e.cc >= 125) return; // internal markers, skip
     const ctrl = ccRegistry[e.cc];
     if (ctrl) {
       // Scale from 0-127 CC range back to native range if needed

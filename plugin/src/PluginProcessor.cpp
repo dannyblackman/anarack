@@ -201,7 +201,22 @@ void AnarackProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::Midi
         }
 
         // Forward unmapped messages (notes, pitchbend, etc.) as-is
-        transport.sendMidi(msg.getRawData(), msg.getRawDataSize());
+        // Force notes to channel 1 for Rev2 compatibility
+        if (msg.isNoteOnOrOff())
+        {
+            auto ch1msg = msg.isNoteOn()
+                ? juce::MidiMessage::noteOn(1, msg.getNoteNumber(), msg.getVelocity())
+                : juce::MidiMessage::noteOff(1, msg.getNoteNumber(), msg.getVelocity());
+            transport.sendMidi(ch1msg.getRawData(), ch1msg.getRawDataSize());
+            // Log note to ring: use CC 125 as note marker
+            int w = ccRingWrite.load(std::memory_order_relaxed);
+            ccRing[w % CC_RING_SIZE] = { 125, (uint8_t)(msg.isNoteOn() ? msg.getNoteNumber() : 0) };
+            ccRingWrite.store(w + 1, std::memory_order_release);
+        }
+        else
+        {
+            transport.sendMidi(msg.getRawData(), msg.getRawDataSize());
+        }
     }
     midiMessages.clear();
 
