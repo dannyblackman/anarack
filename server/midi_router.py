@@ -22,6 +22,8 @@ import queue
 import rtmidi
 import websockets
 
+from synth_manager import SynthManager, PresetManager
+
 # Try to import JACK — audio streaming is optional
 try:
     import jack
@@ -115,52 +117,28 @@ def open_midi_port(port_name: str | None) -> rtmidi.MidiOut:
 class MidiRouter:
     ECHO_SUPPRESS_MS = 50  # Suppress echoed CCs within this window
 
-    # SysEx constants for Prophet Rev2
-    SYSEX_MFR = 0x01        # Sequential/DSI manufacturer ID
-    SYSEX_DEV = 0x2F        # Rev2 model ID
-    SYSEX_EDIT_BUF_REQ = [0xF0, 0x01, 0x2F, 0x06, 0xF7]
-    SYSEX_EDIT_BUF_RESP = 0x03  # Edit buffer data dump command
-
-    # Map SysEx byte offset (Layer A) → (CC number, native max value)
-    # Native max is used to scale SysEx values to 0-127 CC range
-    SYSEX_OFFSET_TO_CC = {
-        0: (20, 120),    # Osc 1 Freq
-        2: (21, 100),    # Osc 1 Fine
-        4: (22, 4),      # Osc 1 Shape
-        8: (23, 127),    # Osc 1 Glide
-        1: (24, 120),    # Osc 2 Freq
-        3: (25, 100),    # Osc 2 Fine
-        5: (26, 4),      # Osc 2 Shape
-        9: (27, 127),    # Osc 2 Glide
-        14: (28, 127),   # Osc Mix
-        16: (29, 127),   # Noise Level
-        15: (8, 127),    # Sub Osc Level
-        21: (9, 127),    # Osc Slop
-        22: (102, 164),  # Filter Cutoff
-        23: (103, 127),  # Filter Resonance
-        24: (104, 127),  # Filter Key Amount
-        32: (106, 254),  # Filter Env Amount
-        41: (109, 127),  # Filter Env Attack
-        44: (110, 127),  # Filter Env Decay
-        47: (111, 127),  # Filter Env Sustain
-        50: (112, 127),  # Filter Env Release
-        27: (113, 127),  # VCA Level
-        29: (114, 127),  # Pan Spread
-        42: (118, 127),  # Amp Env Attack
-        45: (119, 127),  # Amp Env Decay
-        48: (75, 127),   # Amp Env Sustain
-        51: (76, 127),   # Amp Env Release
-        117: (17, 127),  # FX Mix
-        118: (12, 255),  # FX Param 1
-        119: (13, 127),  # FX Param 2
-    }
-
-    def __init__(self, midi_out: rtmidi.MidiOut):
+    def __init__(self, midi_out: rtmidi.MidiOut, synth_manager: SynthManager = None):
         self.midi_out = midi_out
+        self.synth_manager = synth_manager
         self.message_count = 0
         self.midi_ws_clients: set = set()  # MIDI WebSocket clients for sending CC updates
         self._last_sent: dict[int, float] = {}  # {cc: timestamp} for echo suppression
         self._loop: asyncio.AbstractEventLoop | None = None
+
+        # Build SysEx mapping from active synth definition
+        self._sysex_offset_to_cc = {}
+        self._sysex_config = {}
+        self._load_synth_config()
+
+    def _load_synth_config(self):
+        """Load SysEx config from the active synth definition."""
+        if not self.synth_manager or not self.synth_manager.active_synth:
+            return
+        defn = self.synth_manager.active_synth
+        self._sysex_offset_to_cc = defn.get_sysex_offset_to_cc_map()
+        self._sysex_config = defn.sysex
+        if self._sysex_offset_to_cc:
+            print(f"Loaded {len(self._sysex_offset_to_cc)} SysEx→CC mappings from {defn.name}")
 
     def send(self, message: list[int]):
         """Send a MIDI message to the hardware synth."""
@@ -193,9 +171,10 @@ class MidiRouter:
             self.send([status, data1, data2])
 
     def request_edit_buffer(self):
-        """Send SysEx request for the Rev2's current edit buffer."""
-        self.midi_out.send_message(self.SYSEX_EDIT_BUF_REQ)
-        print("[SYSEX] Requested edit buffer from Rev2")
+        """Send SysEx request for the synth's current edit buffer."""
+        req = self._sysex_config.get("edit_buffer_request",
+                                     [0xF0, 0x01, 0x2F, 0x06, 0xF7])
+        self.midi_out.send_message(req)
 
     def _unpack_sysex(self, packed: list[int]) -> list[int]:
         """Unpack DSI 7-bit encoded SysEx data into raw bytes."""
@@ -211,21 +190,25 @@ class MidiRouter:
 
     def _handle_sysex(self, message: list[int]):
         """Parse a SysEx edit buffer dump and broadcast CC values."""
-        # Minimum: F0 01 2F 03 ... F7
         if len(message) < 6:
             return
-        if message[1] != self.SYSEX_MFR or message[2] != self.SYSEX_DEV:
+
+        mfr_id = self._sysex_config.get("manufacturer_id", [0x01])
+        dev_id = self._sysex_config.get("device_id", 0x2F)
+        resp_cmd = self._sysex_config.get("edit_buffer_response_cmd", 0x03)
+
+        # Validate header
+        if message[1] != mfr_id[0] or message[2] != dev_id:
             return
-        if message[3] != self.SYSEX_EDIT_BUF_RESP:
+        if message[3] != resp_cmd:
             return
 
         # Unpack the data (skip F0, header bytes, and trailing F7)
         packed = message[4:-1]
         raw = self._unpack_sysex(packed)
-        print(f"[SYSEX] Edit buffer received: {len(raw)} bytes unpacked")
 
         # Broadcast each mapped parameter as a CC update (scaled to 0-127)
-        for offset, (cc, native_max) in self.SYSEX_OFFSET_TO_CC.items():
+        for offset, (cc, native_max) in self._sysex_offset_to_cc.items():
             if offset < len(raw):
                 if native_max <= 127:
                     value = min(127, raw[offset])
@@ -426,8 +409,10 @@ async def udp_server(router: MidiRouter, host: str, port: int, audio_port: int =
     return transport
 
 
-# Global audio streamer — shared between MIDI and audio WebSocket handlers
+# Global state — shared between handlers
 audio_streamer: AudioStreamer | None = None
+synth_mgr: SynthManager | None = None
+preset_mgr: PresetManager | None = None
 
 
 async def ws_handler(router: MidiRouter, ws, path=None):
@@ -444,6 +429,58 @@ async def ws_handler(router: MidiRouter, ws, path=None):
         pass
 
     print(f"WebSocket connection: {remote} path='{ws_path}'")
+
+    if '/api' in str(ws_path):
+        # API requests over WebSocket (definition, presets)
+        try:
+            async for message in ws:
+                try:
+                    req = json.loads(message)
+                    action = req.get("action", "")
+                    resp = {"error": "unknown action"}
+
+                    if action == "get_definition":
+                        if synth_mgr and synth_mgr.active_synth:
+                            resp = {"action": "definition", "data": synth_mgr.active_synth.to_dict()}
+                        else:
+                            resp = {"error": "no active synth"}
+
+                    elif action == "list_synths":
+                        if synth_mgr:
+                            resp = {"action": "synths", "data": synth_mgr.list_synths()}
+
+                    elif action == "save_preset":
+                        name = req.get("name", "")
+                        if name and preset_mgr and router:
+                            # Request edit buffer from synth
+                            router.request_edit_buffer()
+                            await asyncio.sleep(0.3)
+                            # For now, save a placeholder — full SysEx capture needs callback
+                            preset_mgr.save(synth_mgr.active_synth.id if synth_mgr and synth_mgr.active_synth else "unknown", name, [])
+                            resp = {"action": "preset_saved", "name": name}
+
+                    elif action == "list_presets":
+                        synth_id = synth_mgr.active_synth.id if synth_mgr and synth_mgr.active_synth else ""
+                        if preset_mgr and synth_id:
+                            resp = {"action": "presets", "data": preset_mgr.list_presets(synth_id)}
+
+                    elif action == "load_preset":
+                        name = req.get("name", "")
+                        synth_id = synth_mgr.active_synth.id if synth_mgr and synth_mgr.active_synth else ""
+                        if preset_mgr and synth_id and name:
+                            sysex = preset_mgr.load(synth_id, name)
+                            if sysex and router:
+                                router.midi_out.send_message(sysex)
+                                resp = {"action": "preset_loaded", "name": name}
+                            else:
+                                resp = {"error": "preset not found"}
+
+                    await ws.send(json.dumps(resp))
+                except Exception as e:
+                    await ws.send(json.dumps({"error": str(e)}))
+        except websockets.ConnectionClosed:
+            pass
+        return
 
     if '/audio' in str(ws_path):
         # Audio stream client
@@ -476,8 +513,19 @@ async def ws_handler(router: MidiRouter, ws, path=None):
             print(f"MIDI client disconnected: {remote}")
 
 
+async def http_handler(path, request_headers):
+    """Handle HTTP requests (synth definition API) before WebSocket upgrade."""
+    if path == '/api/synth/definition' and synth_mgr and synth_mgr.active_synth:
+        body = synth_mgr.active_synth.to_json().encode()
+        return (200, [("Content-Type", "application/json"), ("Access-Control-Allow-Origin", "*")], body)
+    if path == '/api/synths' and synth_mgr:
+        body = json.dumps(synth_mgr.list_synths()).encode()
+        return (200, [("Content-Type", "application/json"), ("Access-Control-Allow-Origin", "*")], body)
+    return None  # Continue to WebSocket handler
+
+
 async def main():
-    global audio_streamer
+    global audio_streamer, synth_mgr, preset_mgr
 
     parser = argparse.ArgumentParser(description="Anarack Server")
     parser.add_argument("--udp-port", type=int, default=5555, help="UDP port for MIDI input")
@@ -492,8 +540,18 @@ async def main():
         list_midi_ports()
         return
 
+    # Load synth definitions
+    synth_mgr = SynthManager()
+    preset_mgr = PresetManager()
+
+    # Auto-select the first available synth (or Prophet Rev2 if available)
+    if "sequential-prophet-rev2" in synth_mgr.definitions:
+        synth_mgr.set_active("sequential-prophet-rev2")
+    elif synth_mgr.definitions:
+        synth_mgr.set_active(next(iter(synth_mgr.definitions)))
+
     midi_out = open_midi_port(args.midi_port)
-    router = MidiRouter(midi_out)
+    router = MidiRouter(midi_out, synth_mgr)
     router._loop = asyncio.get_running_loop()
 
     # Open MIDI input from synth (bidirectional: receive CCs for UI sync)

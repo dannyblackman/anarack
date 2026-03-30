@@ -3,26 +3,20 @@
 AnarackEditor::AnarackEditor(AnarackProcessor& p)
     : AudioProcessorEditor(&p), processor(p)
 {
-    setSize(340, 220);
-
-    titleLabel.setText("ANARACK REV2", juce::dontSendNotification);
-    titleLabel.setFont(juce::FontOptions(20.0f, juce::Font::bold));
-    titleLabel.setColour(juce::Label::textColourId, juce::Colour(0xff6366f1));
-    addAndMakeVisible(titleLabel);
+    setSize(800, 600);
+    setResizable(true, true);
 
     hostLabel.setText("Server:", juce::dontSendNotification);
-    hostLabel.setFont(juce::FontOptions(13.0f));
+    hostLabel.setFont(juce::FontOptions(12.0f));
     addAndMakeVisible(hostLabel);
 
     hostInput.setText(processor.serverHost);
-    hostInput.setFont(juce::FontOptions(13.0f));
+    hostInput.setFont(juce::FontOptions(12.0f));
     hostInput.onReturnKey = [this] { toggleConnection(); };
     addAndMakeVisible(hostInput);
 
-    wgToggle.setButtonText("WireGuard");
+    wgToggle.setButtonText("WG");
     wgToggle.setToggleState(processor.useWireGuard, juce::dontSendNotification);
-    wgToggle.setColour(juce::ToggleButton::textColourId, juce::Colours::grey);
-    wgToggle.setColour(juce::ToggleButton::tickColourId, juce::Colour(0xff6366f1));
     addAndMakeVisible(wgToggle);
 
     connectButton.setButtonText("Connect");
@@ -30,24 +24,13 @@ AnarackEditor::AnarackEditor(AnarackProcessor& p)
     addAndMakeVisible(connectButton);
 
     statusLabel.setText("Disconnected", juce::dontSendNotification);
-    statusLabel.setFont(juce::FontOptions(13.0f));
+    statusLabel.setFont(juce::FontOptions(11.0f));
     statusLabel.setColour(juce::Label::textColourId, juce::Colours::grey);
     addAndMakeVisible(statusLabel);
 
-    bufferLabel.setText("Buffer: --", juce::dontSendNotification);
-    bufferLabel.setFont(juce::FontOptions(12.0f));
-    bufferLabel.setColour(juce::Label::textColourId, juce::Colours::grey);
-    addAndMakeVisible(bufferLabel);
-
-    packetLabel.setText("Packets: 0", juce::dontSendNotification);
-    packetLabel.setFont(juce::FontOptions(12.0f));
-    packetLabel.setColour(juce::Label::textColourId, juce::Colours::grey);
-    addAndMakeVisible(packetLabel);
-
-    rttLabel.setText("", juce::dontSendNotification);
-    rttLabel.setFont(juce::FontOptions(12.0f));
-    rttLabel.setColour(juce::Label::textColourId, juce::Colours::grey);
-    addAndMakeVisible(rttLabel);
+    // WebView for the synth panel
+    webView = std::make_unique<juce::WebBrowserComponent>();
+    addAndMakeVisible(*webView);
 
     startTimerHz(10);
 }
@@ -81,6 +64,16 @@ void AnarackEditor::toggleConnection()
             transport.connect(processor.serverHost);
         }
         connectButton.setButtonText("Disconnect");
+
+        // Load the synth panel UI in the WebView
+        // For now, load from the server's WebSocket endpoint
+        auto isLocal = processor.serverHost.contains("192.168") || processor.serverHost.contains("localhost");
+        auto proto = isLocal ? "ws" : "wss";
+        // The WebView will load the bundled HTML which connects to the server
+        auto htmlFile = juce::File::getSpecialLocation(juce::File::currentApplicationFile)
+                            .getParentDirectory().getChildFile("ui").getChildFile("index.html");
+        if (htmlFile.existsAsFile())
+            webView->goToURL(htmlFile.getFullPathName());
     }
 }
 
@@ -91,28 +84,18 @@ void AnarackEditor::timerCallback()
 
     auto statusText = juce::String("Disconnected");
     if (conn)
-        statusText = transport.isWireGuard() ? "Connected (WireGuard)" : "Connected (LAN)";
+    {
+        float bufMs = (float)transport.getBufferLevel() / 48.0f;
+        int rtt = transport.getEstimatedRtt();
+        statusText = (transport.isWireGuard() ? "WG" : "LAN");
+        statusText += " | Buf: " + juce::String(bufMs, 0) + "ms";
+        statusText += " | Pkts: " + juce::String(transport.getPacketsReceived());
+        if (rtt > 0) statusText += " | RTT: " + juce::String(rtt) + "ms";
+    }
 
     statusLabel.setText(statusText, juce::dontSendNotification);
     statusLabel.setColour(juce::Label::textColourId,
                           conn ? juce::Colour(0xff4ade80) : juce::Colours::grey);
-
-    if (conn)
-    {
-        float bufMs = (float)transport.getBufferLevel() / 48.0f;
-        bufferLabel.setText("Buffer: " + juce::String(bufMs, 1) + " ms", juce::dontSendNotification);
-        packetLabel.setText("Packets: " + juce::String(transport.getPacketsReceived()), juce::dontSendNotification);
-
-        int rtt = transport.getEstimatedRtt();
-        if (rtt > 0)
-            rttLabel.setText("RTT: " + juce::String(rtt) + " ms", juce::dontSendNotification);
-        else
-            rttLabel.setText("", juce::dontSendNotification);
-    }
-    else
-    {
-        rttLabel.setText("", juce::dontSendNotification);
-    }
 }
 
 void AnarackEditor::paint(juce::Graphics& g)
@@ -122,24 +105,20 @@ void AnarackEditor::paint(juce::Graphics& g)
 
 void AnarackEditor::resized()
 {
-    auto area = getLocalBounds().reduced(16);
+    auto area = getLocalBounds();
 
-    titleLabel.setBounds(area.removeFromTop(30));
-    area.removeFromTop(8);
+    // Connection bar at top (30px)
+    auto topBar = area.removeFromTop(30).reduced(4, 2);
+    hostLabel.setBounds(topBar.removeFromLeft(50));
+    connectButton.setBounds(topBar.removeFromRight(80));
+    topBar.removeFromRight(4);
+    wgToggle.setBounds(topBar.removeFromRight(40));
+    topBar.removeFromRight(4);
+    hostInput.setBounds(topBar.removeFromLeft(150));
+    topBar.removeFromLeft(8);
+    statusLabel.setBounds(topBar);
 
-    auto row = area.removeFromTop(28);
-    hostLabel.setBounds(row.removeFromLeft(55));
-    connectButton.setBounds(row.removeFromRight(90));
-    row.removeFromRight(8);
-    hostInput.setBounds(row);
-
-    area.removeFromTop(4);
-    wgToggle.setBounds(area.removeFromTop(22).removeFromLeft(140));
-
-    area.removeFromTop(8);
-    statusLabel.setBounds(area.removeFromTop(20));
-    area.removeFromTop(4);
-    bufferLabel.setBounds(area.removeFromTop(18));
-    packetLabel.setBounds(area.removeFromTop(18));
-    rttLabel.setBounds(area.removeFromTop(18));
+    // WebView fills the rest
+    if (webView)
+        webView->setBounds(area);
 }

@@ -1,0 +1,591 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Anarack</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #0a0a0a; color: #e0e0e0;
+      overflow-x: hidden;
+    }
+
+    /* Header */
+    .header {
+      background: #111; padding: 8px 16px;
+      display: flex; align-items: center; gap: 12px;
+      border-bottom: 1px solid #222;
+    }
+    .header h1 { font-size: 16px; font-weight: 700; letter-spacing: 1px; color: #6366f1; }
+    .header .synth-name { font-size: 12px; color: #888; }
+    .header .status { font-size: 11px; margin-left: auto; }
+    .header .status.connected { color: #4ade80; }
+    .header .status.disconnected { color: #f87171; }
+    .header .stats { font-size: 10px; color: #555; font-family: "SF Mono", monospace; }
+
+    /* Mode tabs */
+    .mode-bar {
+      background: #131313; padding: 6px 16px;
+      display: flex; gap: 8px; align-items: center;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    .mode-btn {
+      background: #222; color: #888; border: none; border-radius: 4px;
+      padding: 5px 14px; font-size: 11px; font-weight: 600; cursor: pointer;
+    }
+    .mode-btn.active { background: #6366f1; color: white; }
+    .mode-bar .preset-name {
+      font-size: 11px; color: #6366f1; margin-left: auto;
+      font-family: "SF Mono", monospace;
+    }
+
+    /* Program bar */
+    .prog-bar {
+      background: #131313; padding: 4px 16px;
+      display: flex; align-items: center; gap: 8px; font-size: 11px;
+      border-bottom: 1px solid #1a1a1a;
+    }
+    .prog-bar label { color: #777; font-size: 9px; font-weight: 600; }
+    .prog-bar button {
+      background: #444; color: white; border: none; border-radius: 3px;
+      padding: 2px 8px; font-size: 12px; font-weight: 700; cursor: pointer;
+    }
+    .prog-bar input {
+      background: #222; color: #eee; border: 1px solid #333; border-radius: 3px;
+      padding: 2px; width: 40px; text-align: center;
+      font-family: "SF Mono", monospace; font-size: 11px;
+    }
+    .bank-btn {
+      background: #333; color: #aaa; border: none; border-radius: 3px;
+      padding: 2px 6px; font-size: 10px; font-weight: 700; cursor: pointer; margin: 0 1px;
+    }
+    .bank-btn.active { background: #6366f1; color: white; }
+
+    /* Synth panel */
+    .panel { padding: 8px; display: flex; flex-wrap: wrap; gap: 4px; justify-content: center; }
+    .group {
+      background: #1a1a1a; padding: 8px 6px; border-radius: 6px;
+      display: flex; flex-direction: column; align-items: center;
+      min-width: 100px; flex: 1;
+    }
+    .group-title {
+      font-size: 9px; font-weight: 700; color: #6366f1;
+      text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px;
+    }
+    .group-controls { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px; }
+
+    /* Knob */
+    .knob-wrap {
+      display: flex; flex-direction: column; align-items: center;
+      cursor: pointer; width: 60px;
+    }
+    .knob-wrap canvas { cursor: grab; }
+    .knob-wrap canvas:active { cursor: grabbing; }
+    .knob-label { font-size: 8px; color: #999; margin-top: 1px; text-align: center; }
+    .knob-map { font-size: 7px; color: #6366f1; height: 10px; }
+
+    /* Selector */
+    .selector-wrap {
+      display: flex; flex-direction: column; align-items: center; width: 60px;
+    }
+    .selector-label { font-size: 8px; color: #999; margin-bottom: 2px; }
+    .selector-nav { display: flex; align-items: center; gap: 2px; }
+    .selector-nav button {
+      background: #333; color: #eee; border: none; border-radius: 2px;
+      width: 16px; height: 16px; font-size: 10px; cursor: pointer; line-height: 1;
+    }
+    .selector-nav button:hover { background: #6366f1; }
+    .selector-value {
+      font-size: 8px; color: #6366f1; font-weight: 700;
+      text-align: center; margin-top: 2px; min-height: 10px;
+    }
+
+    /* Toggle */
+    .toggle-wrap {
+      display: flex; flex-direction: column; align-items: center; width: 60px;
+    }
+    .toggle-label { font-size: 8px; color: #999; margin-bottom: 2px; }
+    .toggle-btn {
+      background: #333; color: #888; border: 1px solid #444;
+      border-radius: 3px; padding: 2px 8px; font-size: 9px;
+      font-weight: 700; cursor: pointer;
+    }
+    .toggle-btn.on { background: #6366f1; color: white; border-color: #6366f1; }
+
+    /* Bounce section */
+    .bounce-bar {
+      background: #111; padding: 8px 16px;
+      display: flex; align-items: center; gap: 12px;
+      border-top: 1px solid #222;
+    }
+    .bounce-btn {
+      background: #dc2626; color: white; border: none; border-radius: 4px;
+      padding: 6px 20px; font-size: 12px; font-weight: 700; cursor: pointer;
+    }
+    .bounce-btn:hover { background: #ef4444; }
+    .bounce-btn.recording { background: #dc2626; animation: pulse 1s infinite; }
+    .bounce-status { font-size: 11px; color: #888; }
+
+    @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.6; } }
+
+    /* Footer */
+    .footer {
+      padding: 4px 16px; display: flex; justify-content: space-between;
+      font-size: 8px; color: #444; font-family: "SF Mono", monospace;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="header">
+    <h1>ANARACK</h1>
+    <span class="synth-name" id="synth-name">Loading...</span>
+    <span class="status disconnected" id="status">Disconnected</span>
+    <span class="stats" id="stats"></span>
+  </div>
+
+  <div class="mode-bar">
+    <button class="mode-btn active" id="mode-design" onclick="setMode('design')">DESIGN</button>
+    <button class="mode-btn" id="mode-bounce" onclick="setMode('bounce')">BOUNCE</button>
+    <span class="preset-name" id="preset-name"></span>
+  </div>
+
+  <div class="prog-bar" id="prog-bar">
+    <label>PROGRAM</label>
+    <button onclick="changeProgram(-1)">&lt;</button>
+    <input type="number" id="program-num" value="0" min="0" max="127">
+    <button onclick="changeProgram(1)">&gt;</button>
+    <label style="margin-left:12px">BANK</label>
+    <span id="bank-buttons"></span>
+  </div>
+
+  <div class="panel" id="panel"></div>
+
+  <div class="bounce-bar" id="bounce-bar" style="display:none">
+    <button class="bounce-btn" id="bounce-btn" onclick="startBounce()">BOUNCE</button>
+    <span class="bounce-status" id="bounce-status">Select a MIDI file to bounce with your current sound</span>
+  </div>
+
+  <div class="footer">
+    <span id="footer-info">Double-click knob to MIDI learn</span>
+  </div>
+
+<script>
+// ─────────────────────────────────────────────
+// State
+// ─────────────────────────────────────────────
+let synthDef = null;
+let controls = []; // { element, param, value }
+let mode = 'design';
+let currentBank = 0;
+let learningControl = null;
+
+// ─────────────────────────────────────────────
+// Communication with JUCE host
+// ─────────────────────────────────────────────
+// In the WebView, window.anarack is the JS bridge provided by JUCE
+// For standalone browser testing, we provide stubs
+const anarack = window.anarack || {
+  sendCC: (cc, value) => console.log(`CC ${cc} = ${value}`),
+  onDefinition: null,
+  onCC: null,
+  requestDefinition: () => {
+    // For browser testing, load from server
+    fetch('/api/synth/definition')
+      .then(r => r.json())
+      .then(d => loadDefinition(d));
+  }
+};
+
+// Called by JUCE when a CC value arrives from the synth
+function onIncomingCC(cc, value) {
+  const ctrl = controls.find(c => c.param.cc === cc);
+  if (ctrl) {
+    ctrl.value = value;
+    updateControl(ctrl);
+  }
+}
+
+// Called by JUCE with the synth definition JSON
+function loadDefinition(def) {
+  synthDef = def;
+  document.getElementById('synth-name').textContent = def.name || 'Unknown Synth';
+  buildPanel();
+  buildBankButtons();
+}
+
+// Expose for JUCE bridge
+window.onIncomingCC = onIncomingCC;
+window.loadDefinition = loadDefinition;
+
+// ─────────────────────────────────────────────
+// Knob Rendering
+// ─────────────────────────────────────────────
+function drawKnob(canvas, value, max, learning) {
+  const ctx = canvas.getContext('2d');
+  const w = 48, cx = w/2, cy = w/2, r = 19;
+  ctx.clearRect(0, 0, w, w);
+
+  const startAng = (225 * Math.PI) / 180;
+  const sweep = (270 * Math.PI) / 180;
+  const norm = max > 0 ? value / max : 0;
+  const valAng = norm * sweep;
+
+  // Track
+  ctx.beginPath();
+  ctx.arc(cx, cy, r, -startAng, -startAng + sweep);
+  ctx.strokeStyle = '#333'; ctx.lineWidth = 2; ctx.stroke();
+
+  // Value arc
+  ctx.beginPath();
+  ctx.arc(cx, cy, r, -startAng, -startAng + valAng);
+  ctx.strokeStyle = learning ? '#facc15' : '#6366f1'; ctx.lineWidth = 2.5; ctx.stroke();
+
+  // Body
+  ctx.beginPath();
+  ctx.arc(cx, cy, r - 4, 0, Math.PI * 2);
+  ctx.fillStyle = learning ? '#33351a' : '#2a2a2a'; ctx.fill();
+  ctx.strokeStyle = '#444'; ctx.lineWidth = 0.5; ctx.stroke();
+
+  // Indicator
+  const ang = -startAng + valAng;
+  const il = r - 5;
+  ctx.beginPath();
+  ctx.moveTo(cx, cy);
+  ctx.lineTo(cx + Math.cos(ang) * il, cy + Math.sin(ang) * il);
+  ctx.strokeStyle = 'white'; ctx.lineWidth = 2; ctx.stroke();
+
+  // Value text
+  ctx.fillStyle = '#777'; ctx.font = '8px monospace';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText(Math.round(value), cx, cy);
+}
+
+// ─────────────────────────────────────────────
+// Control Creation
+// ─────────────────────────────────────────────
+function createKnobControl(parent, param) {
+  const wrap = document.createElement('div');
+  wrap.className = 'knob-wrap';
+
+  const canvas = document.createElement('canvas');
+  canvas.width = 48; canvas.height = 48;
+
+  const label = document.createElement('div');
+  label.className = 'knob-label';
+  label.textContent = param.name;
+
+  const mapLabel = document.createElement('div');
+  mapLabel.className = 'knob-map';
+
+  wrap.appendChild(canvas);
+  wrap.appendChild(label);
+  wrap.appendChild(mapLabel);
+  parent.appendChild(wrap);
+
+  const ctrl = { element: wrap, canvas, label, mapLabel, param, value: param.default || 0, type: 'knob' };
+  controls.push(ctrl);
+  drawKnob(canvas, ctrl.value, param.max || 127, false);
+
+  // Drag interaction
+  let dragY = null, dragVal = null;
+  canvas.addEventListener('mousedown', (e) => { dragY = e.clientY; dragVal = ctrl.value; e.preventDefault(); });
+  window.addEventListener('mousemove', (e) => {
+    if (dragY === null) return;
+    const dy = dragY - e.clientY;
+    setControlValue(ctrl, dragVal + dy * 0.5, true);
+  });
+  window.addEventListener('mouseup', () => { dragY = null; });
+
+  // Scroll
+  canvas.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    setControlValue(ctrl, ctrl.value + (e.deltaY < 0 ? 1 : -1), true);
+  });
+
+  // MIDI learn
+  wrap.addEventListener('dblclick', (e) => { e.preventDefault(); startLearn(ctrl); });
+
+  return ctrl;
+}
+
+function createSelectorControl(parent, param) {
+  const wrap = document.createElement('div');
+  wrap.className = 'selector-wrap';
+
+  const label = document.createElement('div');
+  label.className = 'selector-label';
+  label.textContent = param.name;
+
+  const nav = document.createElement('div');
+  nav.className = 'selector-nav';
+  const prev = document.createElement('button'); prev.textContent = '<';
+  const next = document.createElement('button'); next.textContent = '>';
+
+  nav.appendChild(prev); nav.appendChild(next);
+
+  const valueLabel = document.createElement('div');
+  valueLabel.className = 'selector-value';
+
+  wrap.appendChild(label);
+  wrap.appendChild(nav);
+  wrap.appendChild(valueLabel);
+  parent.appendChild(wrap);
+
+  const values = param.values || param.enumRef ? getEnumValues(param) : [];
+  const ctrl = { element: wrap, valueLabel, param, value: param.default || 0, type: 'selector', values };
+  controls.push(ctrl);
+  updateSelectorDisplay(ctrl);
+
+  prev.onclick = () => setControlValue(ctrl, Math.max(0, ctrl.value - 1), true);
+  next.onclick = () => setControlValue(ctrl, Math.min((values.length || param.max || 1) - 1, ctrl.value + 1), true);
+
+  return ctrl;
+}
+
+function createToggleControl(parent, param) {
+  const wrap = document.createElement('div');
+  wrap.className = 'toggle-wrap';
+
+  const label = document.createElement('div');
+  label.className = 'toggle-label';
+  label.textContent = param.name;
+
+  const btn = document.createElement('button');
+  btn.className = 'toggle-btn';
+
+  wrap.appendChild(label);
+  wrap.appendChild(btn);
+  parent.appendChild(wrap);
+
+  const values = param.values || ['Off', 'On'];
+  const ctrl = { element: wrap, btn, param, value: param.default || 0, type: 'toggle', values };
+  controls.push(ctrl);
+  updateToggleDisplay(ctrl);
+
+  btn.onclick = () => setControlValue(ctrl, ctrl.value > 0 ? 0 : 1, true);
+
+  return ctrl;
+}
+
+// ─────────────────────────────────────────────
+// Control Updates
+// ─────────────────────────────────────────────
+function setControlValue(ctrl, val, send) {
+  const max = ctrl.param.max || 127;
+  ctrl.value = Math.max(0, Math.min(max, Math.round(val)));
+  updateControl(ctrl);
+  if (send && ctrl.param.cc != null) {
+    // Scale to 0-127 for MIDI CC
+    const ccVal = max > 127 ? Math.round(ctrl.value * 127 / max) : ctrl.value;
+    anarack.sendCC(ctrl.param.cc, ccVal);
+  }
+}
+
+function updateControl(ctrl) {
+  if (ctrl.type === 'knob') {
+    drawKnob(ctrl.canvas, ctrl.value, ctrl.param.max || 127, ctrl === learningControl);
+  } else if (ctrl.type === 'selector') {
+    updateSelectorDisplay(ctrl);
+  } else if (ctrl.type === 'toggle') {
+    updateToggleDisplay(ctrl);
+  }
+  // Handle dynamic labels
+  if (ctrl.param.dynamicLabels) {
+    for (const [targetId, labelMap] of Object.entries(ctrl.param.dynamicLabels)) {
+      const target = controls.find(c => c.param.id === targetId);
+      if (target && target.label) {
+        const newLabel = labelMap[String(ctrl.value)] || target.param.name;
+        target.label.textContent = newLabel;
+      }
+    }
+  }
+}
+
+function updateSelectorDisplay(ctrl) {
+  const values = ctrl.values || [];
+  ctrl.valueLabel.textContent = values[ctrl.value] || String(ctrl.value);
+}
+
+function updateToggleDisplay(ctrl) {
+  const values = ctrl.values || ['Off', 'On'];
+  ctrl.btn.textContent = values[ctrl.value > 0 ? 1 : 0] || (ctrl.value > 0 ? 'ON' : 'OFF');
+  ctrl.btn.classList.toggle('on', ctrl.value > 0);
+}
+
+function getEnumValues(param) {
+  if (param.values) return param.values;
+  if (param.enumRef && synthDef && synthDef.enums) {
+    return synthDef.enums[param.enumRef] || [];
+  }
+  return [];
+}
+
+// ─────────────────────────────────────────────
+// MIDI Learn
+// ─────────────────────────────────────────────
+function startLearn(ctrl) {
+  if (learningControl === ctrl) { learningControl = null; updateControl(ctrl); return; }
+  if (learningControl) updateControl(learningControl);
+  learningControl = ctrl;
+  updateControl(ctrl);
+  document.getElementById('footer-info').textContent = `Twiddle a knob for ${ctrl.param.name}...`;
+}
+
+// ─────────────────────────────────────────────
+// Panel Builder
+// ─────────────────────────────────────────────
+function buildPanel() {
+  const panel = document.getElementById('panel');
+  panel.innerHTML = '';
+  controls = [];
+
+  if (!synthDef || !synthDef.groups) return;
+
+  // Filter out sequencer/poly seq groups for cleaner display
+  const displayGroups = synthDef.groups.filter(g =>
+    !g.id.includes('polySeq') && !g.id.includes('gatedSeq')
+  );
+
+  for (const group of displayGroups) {
+    const params = group.parameters || [];
+    if (params.length === 0) continue;
+
+    const div = document.createElement('div');
+    div.className = 'group';
+
+    const title = document.createElement('div');
+    title.className = 'group-title';
+    title.textContent = group.name;
+    div.appendChild(title);
+
+    const controlsDiv = document.createElement('div');
+    controlsDiv.className = 'group-controls';
+
+    for (const param of params) {
+      const type = param.type || 'knob';
+      if (type === 'knob') {
+        createKnobControl(controlsDiv, param);
+      } else if (type === 'selector') {
+        // Resolve enum values
+        if (param.enumRef && synthDef.enums) {
+          param.values = synthDef.enums[param.enumRef] || [];
+        }
+        createSelectorControl(controlsDiv, param);
+      } else if (type === 'toggle') {
+        if (param.enumRef && synthDef.enums) {
+          param.values = synthDef.enums[param.enumRef] || [];
+        }
+        createToggleControl(controlsDiv, param);
+      }
+    }
+
+    div.appendChild(controlsDiv);
+    panel.appendChild(div);
+  }
+}
+
+// ─────────────────────────────────────────────
+// Program / Bank
+// ─────────────────────────────────────────────
+function changeProgram(d) {
+  const el = document.getElementById('program-num');
+  el.value = Math.max(0, Math.min(127, parseInt(el.value) + d));
+  sendBankProgram();
+}
+
+function sendBankProgram() {
+  anarack.sendCC(0, currentBank); // Bank select
+  const prog = parseInt(document.getElementById('program-num').value);
+  // Program change is status 0xC0, not a CC
+  if (window.anarack && window.anarack.sendProgramChange) {
+    window.anarack.sendProgramChange(prog);
+  }
+}
+
+function buildBankButtons() {
+  const wrap = document.getElementById('bank-buttons');
+  if (!wrap) return;
+  wrap.innerHTML = '';
+  const banks = (synthDef && synthDef.presets && synthDef.presets.factory_banks) || ['A','B','C','D'];
+  banks.forEach((l, i) => {
+    const btn = document.createElement('button');
+    btn.className = 'bank-btn' + (i === 0 ? ' active' : '');
+    btn.textContent = l;
+    btn.onclick = () => {
+      currentBank = i;
+      wrap.querySelectorAll('.bank-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      sendBankProgram();
+    };
+    wrap.appendChild(btn);
+  });
+}
+
+// ─────────────────────────────────────────────
+// Mode switching
+// ─────────────────────────────────────────────
+function setMode(m) {
+  mode = m;
+  document.getElementById('mode-design').classList.toggle('active', m === 'design');
+  document.getElementById('mode-bounce').classList.toggle('active', m === 'bounce');
+  document.getElementById('bounce-bar').style.display = m === 'bounce' ? 'flex' : 'none';
+}
+
+// ─────────────────────────────────────────────
+// Bounce (placeholder)
+// ─────────────────────────────────────────────
+function startBounce() {
+  document.getElementById('bounce-status').textContent = 'Bounce not yet implemented — coming soon';
+}
+
+// ─────────────────────────────────────────────
+// Init
+// ─────────────────────────────────────────────
+// Connect to server and request definition
+function connectToServer(host) {
+  const isLocal = host.startsWith('localhost') || host.startsWith('192.168') || host.startsWith('127.0') || host.startsWith('10.');
+  const proto = isLocal ? 'ws' : 'wss';
+  const ws = new WebSocket(`${proto}://${host}/api`);
+
+  ws.onopen = () => {
+    document.getElementById('status').className = 'status connected';
+    document.getElementById('status').textContent = 'Connected';
+    ws.send(JSON.stringify({ action: 'get_definition' }));
+  };
+
+  ws.onmessage = (e) => {
+    try {
+      const msg = JSON.parse(e.data);
+      if (msg.action === 'definition' && msg.data) {
+        loadDefinition(msg.data);
+      }
+    } catch (err) {}
+  };
+
+  ws.onclose = () => {
+    document.getElementById('status').className = 'status disconnected';
+    document.getElementById('status').textContent = 'Disconnected';
+    // Reconnect after 3 seconds
+    setTimeout(() => connectToServer(host), 3000);
+  };
+
+  // Override sendCC to use this WebSocket for MIDI
+  anarack.sendCC = (cc, value) => {
+    if (ws.readyState === 1) {
+      // Send as a MIDI CC message via the main MIDI path
+      // The /api path doesn't handle MIDI, so this is for UI preview only
+    }
+  };
+}
+
+// Auto-connect — get host from URL params or default
+const params = new URLSearchParams(location.search);
+const serverHost = params.get('server') || 'anarack.local:8765';
+connectToServer(serverHost);
+
+</script>
+</body>
+</html>

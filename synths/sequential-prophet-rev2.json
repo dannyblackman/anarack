@@ -1,0 +1,2457 @@
+{
+  "id": "prophet-rev2",
+  "name": "Sequential Prophet Rev2",
+  "manufacturer": "Sequential",
+  "midiChannel": 1,
+  "sysexDeviceId": 1,
+  "sysexManufacturerId": [
+    1,
+    46
+  ],
+  "editBufferSize": 1024,
+  "layerBOffset": 1024,
+  "nrpnLayerBOffset": 2048,
+  "enums": {
+    "oscShape": [
+      "Off",
+      "Sawtooth",
+      "Saw+Tri",
+      "Triangle",
+      "Pulse"
+    ],
+    "lfoShape": [
+      "Triangle",
+      "Sawtooth",
+      "Rev Saw",
+      "Square",
+      "Random"
+    ],
+    "glideMode": [
+      "Fixed Rate",
+      "Fixed Rate A",
+      "Fixed Time",
+      "Fixed Time A"
+    ],
+    "filterPoles": [
+      "2-Pole (12dB)",
+      "4-Pole (24dB)"
+    ],
+    "keyMode": [
+      "Low Note",
+      "High Note",
+      "Last Note",
+      "Low Retrigger",
+      "High Retrigger",
+      "Last Retrigger"
+    ],
+    "panMode": [
+      "Alternate",
+      "Fixed"
+    ],
+    "abMode": [
+      "Single Layer",
+      "Stacked",
+      "Split"
+    ],
+    "fxType": [
+      "Off",
+      "Delay Mono",
+      "DDL Stereo",
+      "BBD Delay",
+      "Chorus",
+      "Phaser High",
+      "Phaser Low",
+      "Phaser Mst",
+      "Flanger 1",
+      "Flanger 2",
+      "Reverb",
+      "Ring Mod",
+      "Distortion",
+      "HP Filter"
+    ],
+    "arpMode": [
+      "Up",
+      "Down",
+      "Up/Down",
+      "Random",
+      "Assign"
+    ],
+    "clockDivide": [
+      "Half Note",
+      "Quarter Note",
+      "8th Note",
+      "8th Half Swing",
+      "8th Full Swing",
+      "8th Triplet",
+      "16th Note",
+      "16th Half Swing",
+      "16th Full Swing",
+      "16th Triplet",
+      "32nd Note",
+      "32nd Triplet",
+      "64th Triplet"
+    ],
+    "seqTrigger": [
+      "Normal",
+      "No Reset",
+      "No Gate",
+      "No Gate/Reset",
+      "Key Step"
+    ],
+    "seqType": [
+      "Gated",
+      "Poly"
+    ],
+    "modSource": [
+      "Off",
+      "Seq 1",
+      "Seq 2",
+      "Seq 3",
+      "Seq 4",
+      "LFO 1",
+      "LFO 2",
+      "LFO 3",
+      "LFO 4",
+      "Filter Env",
+      "Amp Env",
+      "Env 3",
+      "Pitch Bend",
+      "Mod Wheel",
+      "Pressure",
+      "Breath",
+      "Foot Pedal",
+      "Expression",
+      "Velocity",
+      "Note Number",
+      "Noise",
+      "DC",
+      "Audio Out"
+    ],
+    "modDest": [
+      "Off",
+      "Osc 1 Freq",
+      "Osc 2 Freq",
+      "Osc All Freq",
+      "Osc Mix",
+      "Noise",
+      "Sub Osc",
+      "Osc 1 Shape",
+      "Osc 2 Shape",
+      "Osc All Shape",
+      "Cutoff",
+      "Resonance",
+      "Audio Mod",
+      "VCA Level",
+      "Pan",
+      "LFO 1 Freq",
+      "LFO 2 Freq",
+      "LFO 3 Freq",
+      "LFO 4 Freq",
+      "LFO All Freq",
+      "LFO 1 Amt",
+      "LFO 2 Amt",
+      "LFO 3 Amt",
+      "LFO 4 Amt",
+      "LFO All Amt",
+      "Filter Env Amt",
+      "Amp Env Amt",
+      "Env 3 Amt",
+      "All Env Amt",
+      "Filter Env Att",
+      "Amp Env Att",
+      "Env 3 Att",
+      "All Env Att",
+      "Filter Env Dec",
+      "Amp Env Dec",
+      "Env 3 Dec",
+      "All Env Dec",
+      "Filter Env Rel",
+      "Amp Env Rel",
+      "Env 3 Rel",
+      "All Env Rel",
+      "Mod 1 Amt",
+      "Mod 2 Amt",
+      "Mod 3 Amt",
+      "Mod 4 Amt",
+      "Mod 5 Amt",
+      "Mod 6 Amt",
+      "Mod 7 Amt",
+      "Mod 8 Amt",
+      "Osc Slop",
+      "FX Mix",
+      "FX Param 1",
+      "FX Param 2",
+      "Seq Slew"
+    ]
+  },
+  "groups": [
+    {
+      "id": "osc1",
+      "name": "Oscillator 1",
+      "parameters": [
+        {
+          "id": "osc1Freq",
+          "name": "Frequency",
+          "cc": 20,
+          "nrpn": 0,
+          "sysex": 0,
+          "min": 0,
+          "max": 120,
+          "default": 36,
+          "type": "knob",
+          "description": "Osc 1 pitch in semitones (C0-C10)"
+        },
+        {
+          "id": "osc1FineTune",
+          "name": "Fine Tune",
+          "cc": 21,
+          "nrpn": 1,
+          "sysex": 2,
+          "min": 0,
+          "max": 100,
+          "default": 50,
+          "type": "knob",
+          "description": "Fine tuning, 50 = center"
+        },
+        {
+          "id": "osc1Shape",
+          "name": "Shape",
+          "cc": 22,
+          "nrpn": 2,
+          "sysex": 4,
+          "min": 0,
+          "max": 4,
+          "default": 1,
+          "type": "selector",
+          "values": "oscShape"
+        },
+        {
+          "id": "osc1PulseWidth",
+          "name": "Pulse Width",
+          "cc": 30,
+          "nrpn": 102,
+          "sysex": 6,
+          "min": 0,
+          "max": 99,
+          "default": 50,
+          "type": "knob"
+        },
+        {
+          "id": "osc1Glide",
+          "name": "Glide",
+          "cc": 23,
+          "nrpn": 3,
+          "sysex": 8,
+          "min": 0,
+          "max": 127,
+          "default": 0,
+          "type": "knob"
+        },
+        {
+          "id": "osc1KeyTrack",
+          "name": "Key Track",
+          "cc": null,
+          "nrpn": 4,
+          "sysex": 10,
+          "min": 0,
+          "max": 1,
+          "default": 1,
+          "type": "toggle"
+        },
+        {
+          "id": "osc1NoteReset",
+          "name": "Note Reset",
+          "cc": null,
+          "nrpn": 99,
+          "sysex": 12,
+          "min": 0,
+          "max": 1,
+          "default": 0,
+          "type": "toggle"
+        }
+      ],
+      "order": 1
+    },
+    {
+      "id": "osc2",
+      "name": "Oscillator 2",
+      "parameters": [
+        {
+          "id": "osc2Freq",
+          "name": "Frequency",
+          "cc": 24,
+          "nrpn": 5,
+          "sysex": 1,
+          "min": 0,
+          "max": 120,
+          "default": 36,
+          "type": "knob",
+          "description": "Osc 2 pitch in semitones (C0-C10)"
+        },
+        {
+          "id": "osc2FineTune",
+          "name": "Fine Tune",
+          "cc": 25,
+          "nrpn": 6,
+          "sysex": 3,
+          "min": 0,
+          "max": 100,
+          "default": 50,
+          "type": "knob",
+          "description": "Fine tuning, 50 = center"
+        },
+        {
+          "id": "osc2Shape",
+          "name": "Shape",
+          "cc": 26,
+          "nrpn": 7,
+          "sysex": 5,
+          "min": 0,
+          "max": 4,
+          "default": 1,
+          "type": "selector",
+          "values": "oscShape"
+        },
+        {
+          "id": "osc2PulseWidth",
+          "name": "Pulse Width",
+          "cc": 31,
+          "nrpn": 103,
+          "sysex": 7,
+          "min": 0,
+          "max": 99,
+          "default": 50,
+          "type": "knob"
+        },
+        {
+          "id": "osc2Glide",
+          "name": "Glide",
+          "cc": 27,
+          "nrpn": 8,
+          "sysex": 9,
+          "min": 0,
+          "max": 127,
+          "default": 0,
+          "type": "knob"
+        },
+        {
+          "id": "osc2KeyTrack",
+          "name": "Key Track",
+          "cc": null,
+          "nrpn": 9,
+          "sysex": 11,
+          "min": 0,
+          "max": 1,
+          "default": 1,
+          "type": "toggle"
+        },
+        {
+          "id": "osc2NoteReset",
+          "name": "Note Reset",
+          "cc": null,
+          "nrpn": 104,
+          "sysex": 13,
+          "min": 0,
+          "max": 1,
+          "default": 0,
+          "type": "toggle"
+        }
+      ],
+      "order": 2
+    },
+    {
+      "id": "mixer",
+      "name": "Mixer",
+      "parameters": [
+        {
+          "id": "oscMix",
+          "name": "Osc Mix",
+          "cc": 28,
+          "nrpn": 13,
+          "sysex": 14,
+          "min": 0,
+          "max": 127,
+          "default": 0,
+          "type": "knob",
+          "description": "0 = all Osc 1, 127 = all Osc 2"
+        },
+        {
+          "id": "subOsc",
+          "name": "Sub Oscillator",
+          "cc": 8,
+          "nrpn": 110,
+          "sysex": 15,
+          "min": 0,
+          "max": 127,
+          "default": 0,
+          "type": "knob"
+        },
+        {
+          "id": "noiseLevel",
+          "name": "Noise Level",
+          "cc": 29,
+          "nrpn": 14,
+          "sysex": 16,
+          "min": 0,
+          "max": 127,
+          "default": 0,
+          "type": "knob"
+        },
+        {
+          "id": "sync",
+          "name": "Sync",
+          "cc": null,
+          "nrpn": 10,
+          "sysex": 17,
+          "min": 0,
+          "max": 1,
+          "default": 0,
+          "type": "toggle"
+        },
+        {
+          "id": "glideMode",
+          "name": "Glide Mode",
+          "cc": 5,
+          "nrpn": 11,
+          "sysex": 18,
+          "min": 0,
+          "max": 3,
+          "default": 0,
+          "type": "selector",
+          "values": "glideMode"
+        },
+        {
+          "id": "glideOnOff",
+          "name": "Glide On/Off",
+          "cc": 65,
+          "nrpn": 111,
+          "sysex": 19,
+          "min": 0,
+          "max": 1,
+          "default": 0,
+          "type": "toggle"
+        },
+        {
+          "id": "pitchBendRange",
+          "name": "Pitch Bend Range",
+          "cc": null,
+          "nrpn": 113,
+          "sysex": 20,
+          "min": 0,
+          "max": 12,
+          "default": 2,
+          "type": "knob"
+        },
+        {
+          "id": "oscSlop",
+          "name": "Osc Slop",
+          "cc": 9,
+          "nrpn": 12,
+          "sysex": 21,
+          "min": 0,
+          "max": 127,
+          "default": 0,
+          "type": "knob"
+        }
+      ],
+      "order": 3
+    },
+    {
+      "id": "filter",
+      "name": "Low-Pass Filter",
+      "parameters": [
+        {
+          "id": "filterFreq",
+          "name": "Cutoff Frequency",
+          "cc": 102,
+          "nrpn": 15,
+          "sysex": 22,
+          "min": 0,
+          "max": 164,
+          "default": 164,
+          "type": "knob"
+        },
+        {
+          "id": "filterRes",
+          "name": "Resonance",
+          "cc": 103,
+          "nrpn": 16,
+          "sysex": 23,
+          "min": 0,
+          "max": 127,
+          "default": 0,
+          "type": "knob"
+        },
+        {
+          "id": "filterKeyAmt",
+          "name": "Key Amount",
+          "cc": 104,
+          "nrpn": 17,
+          "sysex": 24,
+          "min": 0,
+          "max": 127,
+          "default": 0,
+          "type": "knob"
+        },
+        {
+          "id": "filterAudioMod",
+          "name": "Audio Mod",
+          "cc": 105,
+          "nrpn": 18,
+          "sysex": 25,
+          "min": 0,
+          "max": 127,
+          "default": 0,
+          "type": "knob"
+        },
+        {
+          "id": "filterPoles",
+          "name": "Poles",
+          "cc": null,
+          "nrpn": 19,
+          "sysex": 26,
+          "min": 0,
+          "max": 1,
+          "default": 1,
+          "type": "selector",
+          "values": "filterPoles"
+        }
+      ],
+      "order": 4
+    },
+    {
+      "id": "filterEnv",
+      "name": "Filter Envelope",
+      "parameters": [
+        {
+          "id": "filterEnvAmt",
+          "name": "Env Amount",
+          "cc": 106,
+          "nrpn": 20,
+          "sysex": 32,
+          "min": 0,
+          "max": 254,
+          "default": 127,
+          "type": "knob",
+          "description": "Bipolar: 0=-127, 127=0, 254=+127"
+        },
+        {
+          "id": "filterEnvVel",
+          "name": "Env Velocity",
+          "cc": 107,
+          "nrpn": 21,
+          "sysex": 35,
+          "min": 0,
+          "max": 127,
+          "default": 0,
+          "type": "knob"
+        },
+        {
+          "id": "filterEnvDelay",
+          "name": "Delay",
+          "cc": 108,
+          "nrpn": 22,
+          "sysex": 38,
+          "min": 0,
+          "max": 127,
+          "default": 0,
+          "type": "knob"
+        },
+        {
+          "id": "filterEnvAttack",
+          "name": "Attack",
+          "cc": 109,
+          "nrpn": 23,
+          "sysex": 41,
+          "min": 0,
+          "max": 127,
+          "default": 0,
+          "type": "knob"
+        },
+        {
+          "id": "filterEnvDecay",
+          "name": "Decay",
+          "cc": 110,
+          "nrpn": 24,
+          "sysex": 44,
+          "min": 0,
+          "max": 127,
+          "default": 64,
+          "type": "knob"
+        },
+        {
+          "id": "filterEnvSustain",
+          "name": "Sustain",
+          "cc": 111,
+          "nrpn": 25,
+          "sysex": 47,
+          "min": 0,
+          "max": 127,
+          "default": 64,
+          "type": "knob"
+        },
+        {
+          "id": "filterEnvRelease",
+          "name": "Release",
+          "cc": 112,
+          "nrpn": 26,
+          "sysex": 50,
+          "min": 0,
+          "max": 127,
+          "default": 64,
+          "type": "knob"
+        }
+      ],
+      "order": 5
+    },
+    {
+      "id": "amp",
+      "name": "Amplifier",
+      "parameters": [
+        {
+          "id": "vcaLevel",
+          "name": "VCA Level",
+          "cc": 113,
+          "nrpn": 98,
+          "sysex": 27,
+          "min": 0,
+          "max": 127,
+          "default": 0,
+          "type": "knob"
+        },
+        {
+          "id": "voiceVolume",
+          "name": "Voice Volume",
+          "cc": 37,
+          "nrpn": 29,
+          "sysex": 28,
+          "min": 0,
+          "max": 127,
+          "default": 127,
+          "type": "knob"
+        },
+        {
+          "id": "panSpread",
+          "name": "Pan Spread",
+          "cc": 114,
+          "nrpn": 28,
+          "sysex": 29,
+          "min": 0,
+          "max": 127,
+          "default": 0,
+          "type": "knob"
+        },
+        {
+          "id": "panMode",
+          "name": "Pan Mode",
+          "cc": 10,
+          "nrpn": 114,
+          "sysex": 209,
+          "min": 0,
+          "max": 1,
+          "default": 0,
+          "type": "selector",
+          "values": "panMode"
+        }
+      ],
+      "order": 6
+    },
+    {
+      "id": "ampEnv",
+      "name": "Amplifier Envelope",
+      "parameters": [
+        {
+          "id": "ampEnvAmt",
+          "name": "Env Amount",
+          "cc": 115,
+          "nrpn": 30,
+          "sysex": 33,
+          "min": 0,
+          "max": 127,
+          "default": 127,
+          "type": "knob"
+        },
+        {
+          "id": "ampEnvVel",
+          "name": "Env Velocity",
+          "cc": 116,
+          "nrpn": 31,
+          "sysex": 36,
+          "min": 0,
+          "max": 127,
+          "default": 0,
+          "type": "knob"
+        },
+        {
+          "id": "ampEnvDelay",
+          "name": "Delay",
+          "cc": 117,
+          "nrpn": 32,
+          "sysex": 39,
+          "min": 0,
+          "max": 127,
+          "default": 0,
+          "type": "knob"
+        },
+        {
+          "id": "ampEnvAttack",
+          "name": "Attack",
+          "cc": 118,
+          "nrpn": 33,
+          "sysex": 42,
+          "min": 0,
+          "max": 127,
+          "default": 0,
+          "type": "knob"
+        },
+        {
+          "id": "ampEnvDecay",
+          "name": "Decay",
+          "cc": 119,
+          "nrpn": 34,
+          "sysex": 45,
+          "min": 0,
+          "max": 127,
+          "default": 64,
+          "type": "knob"
+        },
+        {
+          "id": "ampEnvSustain",
+          "name": "Sustain",
+          "cc": 75,
+          "nrpn": 35,
+          "sysex": 48,
+          "min": 0,
+          "max": 127,
+          "default": 64,
+          "type": "knob"
+        },
+        {
+          "id": "ampEnvRelease",
+          "name": "Release",
+          "cc": 76,
+          "nrpn": 36,
+          "sysex": 51,
+          "min": 0,
+          "max": 127,
+          "default": 64,
+          "type": "knob"
+        }
+      ],
+      "order": 7
+    },
+    {
+      "id": "env3",
+      "name": "Envelope 3 (Aux)",
+      "parameters": [
+        {
+          "id": "env3Dest",
+          "name": "Destination",
+          "cc": 85,
+          "nrpn": 57,
+          "sysex": 30,
+          "min": 0,
+          "max": 52,
+          "default": 0,
+          "type": "selector",
+          "values": "modDest"
+        },
+        {
+          "id": "env3Repeat",
+          "name": "Repeat",
+          "cc": null,
+          "nrpn": 97,
+          "sysex": 31,
+          "min": 0,
+          "max": 1,
+          "default": 0,
+          "type": "toggle"
+        },
+        {
+          "id": "env3Amt",
+          "name": "Amount",
+          "cc": 86,
+          "nrpn": 58,
+          "sysex": 34,
+          "min": 0,
+          "max": 254,
+          "default": 127,
+          "type": "knob",
+          "description": "Bipolar: 0=-127, 127=0, 254=+127"
+        },
+        {
+          "id": "env3Vel",
+          "name": "Velocity",
+          "cc": 87,
+          "nrpn": 59,
+          "sysex": 37,
+          "min": 0,
+          "max": 127,
+          "default": 0,
+          "type": "knob"
+        },
+        {
+          "id": "env3Delay",
+          "name": "Delay",
+          "cc": 88,
+          "nrpn": 60,
+          "sysex": 40,
+          "min": 0,
+          "max": 127,
+          "default": 0,
+          "type": "knob"
+        },
+        {
+          "id": "env3Attack",
+          "name": "Attack",
+          "cc": 89,
+          "nrpn": 61,
+          "sysex": 43,
+          "min": 0,
+          "max": 127,
+          "default": 0,
+          "type": "knob"
+        },
+        {
+          "id": "env3Decay",
+          "name": "Decay",
+          "cc": 90,
+          "nrpn": 62,
+          "sysex": 46,
+          "min": 0,
+          "max": 127,
+          "default": 64,
+          "type": "knob"
+        },
+        {
+          "id": "env3Sustain",
+          "name": "Sustain",
+          "cc": 77,
+          "nrpn": 63,
+          "sysex": 49,
+          "min": 0,
+          "max": 127,
+          "default": 64,
+          "type": "knob"
+        },
+        {
+          "id": "env3Release",
+          "name": "Release",
+          "cc": 78,
+          "nrpn": 64,
+          "sysex": 52,
+          "min": 0,
+          "max": 127,
+          "default": 64,
+          "type": "knob"
+        }
+      ],
+      "order": 8
+    },
+    {
+      "id": "lfo1",
+      "name": "LFO 1",
+      "parameters": [
+        {
+          "id": "lfo1Freq",
+          "name": "Frequency",
+          "cc": null,
+          "nrpn": 37,
+          "sysex": 53,
+          "min": 0,
+          "max": 127,
+          "default": 30,
+          "type": "knob"
+        },
+        {
+          "id": "lfo1Shape",
+          "name": "Shape",
+          "cc": null,
+          "nrpn": 38,
+          "sysex": 57,
+          "min": 0,
+          "max": 4,
+          "default": 0,
+          "type": "selector",
+          "values": "lfoShape"
+        },
+        {
+          "id": "lfo1Amt",
+          "name": "Amount",
+          "cc": null,
+          "nrpn": 39,
+          "sysex": 61,
+          "min": 0,
+          "max": 127,
+          "default": 0,
+          "type": "knob"
+        },
+        {
+          "id": "lfo1Dest",
+          "name": "Destination",
+          "cc": null,
+          "nrpn": 40,
+          "sysex": 65,
+          "min": 0,
+          "max": 52,
+          "default": 0,
+          "type": "selector",
+          "values": "modDest"
+        },
+        {
+          "id": "lfo1ClockSync",
+          "name": "Clock Sync",
+          "cc": null,
+          "nrpn": 41,
+          "sysex": 69,
+          "min": 0,
+          "max": 1,
+          "default": 0,
+          "type": "toggle"
+        },
+        {
+          "id": "lfo1KeySync",
+          "name": "Key Sync",
+          "cc": null,
+          "nrpn": 105,
+          "sysex": 73,
+          "min": 0,
+          "max": 1,
+          "default": 0,
+          "type": "toggle"
+        }
+      ],
+      "order": 9
+    },
+    {
+      "id": "lfo2",
+      "name": "LFO 2",
+      "parameters": [
+        {
+          "id": "lfo2Freq",
+          "name": "Frequency",
+          "cc": null,
+          "nrpn": 42,
+          "sysex": 54,
+          "min": 0,
+          "max": 150,
+          "default": 30,
+          "type": "knob"
+        },
+        {
+          "id": "lfo2Shape",
+          "name": "Shape",
+          "cc": null,
+          "nrpn": 43,
+          "sysex": 58,
+          "min": 0,
+          "max": 4,
+          "default": 0,
+          "type": "selector",
+          "values": "lfoShape"
+        },
+        {
+          "id": "lfo2Amt",
+          "name": "Amount",
+          "cc": null,
+          "nrpn": 44,
+          "sysex": 62,
+          "min": 0,
+          "max": 127,
+          "default": 0,
+          "type": "knob"
+        },
+        {
+          "id": "lfo2Dest",
+          "name": "Destination",
+          "cc": null,
+          "nrpn": 45,
+          "sysex": 66,
+          "min": 0,
+          "max": 52,
+          "default": 0,
+          "type": "selector",
+          "values": "modDest"
+        },
+        {
+          "id": "lfo2ClockSync",
+          "name": "Clock Sync",
+          "cc": null,
+          "nrpn": 46,
+          "sysex": 70,
+          "min": 0,
+          "max": 1,
+          "default": 0,
+          "type": "toggle"
+        },
+        {
+          "id": "lfo2KeySync",
+          "name": "Key Sync",
+          "cc": null,
+          "nrpn": 106,
+          "sysex": 74,
+          "min": 0,
+          "max": 1,
+          "default": 0,
+          "type": "toggle"
+        }
+      ],
+      "order": 10
+    },
+    {
+      "id": "lfo3",
+      "name": "LFO 3",
+      "parameters": [
+        {
+          "id": "lfo3Freq",
+          "name": "Frequency",
+          "cc": null,
+          "nrpn": 47,
+          "sysex": 55,
+          "min": 0,
+          "max": 150,
+          "default": 30,
+          "type": "knob"
+        },
+        {
+          "id": "lfo3Shape",
+          "name": "Shape",
+          "cc": null,
+          "nrpn": 48,
+          "sysex": 59,
+          "min": 0,
+          "max": 4,
+          "default": 0,
+          "type": "selector",
+          "values": "lfoShape"
+        },
+        {
+          "id": "lfo3Amt",
+          "name": "Amount",
+          "cc": null,
+          "nrpn": 49,
+          "sysex": 63,
+          "min": 0,
+          "max": 127,
+          "default": 0,
+          "type": "knob"
+        },
+        {
+          "id": "lfo3Dest",
+          "name": "Destination",
+          "cc": null,
+          "nrpn": 50,
+          "sysex": 67,
+          "min": 0,
+          "max": 52,
+          "default": 0,
+          "type": "selector",
+          "values": "modDest"
+        },
+        {
+          "id": "lfo3ClockSync",
+          "name": "Clock Sync",
+          "cc": null,
+          "nrpn": 51,
+          "sysex": 71,
+          "min": 0,
+          "max": 1,
+          "default": 0,
+          "type": "toggle"
+        },
+        {
+          "id": "lfo3KeySync",
+          "name": "Key Sync",
+          "cc": null,
+          "nrpn": 107,
+          "sysex": 75,
+          "min": 0,
+          "max": 1,
+          "default": 0,
+          "type": "toggle"
+        }
+      ],
+      "order": 11
+    },
+    {
+      "id": "lfo4",
+      "name": "LFO 4",
+      "parameters": [
+        {
+          "id": "lfo4Freq",
+          "name": "Frequency",
+          "cc": null,
+          "nrpn": 52,
+          "sysex": 56,
+          "min": 0,
+          "max": 150,
+          "default": 30,
+          "type": "knob"
+        },
+        {
+          "id": "lfo4Shape",
+          "name": "Shape",
+          "cc": null,
+          "nrpn": 53,
+          "sysex": 60,
+          "min": 0,
+          "max": 4,
+          "default": 0,
+          "type": "selector",
+          "values": "lfoShape"
+        },
+        {
+          "id": "lfo4Amt",
+          "name": "Amount",
+          "cc": null,
+          "nrpn": 54,
+          "sysex": 64,
+          "min": 0,
+          "max": 127,
+          "default": 0,
+          "type": "knob"
+        },
+        {
+          "id": "lfo4Dest",
+          "name": "Destination",
+          "cc": null,
+          "nrpn": 55,
+          "sysex": 68,
+          "min": 0,
+          "max": 52,
+          "default": 0,
+          "type": "selector",
+          "values": "modDest"
+        },
+        {
+          "id": "lfo4ClockSync",
+          "name": "Clock Sync",
+          "cc": null,
+          "nrpn": 56,
+          "sysex": 72,
+          "min": 0,
+          "max": 1,
+          "default": 0,
+          "type": "toggle"
+        },
+        {
+          "id": "lfo4KeySync",
+          "name": "Key Sync",
+          "cc": null,
+          "nrpn": 108,
+          "sysex": 76,
+          "min": 0,
+          "max": 1,
+          "default": 0,
+          "type": "toggle"
+        }
+      ],
+      "order": 12
+    },
+    {
+      "id": "modMatrix",
+      "name": "Mod Matrix",
+      "parameters": [
+        {
+          "id": "mod1Source",
+          "name": "Mod 1 Source",
+          "cc": null,
+          "nrpn": 65,
+          "sysex": 77,
+          "min": 0,
+          "max": 22,
+          "default": 0,
+          "type": "selector",
+          "values": "modSource"
+        },
+        {
+          "id": "mod1Amt",
+          "name": "Mod 1 Amount",
+          "cc": null,
+          "nrpn": 66,
+          "sysex": 85,
+          "min": 0,
+          "max": 254,
+          "default": 127,
+          "type": "knob",
+          "description": "Bipolar: 0=-127, 127=0, 254=+127"
+        },
+        {
+          "id": "mod1Dest",
+          "name": "Mod 1 Dest",
+          "cc": null,
+          "nrpn": 67,
+          "sysex": 93,
+          "min": 0,
+          "max": 52,
+          "default": 0,
+          "type": "selector",
+          "values": "modDest"
+        },
+        {
+          "id": "mod2Source",
+          "name": "Mod 2 Source",
+          "cc": null,
+          "nrpn": 68,
+          "sysex": 78,
+          "min": 0,
+          "max": 22,
+          "default": 0,
+          "type": "selector",
+          "values": "modSource"
+        },
+        {
+          "id": "mod2Amt",
+          "name": "Mod 2 Amount",
+          "cc": null,
+          "nrpn": 69,
+          "sysex": 86,
+          "min": 0,
+          "max": 254,
+          "default": 127,
+          "type": "knob",
+          "description": "Bipolar: 0=-127, 127=0, 254=+127"
+        },
+        {
+          "id": "mod2Dest",
+          "name": "Mod 2 Dest",
+          "cc": null,
+          "nrpn": 70,
+          "sysex": 94,
+          "min": 0,
+          "max": 52,
+          "default": 0,
+          "type": "selector",
+          "values": "modDest"
+        },
+        {
+          "id": "mod3Source",
+          "name": "Mod 3 Source",
+          "cc": null,
+          "nrpn": 71,
+          "sysex": 79,
+          "min": 0,
+          "max": 22,
+          "default": 0,
+          "type": "selector",
+          "values": "modSource"
+        },
+        {
+          "id": "mod3Amt",
+          "name": "Mod 3 Amount",
+          "cc": null,
+          "nrpn": 72,
+          "sysex": 87,
+          "min": 0,
+          "max": 254,
+          "default": 127,
+          "type": "knob",
+          "description": "Bipolar: 0=-127, 127=0, 254=+127"
+        },
+        {
+          "id": "mod3Dest",
+          "name": "Mod 3 Dest",
+          "cc": null,
+          "nrpn": 73,
+          "sysex": 95,
+          "min": 0,
+          "max": 52,
+          "default": 0,
+          "type": "selector",
+          "values": "modDest"
+        },
+        {
+          "id": "mod4Source",
+          "name": "Mod 4 Source",
+          "cc": null,
+          "nrpn": 74,
+          "sysex": 80,
+          "min": 0,
+          "max": 22,
+          "default": 0,
+          "type": "selector",
+          "values": "modSource"
+        },
+        {
+          "id": "mod4Amt",
+          "name": "Mod 4 Amount",
+          "cc": null,
+          "nrpn": 75,
+          "sysex": 88,
+          "min": 0,
+          "max": 254,
+          "default": 127,
+          "type": "knob",
+          "description": "Bipolar: 0=-127, 127=0, 254=+127"
+        },
+        {
+          "id": "mod4Dest",
+          "name": "Mod 4 Dest",
+          "cc": null,
+          "nrpn": 76,
+          "sysex": 96,
+          "min": 0,
+          "max": 52,
+          "default": 0,
+          "type": "selector",
+          "values": "modDest"
+        },
+        {
+          "id": "mod5Source",
+          "name": "Mod 5 Source",
+          "cc": null,
+          "nrpn": 77,
+          "sysex": 81,
+          "min": 0,
+          "max": 22,
+          "default": 0,
+          "type": "selector",
+          "values": "modSource"
+        },
+        {
+          "id": "mod5Amt",
+          "name": "Mod 5 Amount",
+          "cc": null,
+          "nrpn": 78,
+          "sysex": 89,
+          "min": 0,
+          "max": 254,
+          "default": 127,
+          "type": "knob",
+          "description": "Bipolar: 0=-127, 127=0, 254=+127"
+        },
+        {
+          "id": "mod5Dest",
+          "name": "Mod 5 Dest",
+          "cc": null,
+          "nrpn": 79,
+          "sysex": 97,
+          "min": 0,
+          "max": 52,
+          "default": 0,
+          "type": "selector",
+          "values": "modDest"
+        },
+        {
+          "id": "mod6Source",
+          "name": "Mod 6 Source",
+          "cc": null,
+          "nrpn": 80,
+          "sysex": 82,
+          "min": 0,
+          "max": 22,
+          "default": 0,
+          "type": "selector",
+          "values": "modSource"
+        },
+        {
+          "id": "mod6Amt",
+          "name": "Mod 6 Amount",
+          "cc": null,
+          "nrpn": 81,
+          "sysex": 90,
+          "min": 0,
+          "max": 254,
+          "default": 127,
+          "type": "knob",
+          "description": "Bipolar: 0=-127, 127=0, 254=+127"
+        },
+        {
+          "id": "mod6Dest",
+          "name": "Mod 6 Dest",
+          "cc": null,
+          "nrpn": 82,
+          "sysex": 98,
+          "min": 0,
+          "max": 52,
+          "default": 0,
+          "type": "selector",
+          "values": "modDest"
+        },
+        {
+          "id": "mod7Source",
+          "name": "Mod 7 Source",
+          "cc": null,
+          "nrpn": 83,
+          "sysex": 83,
+          "min": 0,
+          "max": 22,
+          "default": 0,
+          "type": "selector",
+          "values": "modSource"
+        },
+        {
+          "id": "mod7Amt",
+          "name": "Mod 7 Amount",
+          "cc": null,
+          "nrpn": 84,
+          "sysex": 91,
+          "min": 0,
+          "max": 254,
+          "default": 127,
+          "type": "knob",
+          "description": "Bipolar: 0=-127, 127=0, 254=+127"
+        },
+        {
+          "id": "mod7Dest",
+          "name": "Mod 7 Dest",
+          "cc": null,
+          "nrpn": 85,
+          "sysex": 99,
+          "min": 0,
+          "max": 52,
+          "default": 0,
+          "type": "selector",
+          "values": "modDest"
+        },
+        {
+          "id": "mod8Source",
+          "name": "Mod 8 Source",
+          "cc": null,
+          "nrpn": 86,
+          "sysex": 84,
+          "min": 0,
+          "max": 22,
+          "default": 0,
+          "type": "selector",
+          "values": "modSource"
+        },
+        {
+          "id": "mod8Amt",
+          "name": "Mod 8 Amount",
+          "cc": null,
+          "nrpn": 87,
+          "sysex": 92,
+          "min": 0,
+          "max": 254,
+          "default": 127,
+          "type": "knob",
+          "description": "Bipolar: 0=-127, 127=0, 254=+127"
+        },
+        {
+          "id": "mod8Dest",
+          "name": "Mod 8 Dest",
+          "cc": null,
+          "nrpn": 88,
+          "sysex": 100,
+          "min": 0,
+          "max": 52,
+          "default": 0,
+          "type": "selector",
+          "values": "modDest"
+        }
+      ],
+      "order": 13
+    },
+    {
+      "id": "extMod",
+      "name": "External Modulation",
+      "parameters": [
+        {
+          "id": "modWheelAmt",
+          "name": "Mod Wheel Amount",
+          "cc": null,
+          "nrpn": 116,
+          "sysex": 101,
+          "min": 0,
+          "max": 254,
+          "default": 127,
+          "type": "knob",
+          "description": "Bipolar: 0=-127, 127=0, 254=+127"
+        },
+        {
+          "id": "modWheelDest",
+          "name": "Mod Wheel Dest",
+          "cc": null,
+          "nrpn": 117,
+          "sysex": 102,
+          "min": 0,
+          "max": 52,
+          "default": 0,
+          "type": "selector",
+          "values": "modDest"
+        },
+        {
+          "id": "pressureAmt",
+          "name": "Pressure Amount",
+          "cc": null,
+          "nrpn": 118,
+          "sysex": 103,
+          "min": 0,
+          "max": 254,
+          "default": 127,
+          "type": "knob",
+          "description": "Bipolar: 0=-127, 127=0, 254=+127"
+        },
+        {
+          "id": "pressureDest",
+          "name": "Pressure Dest",
+          "cc": null,
+          "nrpn": 119,
+          "sysex": 104,
+          "min": 0,
+          "max": 52,
+          "default": 0,
+          "type": "selector",
+          "values": "modDest"
+        },
+        {
+          "id": "breathAmt",
+          "name": "Breath Amount",
+          "cc": null,
+          "nrpn": 120,
+          "sysex": 105,
+          "min": 0,
+          "max": 254,
+          "default": 127,
+          "type": "knob",
+          "description": "Bipolar: 0=-127, 127=0, 254=+127"
+        },
+        {
+          "id": "breathDest",
+          "name": "Breath Dest",
+          "cc": null,
+          "nrpn": 121,
+          "sysex": 106,
+          "min": 0,
+          "max": 52,
+          "default": 0,
+          "type": "selector",
+          "values": "modDest"
+        },
+        {
+          "id": "velocityAmt",
+          "name": "Velocity Amount",
+          "cc": null,
+          "nrpn": 122,
+          "sysex": 107,
+          "min": 0,
+          "max": 254,
+          "default": 127,
+          "type": "knob",
+          "description": "Bipolar: 0=-127, 127=0, 254=+127"
+        },
+        {
+          "id": "velocityDest",
+          "name": "Velocity Dest",
+          "cc": null,
+          "nrpn": 123,
+          "sysex": 108,
+          "min": 0,
+          "max": 52,
+          "default": 0,
+          "type": "selector",
+          "values": "modDest"
+        },
+        {
+          "id": "footCtrlAmt",
+          "name": "Foot Ctrl Amount",
+          "cc": null,
+          "nrpn": 124,
+          "sysex": 109,
+          "min": 0,
+          "max": 254,
+          "default": 127,
+          "type": "knob",
+          "description": "Bipolar: 0=-127, 127=0, 254=+127"
+        },
+        {
+          "id": "footCtrlDest",
+          "name": "Foot Ctrl Dest",
+          "cc": null,
+          "nrpn": 125,
+          "sysex": 110,
+          "min": 0,
+          "max": 52,
+          "default": 0,
+          "type": "selector",
+          "values": "modDest"
+        }
+      ],
+      "order": 14
+    },
+    {
+      "id": "fx",
+      "name": "Effects",
+      "parameters": [
+        {
+          "id": "fxType",
+          "name": "FX Type",
+          "cc": 3,
+          "nrpn": 154,
+          "sysex": 115,
+          "min": 0,
+          "max": 13,
+          "default": 0,
+          "type": "selector",
+          "values": "fxType"
+        },
+        {
+          "id": "fxOnOff",
+          "name": "FX On/Off",
+          "cc": 16,
+          "nrpn": 153,
+          "sysex": 116,
+          "min": 0,
+          "max": 1,
+          "default": 0,
+          "type": "toggle"
+        },
+        {
+          "id": "fxMix",
+          "name": "FX Mix",
+          "cc": 17,
+          "nrpn": 155,
+          "sysex": 117,
+          "min": 0,
+          "max": 127,
+          "default": 64,
+          "type": "knob"
+        },
+        {
+          "id": "fxParam1",
+          "name": "FX Param 1",
+          "cc": 12,
+          "nrpn": 156,
+          "sysex": 118,
+          "min": 0,
+          "max": 255,
+          "default": 64,
+          "type": "knob",
+          "description": "Function depends on FX Type selected"
+        },
+        {
+          "id": "fxParam2",
+          "name": "FX Param 2",
+          "cc": 13,
+          "nrpn": 157,
+          "sysex": 119,
+          "min": 0,
+          "max": 127,
+          "default": 64,
+          "type": "knob",
+          "description": "Function depends on FX Type selected"
+        },
+        {
+          "id": "fxClockSync",
+          "name": "FX Clock Sync",
+          "cc": null,
+          "nrpn": 158,
+          "sysex": 120,
+          "min": 0,
+          "max": 1,
+          "default": 0,
+          "type": "toggle"
+        }
+      ],
+      "order": 15
+    },
+    {
+      "id": "performance",
+      "name": "Performance",
+      "parameters": [
+        {
+          "id": "keyMode",
+          "name": "Key Mode",
+          "cc": null,
+          "nrpn": 170,
+          "sysex": 122,
+          "min": 0,
+          "max": 5,
+          "default": 2,
+          "type": "selector",
+          "values": "keyMode"
+        },
+        {
+          "id": "unisonOnOff",
+          "name": "Unison On/Off",
+          "cc": null,
+          "nrpn": 168,
+          "sysex": 123,
+          "min": 0,
+          "max": 1,
+          "default": 0,
+          "type": "toggle"
+        },
+        {
+          "id": "unisonMode",
+          "name": "Unison Mode",
+          "cc": null,
+          "nrpn": 169,
+          "sysex": 124,
+          "min": 0,
+          "max": 16,
+          "default": 0,
+          "type": "knob",
+          "description": "0=Chord, 1-16 = number of voices"
+        },
+        {
+          "id": "unisonDetune",
+          "name": "Unison Detune",
+          "cc": null,
+          "nrpn": 167,
+          "sysex": 208,
+          "min": 0,
+          "max": 16,
+          "default": 8,
+          "type": "knob"
+        }
+      ],
+      "order": 16
+    },
+    {
+      "id": "clock",
+      "name": "Clock",
+      "parameters": [
+        {
+          "id": "bpmTempo",
+          "name": "BPM Tempo",
+          "cc": 14,
+          "nrpn": 179,
+          "sysex": 130,
+          "min": 30,
+          "max": 250,
+          "default": 120,
+          "type": "knob"
+        },
+        {
+          "id": "clockDivide",
+          "name": "Clock Divide",
+          "cc": 15,
+          "nrpn": 175,
+          "sysex": 131,
+          "min": 0,
+          "max": 12,
+          "default": 6,
+          "type": "selector",
+          "values": "clockDivide"
+        }
+      ],
+      "order": 17
+    },
+    {
+      "id": "arpeggiator",
+      "name": "Arpeggiator",
+      "parameters": [
+        {
+          "id": "arpMode",
+          "name": "Arp Mode",
+          "cc": 34,
+          "nrpn": 173,
+          "sysex": 132,
+          "min": 0,
+          "max": 4,
+          "default": 0,
+          "type": "selector",
+          "values": "arpMode"
+        },
+        {
+          "id": "arpRange",
+          "name": "Arp Range (Octaves)",
+          "cc": 35,
+          "nrpn": 174,
+          "sysex": 133,
+          "min": 0,
+          "max": 2,
+          "default": 0,
+          "type": "knob",
+          "description": "0=1 oct, 1=2 oct, 2=3 oct"
+        },
+        {
+          "id": "arpRepeats",
+          "name": "Arp Repeats",
+          "cc": 36,
+          "nrpn": 177,
+          "sysex": 134,
+          "min": 0,
+          "max": 3,
+          "default": 0,
+          "type": "knob",
+          "description": "0=1x, 1=2x, 2=3x, 3=4x"
+        },
+        {
+          "id": "arpRelatch",
+          "name": "Arp Relatch",
+          "cc": null,
+          "nrpn": 178,
+          "sysex": 135,
+          "min": 0,
+          "max": 1,
+          "default": 0,
+          "type": "toggle"
+        },
+        {
+          "id": "arpOnOff",
+          "name": "Arp On/Off",
+          "cc": 33,
+          "nrpn": 172,
+          "sysex": 136,
+          "min": 0,
+          "max": 1,
+          "default": 0,
+          "type": "toggle"
+        }
+      ],
+      "order": 18
+    },
+    {
+      "id": "sequencer",
+      "name": "Sequencer",
+      "parameters": [
+        {
+          "id": "seqType",
+          "name": "Sequencer Type",
+          "cc": 19,
+          "nrpn": 183,
+          "sysex": 137,
+          "min": 0,
+          "max": 1,
+          "default": 0,
+          "type": "selector",
+          "values": "seqType"
+        },
+        {
+          "id": "seqTrigger",
+          "name": "Gated Seq Trigger",
+          "cc": null,
+          "nrpn": 182,
+          "sysex": 138,
+          "min": 0,
+          "max": 4,
+          "default": 0,
+          "type": "selector",
+          "values": "seqTrigger"
+        },
+        {
+          "id": "seq1Dest",
+          "name": "Seq Track 1 Dest",
+          "cc": null,
+          "nrpn": 184,
+          "sysex": 111,
+          "min": 0,
+          "max": 52,
+          "default": 0,
+          "type": "selector",
+          "values": "modDest"
+        },
+        {
+          "id": "seq2Dest",
+          "name": "Seq Track 2 Dest",
+          "cc": null,
+          "nrpn": 185,
+          "sysex": 112,
+          "min": 0,
+          "max": 53,
+          "default": 0,
+          "type": "selector",
+          "values": "modDest",
+          "description": "Value 53 = Seq Slew for track 2 only"
+        },
+        {
+          "id": "seq3Dest",
+          "name": "Seq Track 3 Dest",
+          "cc": null,
+          "nrpn": 186,
+          "sysex": 113,
+          "min": 0,
+          "max": 52,
+          "default": 0,
+          "type": "selector",
+          "values": "modDest"
+        },
+        {
+          "id": "seq4Dest",
+          "name": "Seq Track 4 Dest",
+          "cc": null,
+          "nrpn": 187,
+          "sysex": 114,
+          "min": 0,
+          "max": 53,
+          "default": 0,
+          "type": "selector",
+          "values": "modDest",
+          "description": "Value 53 = Seq Slew for track 4 only"
+        }
+      ],
+      "order": 19
+    },
+    {
+      "id": "gatedSeq",
+      "name": "Gated Sequencer Steps",
+      "description": "4 tracks x 16 steps. Values 0-125 = parameter value, 126 = Reset, 127 = Rest (track 1 only).",
+      "parameters": [
+        {
+          "id": "seqTrack1",
+          "name": "Seq Track 1",
+          "cc": null,
+          "nrpnStart": 192,
+          "nrpnEnd": 207,
+          "sysexStart": 140,
+          "steps": 16,
+          "min": 0,
+          "max": 127,
+          "default": 0,
+          "type": "stepArray",
+          "description": "126=Reset, 127=Rest"
+        },
+        {
+          "id": "seqTrack2",
+          "name": "Seq Track 2",
+          "cc": null,
+          "nrpnStart": 208,
+          "nrpnEnd": 223,
+          "sysexStart": 156,
+          "steps": 16,
+          "min": 0,
+          "max": 126,
+          "default": 0,
+          "type": "stepArray",
+          "description": "126=Reset"
+        },
+        {
+          "id": "seqTrack3",
+          "name": "Seq Track 3",
+          "cc": null,
+          "nrpnStart": 224,
+          "nrpnEnd": 239,
+          "sysexStart": 172,
+          "steps": 16,
+          "min": 0,
+          "max": 126,
+          "default": 0,
+          "type": "stepArray",
+          "description": "126=Reset"
+        },
+        {
+          "id": "seqTrack4",
+          "name": "Seq Track 4",
+          "cc": null,
+          "nrpnStart": 240,
+          "nrpnEnd": 255,
+          "sysexStart": 188,
+          "steps": 16,
+          "min": 0,
+          "max": 126,
+          "default": 0,
+          "type": "stepArray",
+          "description": "126=Reset"
+        }
+      ],
+      "order": 20
+    },
+    {
+      "id": "polySeq",
+      "name": "Poly Sequencer",
+      "description": "6 note tracks x 64 steps. Each track has note and velocity data.",
+      "parameters": [
+        {
+          "id": "polySeqNote1",
+          "name": "Poly Seq Note Track 1",
+          "cc": null,
+          "nrpnStart": 276,
+          "nrpnEnd": 339,
+          "sysexStart": 256,
+          "steps": 64,
+          "min": 0,
+          "max": 127,
+          "default": 60,
+          "type": "stepArray",
+          "description": "MIDI note numbers"
+        },
+        {
+          "id": "polySeqVel1",
+          "name": "Poly Seq Velocity Track 1",
+          "cc": null,
+          "nrpnStart": 340,
+          "nrpnEnd": 403,
+          "sysexStart": 320,
+          "steps": 64,
+          "min": 0,
+          "max": 127,
+          "default": 100,
+          "type": "stepArray",
+          "description": "0=Reset, 1=Rest, 2-127=velocity"
+        },
+        {
+          "id": "polySeqNote2",
+          "name": "Poly Seq Note Track 2",
+          "cc": null,
+          "nrpnStart": 404,
+          "nrpnEnd": 467,
+          "sysexStart": 384,
+          "steps": 64,
+          "min": 0,
+          "max": 127,
+          "default": 60,
+          "type": "stepArray"
+        },
+        {
+          "id": "polySeqVel2",
+          "name": "Poly Seq Velocity Track 2",
+          "cc": null,
+          "nrpnStart": 468,
+          "nrpnEnd": 531,
+          "sysexStart": 448,
+          "steps": 64,
+          "min": 0,
+          "max": 127,
+          "default": 100,
+          "type": "stepArray",
+          "description": "0=Reset, 1=Rest, 2-127=velocity"
+        },
+        {
+          "id": "polySeqNote3",
+          "name": "Poly Seq Note Track 3",
+          "cc": null,
+          "nrpnStart": 532,
+          "nrpnEnd": 595,
+          "sysexStart": 512,
+          "steps": 64,
+          "min": 0,
+          "max": 127,
+          "default": 60,
+          "type": "stepArray"
+        },
+        {
+          "id": "polySeqVel3",
+          "name": "Poly Seq Velocity Track 3",
+          "cc": null,
+          "nrpnStart": 596,
+          "nrpnEnd": 659,
+          "sysexStart": 576,
+          "steps": 64,
+          "min": 0,
+          "max": 127,
+          "default": 100,
+          "type": "stepArray",
+          "description": "0=Reset, 1=Rest, 2-127=velocity"
+        },
+        {
+          "id": "polySeqNote4",
+          "name": "Poly Seq Note Track 4",
+          "cc": null,
+          "nrpnStart": 660,
+          "nrpnEnd": 723,
+          "sysexStart": 640,
+          "steps": 64,
+          "min": 0,
+          "max": 127,
+          "default": 60,
+          "type": "stepArray"
+        },
+        {
+          "id": "polySeqVel4",
+          "name": "Poly Seq Velocity Track 4",
+          "cc": null,
+          "nrpnStart": 724,
+          "nrpnEnd": 787,
+          "sysexStart": 704,
+          "steps": 64,
+          "min": 0,
+          "max": 127,
+          "default": 100,
+          "type": "stepArray",
+          "description": "0=Reset, 1=Rest, 2-127=velocity"
+        },
+        {
+          "id": "polySeqNote5",
+          "name": "Poly Seq Note Track 5",
+          "cc": null,
+          "nrpnStart": 788,
+          "nrpnEnd": 851,
+          "sysexStart": 768,
+          "steps": 64,
+          "min": 0,
+          "max": 127,
+          "default": 60,
+          "type": "stepArray"
+        },
+        {
+          "id": "polySeqVel5",
+          "name": "Poly Seq Velocity Track 5",
+          "cc": null,
+          "nrpnStart": 852,
+          "nrpnEnd": 915,
+          "sysexStart": 832,
+          "steps": 64,
+          "min": 0,
+          "max": 127,
+          "default": 100,
+          "type": "stepArray",
+          "description": "0=Reset, 1=Rest, 2-127=velocity"
+        },
+        {
+          "id": "polySeqNote6",
+          "name": "Poly Seq Note Track 6",
+          "cc": null,
+          "nrpnStart": 916,
+          "nrpnEnd": 979,
+          "sysexStart": 896,
+          "steps": 64,
+          "min": 0,
+          "max": 127,
+          "default": 60,
+          "type": "stepArray"
+        },
+        {
+          "id": "polySeqVel6",
+          "name": "Poly Seq Velocity Track 6",
+          "cc": null,
+          "nrpnStart": 980,
+          "nrpnEnd": 1043,
+          "sysexStart": 960,
+          "steps": 64,
+          "min": 0,
+          "max": 127,
+          "default": 100,
+          "type": "stepArray",
+          "description": "0=Reset, 1=Rest, 2-127=velocity"
+        }
+      ],
+      "order": 21
+    },
+    {
+      "id": "layer",
+      "name": "Layer Settings",
+      "parameters": [
+        {
+          "id": "abMode",
+          "name": "A/B Mode",
+          "cc": 18,
+          "nrpn": 163,
+          "sysex": 231,
+          "min": 0,
+          "max": 2,
+          "default": 0,
+          "type": "selector",
+          "values": "abMode"
+        },
+        {
+          "id": "splitPoint",
+          "name": "Split Point",
+          "cc": 39,
+          "nrpn": 171,
+          "sysex": 232,
+          "min": 0,
+          "max": 120,
+          "default": 36,
+          "type": "knob",
+          "description": "MIDI note number for split point"
+        }
+      ],
+      "order": 22
+    }
+  ],
+  "ccToNrpnMap": {
+    "1": {
+      "name": "Mod Wheel",
+      "description": "Performance controller, not a patch parameter"
+    },
+    "3": {
+      "nrpn": 154,
+      "param": "fxType"
+    },
+    "5": {
+      "nrpn": 11,
+      "param": "glideMode"
+    },
+    "7": {
+      "name": "Master Volume",
+      "description": "Global volume, not a patch parameter"
+    },
+    "8": {
+      "nrpn": 110,
+      "param": "subOsc"
+    },
+    "9": {
+      "nrpn": 12,
+      "param": "oscSlop"
+    },
+    "10": {
+      "nrpn": 114,
+      "param": "panMode"
+    },
+    "12": {
+      "nrpn": 156,
+      "param": "fxParam1"
+    },
+    "13": {
+      "nrpn": 157,
+      "param": "fxParam2"
+    },
+    "14": {
+      "nrpn": 179,
+      "param": "bpmTempo"
+    },
+    "15": {
+      "nrpn": 175,
+      "param": "clockDivide"
+    },
+    "16": {
+      "nrpn": 153,
+      "param": "fxOnOff"
+    },
+    "17": {
+      "nrpn": 155,
+      "param": "fxMix"
+    },
+    "18": {
+      "nrpn": 163,
+      "param": "abMode"
+    },
+    "19": {
+      "nrpn": 183,
+      "param": "seqType"
+    },
+    "20": {
+      "nrpn": 0,
+      "param": "osc1Freq"
+    },
+    "21": {
+      "nrpn": 1,
+      "param": "osc1FineTune"
+    },
+    "22": {
+      "nrpn": 2,
+      "param": "osc1Shape"
+    },
+    "23": {
+      "nrpn": 3,
+      "param": "osc1Glide"
+    },
+    "24": {
+      "nrpn": 5,
+      "param": "osc2Freq"
+    },
+    "25": {
+      "nrpn": 6,
+      "param": "osc2FineTune"
+    },
+    "26": {
+      "nrpn": 7,
+      "param": "osc2Shape"
+    },
+    "27": {
+      "nrpn": 8,
+      "param": "osc2Glide"
+    },
+    "28": {
+      "nrpn": 13,
+      "param": "oscMix"
+    },
+    "29": {
+      "nrpn": 14,
+      "param": "noiseLevel"
+    },
+    "30": {
+      "nrpn": 102,
+      "param": "osc1PulseWidth"
+    },
+    "31": {
+      "nrpn": 103,
+      "param": "osc2PulseWidth"
+    },
+    "33": {
+      "nrpn": 172,
+      "param": "arpOnOff"
+    },
+    "34": {
+      "nrpn": 173,
+      "param": "arpMode"
+    },
+    "35": {
+      "nrpn": 174,
+      "param": "arpRange"
+    },
+    "36": {
+      "nrpn": 177,
+      "param": "arpRepeats"
+    },
+    "37": {
+      "nrpn": 29,
+      "param": "voiceVolume"
+    },
+    "39": {
+      "nrpn": 171,
+      "param": "splitPoint"
+    },
+    "64": {
+      "name": "Sustain Pedal",
+      "description": "Performance controller"
+    },
+    "65": {
+      "nrpn": 111,
+      "param": "glideOnOff"
+    },
+    "75": {
+      "nrpn": 35,
+      "param": "ampEnvSustain"
+    },
+    "76": {
+      "nrpn": 36,
+      "param": "ampEnvRelease"
+    },
+    "77": {
+      "nrpn": 63,
+      "param": "env3Sustain"
+    },
+    "78": {
+      "nrpn": 64,
+      "param": "env3Release"
+    },
+    "85": {
+      "nrpn": 57,
+      "param": "env3Dest"
+    },
+    "86": {
+      "nrpn": 58,
+      "param": "env3Amt"
+    },
+    "87": {
+      "nrpn": 59,
+      "param": "env3Vel"
+    },
+    "88": {
+      "nrpn": 60,
+      "param": "env3Delay"
+    },
+    "89": {
+      "nrpn": 61,
+      "param": "env3Attack"
+    },
+    "90": {
+      "nrpn": 62,
+      "param": "env3Decay"
+    },
+    "102": {
+      "nrpn": 15,
+      "param": "filterFreq"
+    },
+    "103": {
+      "nrpn": 16,
+      "param": "filterRes"
+    },
+    "104": {
+      "nrpn": 17,
+      "param": "filterKeyAmt"
+    },
+    "105": {
+      "nrpn": 18,
+      "param": "filterAudioMod"
+    },
+    "106": {
+      "nrpn": 20,
+      "param": "filterEnvAmt"
+    },
+    "107": {
+      "nrpn": 21,
+      "param": "filterEnvVel"
+    },
+    "108": {
+      "nrpn": 22,
+      "param": "filterEnvDelay"
+    },
+    "109": {
+      "nrpn": 23,
+      "param": "filterEnvAttack"
+    },
+    "110": {
+      "nrpn": 24,
+      "param": "filterEnvDecay"
+    },
+    "111": {
+      "nrpn": 25,
+      "param": "filterEnvSustain"
+    },
+    "112": {
+      "nrpn": 26,
+      "param": "filterEnvRelease"
+    },
+    "113": {
+      "nrpn": 98,
+      "param": "vcaLevel"
+    },
+    "114": {
+      "nrpn": 28,
+      "param": "panSpread"
+    },
+    "115": {
+      "nrpn": 30,
+      "param": "ampEnvAmt"
+    },
+    "116": {
+      "nrpn": 31,
+      "param": "ampEnvVel"
+    },
+    "117": {
+      "nrpn": 32,
+      "param": "ampEnvDelay"
+    },
+    "118": {
+      "nrpn": 33,
+      "param": "ampEnvAttack"
+    },
+    "119": {
+      "nrpn": 34,
+      "param": "ampEnvDecay"
+    }
+  },
+  "notes": {
+    "ccLimitation": "CCs only cover a subset of parameters and are limited to 0-127 value range. For parameters with ranges >127 (e.g., cutoff 0-164, bipolar amounts 0-254, FX param1 0-255), CC mode scales the value. NRPN mode sends the full range.",
+    "layerB": "Layer B uses the same parameters with NRPN offset +2048 and SysEx offset +1024.",
+    "sysexPacking": "SysEx data is packed in 8-byte packets: 7 data bytes with their high bits stripped and packed into an 8th byte sent first. 1024 program bytes become 1171 MIDI bytes per layer.",
+    "editBufferDump": "Request with F0 01 2E 06 F7. Response is F0 01 2E 03 [layer A packed data] [layer B packed data] F7 (2339 data bytes for both layers).",
+    "paramSendMode": "The synth must be set to 'CC' mode (MIDI Param Send = CC) for CC numbers to work. Default is NRPN.",
+    "lfoNoCc": "LFO 1-4 parameters have NO CC assignments. They are NRPN-only. To control LFOs from the UI, you must use NRPN or SysEx.",
+    "modMatrixNoCc": "Mod Matrix slots 1-8 have NO CC assignments. NRPN-only.",
+    "extModNoCc": "External modulation assignments (mod wheel dest, pressure dest, etc.) have NO CC assignments. NRPN-only.",
+    "bipolarParams": "Parameters with max=254 are bipolar: raw value 127 = zero/center, 0 = -127, 254 = +127. The UI should display -127 to +127."
+  },
+  "sysex": {
+    "manufacturer_id": [
+      1
+    ],
+    "device_id": 47,
+    "edit_buffer_request": [
+      240,
+      1,
+      47,
+      6,
+      247
+    ],
+    "edit_buffer_response_cmd": 3,
+    "program_dump_cmd": 2,
+    "packing": "dsi_7bit"
+  },
+  "presets": {
+    "factory_banks": [
+      "A",
+      "B",
+      "C",
+      "D",
+      "E",
+      "F",
+      "G",
+      "H"
+    ],
+    "programs_per_bank": 128,
+    "bank_select_cc": 0,
+    "program_change": true
+  },
+  "controller_profiles": {
+    "launchkey_mk3": {
+      "name": "Novation Launchkey MK3",
+      "encoding": "relative",
+      "default_mapping": {
+        "21": "lpfCutoff",
+        "22": "lpfResonance",
+        "23": "osc1Shape",
+        "24": "osc1Freq",
+        "25": "filterEnvAttack",
+        "26": "filterEnvDecay",
+        "27": "ampEnvSustain",
+        "28": "ampEnvRelease"
+      }
+    }
+  }
+}
