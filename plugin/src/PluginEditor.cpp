@@ -18,9 +18,24 @@ AnarackEditor::AnarackEditor(AnarackProcessor& p)
             int value = (int)payload.getProperty("value", 0);
             if (cc >= 0 && cc <= 127 && value >= 0 && value <= 127)
             {
-                const uint8_t msg[3] = { 0xB0, (uint8_t)cc, (uint8_t)value };
-                processor.getTransport().sendMidi(msg, 3);
-                processor.ccValues[cc] = value; // keep in sync for relative controllers
+                if (cc == 120 || cc == 121)
+                {
+                    // Program/Bank change: CC 120 = program, CC 121 = bank
+                    // Store values and send Bank Select + Program Change
+                    static int curBank = 0, curProg = 0;
+                    if (cc == 120) curProg = value;
+                    if (cc == 121) curBank = value;
+                    const uint8_t bankMsg[3] = { 0xB0, 0x00, (uint8_t)curBank };
+                    processor.getTransport().sendMidi(bankMsg, 3);
+                    const uint8_t pgmMsg[2] = { 0xC0, (uint8_t)curProg };
+                    processor.getTransport().sendMidi(pgmMsg, 2);
+                }
+                else
+                {
+                    const uint8_t msg[3] = { 0xB0, (uint8_t)cc, (uint8_t)value };
+                    processor.getTransport().sendMidi(msg, 3);
+                }
+                processor.ccValues[cc] = value;
             }
         })
         // Connect button
@@ -56,17 +71,6 @@ AnarackEditor::AnarackEditor(AnarackProcessor& p)
         .withEventListener("cancelLearn", [this](const juce::var&)
         {
             processor.clearLearn();
-        })
-        // Program change from UI
-        .withEventListener("programChange", [this](const juce::var& payload)
-        {
-            int bank = (int)payload.getProperty("bank", 0);
-            int program = (int)payload.getProperty("program", 0);
-            // Send Bank Select MSB (CC 0) then Program Change
-            const uint8_t bankMsg[3] = { 0xB0, 0x00, (uint8_t)bank };
-            processor.getTransport().sendMidi(bankMsg, 3);
-            const uint8_t pgmMsg[2] = { 0xC0, (uint8_t)program };
-            processor.getTransport().sendMidi(pgmMsg, 2);
         })
         // Encoder sensitivity
         .withEventListener("setSensitivity", [this](const juce::var& payload)
@@ -120,7 +124,7 @@ AnarackEditor::AnarackEditor(AnarackProcessor& p)
     addAndMakeVisible(*webView);
     webView->goToURL(juce::WebBrowserComponent::getResourceProviderRoot());
 
-    // Send initConfig once WebView is ready (slight delay for page load)
+    // Send initConfig and auto-connect once WebView is ready
     juce::Timer::callAfterDelay(500, [this]()
     {
         if (webView)
@@ -128,12 +132,24 @@ AnarackEditor::AnarackEditor(AnarackProcessor& p)
             auto obj = juce::DynamicObject::Ptr(new juce::DynamicObject());
             obj->setProperty("host", processor.serverHost);
             obj->setProperty("lan", !processor.useWireGuard);
-            // Send available MIDI input devices
             juce::Array<juce::var> devs;
             for (auto& name : processor.getAvailableMidiInputs())
                 devs.add(name);
             obj->setProperty("midiInputs", devs);
             webView->emitEventIfBrowserIsVisible("initConfig", juce::var(obj.get()));
+        }
+
+        // Auto-connect if not already connected
+        if (!processor.getTransport().isConnected())
+        {
+            auto& t = processor.getTransport();
+            if (processor.useWireGuard)
+            {
+                auto ep = processor.wgEndpoint + ":" + juce::String(processor.wgPort);
+                t.connectWireGuard(ep, processor.wgServerPubkey);
+            }
+            else
+                t.connect(processor.serverHost);
         }
     });
 
