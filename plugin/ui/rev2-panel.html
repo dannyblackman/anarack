@@ -70,8 +70,8 @@
     font-size: 10px; font-weight: 700; color: #fff;
     text-transform: uppercase; letter-spacing: 1.5px; white-space: nowrap;
   }
-  .section-row { display: flex; align-items: flex-start; gap: 0; min-height: 68px; }
-  .section-rows { display: flex; flex-direction: column; gap: 4px; }
+  .section-row { display: flex; align-items: flex-start; gap: 8px; min-height: 68px; }
+  .section-rows { display: flex; flex-direction: column; gap: 20px; }
 
   /* Knob control */
   .ctrl { display: flex; flex-direction: column; align-items: center; width: 66px; }
@@ -137,7 +137,8 @@
   .lfo-tab.active { background: var(--accent); border-color: var(--accent); color: #fff; box-shadow: 0 0 6px rgba(229,57,53,0.3); }
 
   /* Programs section */
-  .prog-grid { display: grid; grid-template-columns: auto auto; gap: 6px; justify-content: center; }
+  .prog-grid { display: grid; grid-template-columns: auto auto; gap: 6px 0; justify-content: center; }
+  .prog-grid .ctrl-btn { width: auto; padding: 4px 4px 0; }
   .prog-btn {
     padding: 8px 12px; border-radius: 6px;
     background: #2a2a2a; border: 1px solid #444;
@@ -214,11 +215,12 @@
 
 <script>
 const DPR = window.devicePixelRatio || 1;
-const KS = 54;
+const KS = 50;
 const ACCENT = '#E53935';
 
 // ── Knob Drawing ──
-function drawKnob(canvas, value, max) {
+// center: if provided (0-1 normalized), draws arc from center outward (bipolar)
+function drawKnob(canvas, value, max, center) {
   canvas.width = KS * DPR; canvas.height = KS * DPR;
   canvas.style.width = KS + 'px'; canvas.style.height = KS + 'px';
   const ctx = canvas.getContext('2d');
@@ -229,7 +231,7 @@ function drawKnob(canvas, value, max) {
   const norm = max > 0 ? value / max : 0;
   const valA = startA + norm * sweep;
 
-  // Tick marks — radiating lines like the real Rev2 knobs
+  // Tick marks
   const tickCount = 11;
   for (let i = 0; i <= tickCount; i++) {
     const tickA = startA + (i / tickCount) * sweep;
@@ -239,29 +241,53 @@ function drawKnob(canvas, value, max) {
     ctx.moveTo(cx + Math.cos(tickA) * innerR, cy + Math.sin(tickA) * innerR);
     ctx.lineTo(cx + Math.cos(tickA) * outerR, cy + Math.sin(tickA) * outerR);
     ctx.strokeStyle = '#fff';
-    ctx.lineWidth = 1.5;
+    ctx.lineWidth = 0.8;
     ctx.lineCap = 'round';
     ctx.stroke();
   }
 
+  // Track arc
   ctx.beginPath(); ctx.arc(cx, cy, r, startA, startA + sweep);
   ctx.strokeStyle = '#383838'; ctx.lineWidth = 2.5; ctx.lineCap = 'round'; ctx.stroke();
 
-  if (norm > 0.005) {
-    ctx.beginPath(); ctx.arc(cx, cy, r, startA, valA);
-    ctx.strokeStyle = ACCENT; ctx.lineWidth = 3; ctx.lineCap = 'round'; ctx.stroke();
+  // Value arc — bipolar or unipolar
+  if (center !== undefined) {
+    // Bipolar: draw from center position outward
+    const centerA = startA + center * sweep;
+    if (Math.abs(norm - center) > 0.005) {
+      const fromA = Math.min(centerA, valA);
+      const toA = Math.max(centerA, valA);
+      ctx.beginPath(); ctx.arc(cx, cy, r, fromA, toA);
+      ctx.strokeStyle = ACCENT; ctx.lineWidth = 3; ctx.lineCap = 'round'; ctx.stroke();
+    }
+    // Center detent mark
+    const detentInner = r - 2;
+    const detentOuter = r + 1;
+    ctx.beginPath();
+    ctx.moveTo(cx + Math.cos(centerA) * detentInner, cy + Math.sin(centerA) * detentInner);
+    ctx.lineTo(cx + Math.cos(centerA) * detentOuter, cy + Math.sin(centerA) * detentOuter);
+    ctx.strokeStyle = 'rgba(255,255,255,0.5)'; ctx.lineWidth = 1; ctx.stroke();
+  } else {
+    // Unipolar: draw from start
+    if (norm > 0.005) {
+      ctx.beginPath(); ctx.arc(cx, cy, r, startA, valA);
+      ctx.strokeStyle = ACCENT; ctx.lineWidth = 3; ctx.lineCap = 'round'; ctx.stroke();
+    }
   }
 
+  // Knob body
   ctx.beginPath(); ctx.arc(cx, cy, r - 4, 0, Math.PI * 2);
   ctx.fillStyle = '#2a2a2a'; ctx.fill();
   ctx.strokeStyle = '#444'; ctx.lineWidth = 0.5; ctx.stroke();
 
+  // Indicator line
   const il = r - 5;
   ctx.beginPath();
   ctx.moveTo(cx + Math.cos(valA) * 5, cy + Math.sin(valA) * 5);
   ctx.lineTo(cx + Math.cos(valA) * il, cy + Math.sin(valA) * il);
   ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.lineCap = 'round'; ctx.stroke();
 
+  // Value text
   ctx.fillStyle = 'rgba(255,255,255,0.35)';
   ctx.font = '500 9px Inter, sans-serif';
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
@@ -269,25 +295,27 @@ function drawKnob(canvas, value, max) {
 }
 
 // ── Control Builders ──
-function knob(parent, label, value, max) {
+// opts.center: normalized center position for bipolar knobs (e.g. 0.5)
+function knob(parent, label, value, max, opts) {
+  const center = opts && opts.center;
   const d = document.createElement('div'); d.className = 'ctrl';
-  const c = document.createElement('canvas'); drawKnob(c, value, max);
+  const c = document.createElement('canvas'); drawKnob(c, value, max, center);
   const l = document.createElement('div'); l.className = 'ctrl-label'; l.textContent = label;
   d.appendChild(c); d.appendChild(l); parent.appendChild(d);
   let dy0 = null, v0 = null;
   const ctrl = {
     el: d,
     getValue() { return value; },
-    setValue(v) { value = v; drawKnob(c, value, max); }
+    setValue(v) { value = v; drawKnob(c, value, max, center); }
   };
   c.onmousedown = e => { dy0 = e.clientY; v0 = value; e.preventDefault(); };
   window.addEventListener('mousemove', e => {
     if (dy0 === null) return;
     value = Math.max(0, Math.min(max, Math.round(v0 + (dy0 - e.clientY) * 0.5)));
-    drawKnob(c, value, max);
+    drawKnob(c, value, max, center);
   });
   window.addEventListener('mouseup', () => { dy0 = null; });
-  c.onwheel = e => { e.preventDefault(); value = Math.max(0, Math.min(max, value + (e.deltaY < 0 ? 1 : -1))); drawKnob(c, value, max); };
+  c.onwheel = e => { e.preventDefault(); value = Math.max(0, Math.min(max, value + (e.deltaY < 0 ? 1 : -1))); drawKnob(c, value, max, center); };
   return ctrl;
 }
 
@@ -440,20 +468,25 @@ knob(r, 'Destination', 0, 127);
 knob(r, 'Record', 0, 1);
 knob(r, 'Value', 0, 127);
 
-// PROGRAMS — left knobs | screen | right knobs | buttons
-s = section(row1, 'Programs');
-r = document.createElement('div');
-r.style.cssText = 'display:flex;align-items:center;gap:8px;';
-s.appendChild(r);
+// PROGRAMS — two standard rows with screen spanning both
+s = section(row1, null);
+s.style.border = 'none';
 
-// Left knobs stacked
-const progLeft = document.createElement('div');
-progLeft.style.cssText = 'display:flex;flex-direction:column;align-items:center;gap:4px;';
-knob(progLeft, 'Parameter', 0, 127);
-knob(progLeft, 'Value', 0, 127);
-r.appendChild(progLeft);
+// Use a flex layout: left knobs col | screen | right knobs col | buttons
+const progLayout = document.createElement('div');
+progLayout.style.cssText = 'display:flex;align-items:stretch;gap:8px;';
+s.appendChild(progLayout);
 
-// Screen
+// Left knobs in standard rows
+const progLeftRows = srows(progLayout);
+r = srow(progLeftRows);
+knob(r, 'Parameter', 0, 127);
+r = srow(progLeftRows);
+knob(r, 'Value', 0, 127);
+
+// Screen — vertically centered, spans both rows
+const screenWrap = document.createElement('div');
+screenWrap.style.cssText = 'display:flex;align-items:center;';
 const screen = document.createElement('div'); screen.className = 'patch-screen';
 const screenHeader = document.createElement('div'); screenHeader.className = 'patch-header';
 const screenLoc = document.createElement('div'); screenLoc.className = 'patch-loc'; screenLoc.textContent = 'U1 P1';
@@ -465,26 +498,26 @@ const screenPName = document.createElement('div'); screenPName.className = 'patc
 const screenPVal = document.createElement('div'); screenPVal.className = 'patch-param-val'; screenPVal.textContent = '62';
 screenParam.appendChild(screenPName); screenParam.appendChild(screenPVal);
 screen.appendChild(screenHeader); screen.appendChild(screenName); screen.appendChild(screenParam);
-r.appendChild(screen);
+screenWrap.appendChild(screen);
+progLayout.appendChild(screenWrap);
 
-// Right knobs stacked
-const progRight = document.createElement('div');
-progRight.style.cssText = 'display:flex;flex-direction:column;align-items:center;gap:4px;';
-knob(progRight, 'Program', 0, 127);
-knob(progRight, 'Bank', 0, 7);
-r.appendChild(progRight);
+// Right knobs in standard rows
+const progRightRows = srows(progLayout);
+r = srow(progRightRows);
+knob(r, 'Program', 0, 127);
+r = srow(progRightRows);
+knob(r, 'Bank', 0, 7);
 
-// Buttons grid to the right
+// Buttons grid — vertically centered
+const pgWrap = document.createElement('div');
+pgWrap.style.cssText = 'display:flex;align-items:center;';
 const pgGrid = document.createElement('div');
 pgGrid.className = 'prog-grid';
 ['Global','Split A|B','Write','Stack A+B','Compare','Edit Layer B'].forEach(name => {
-  const b = document.createElement('div');
-  b.className = 'prog-btn';
-  b.textContent = name;
-  pgGrid.appendChild(b);
-  b.onclick = () => { b.className = b.className.includes('on') ? 'prog-btn' : 'prog-btn on'; };
+  btn(pgGrid, name, 0);
 });
-r.appendChild(pgGrid);
+pgWrap.appendChild(pgGrid);
+progLayout.appendChild(pgWrap);
 
 // EFFECT
 s = section(row1, 'Effect');
@@ -532,27 +565,50 @@ const lfoState = [
 ];
 let activeLfo = 0;
 
-const tabRow2 = document.createElement('div');
-tabRow2.style.cssText = 'display:flex;gap:4px;margin-bottom:6px;';
+// Layout: [1234 tabs vertical] [shape LEDs] | top: [FREQ] [KEY SYNC]
+//                                            | bot: [DEST] [AMOUNT] [CLK SYNC]
+const lfoLayout = document.createElement('div');
+lfoLayout.style.cssText = 'display:flex;align-items:stretch;gap:12px;';
+lfoContent.appendChild(lfoLayout);
+
+// Left column: 1-4 tabs + shape LEDs stacked
+const lfoLeft = document.createElement('div');
+lfoLeft.style.cssText = 'display:flex;gap:8px;align-items:stretch;';
+lfoLayout.appendChild(lfoLeft);
+
+const tabCol = document.createElement('div');
+tabCol.style.cssText = 'display:flex;flex-direction:column;justify-content:space-between;align-self:stretch;';
 const lfoTabs2 = [];
 for (let i = 0; i < 4; i++) {
   const tab = document.createElement('div');
   tab.className = 'lfo-tab' + (i === 0 ? ' active' : '');
   tab.textContent = i + 1;
-  tabRow2.appendChild(tab);
+  tabCol.appendChild(tab);
   lfoTabs2.push(tab);
   tab.onclick = () => switchLfo(i);
 }
-lfoContent.appendChild(tabRow2);
+lfoLeft.appendChild(tabCol);
 
-const lfoCtrlRow = srow(lfoContent);
-const lfoShape = shapeSel(lfoCtrlRow, 0, lfoShapes);
-const lfoFreq = knob(lfoCtrlRow, 'Frequency', 64, 150);
-const lfoKeySync = btn(lfoCtrlRow, 'Key Sync', 0);
-vdiv(lfoCtrlRow);
-const lfoDest = knob(lfoCtrlRow, 'Destination', 0, 127);
-const lfoAmt = knob(lfoCtrlRow, 'Amount', 0, 127);
-const lfoClkSync = btn(lfoCtrlRow, 'Clk Sync', 0);
+// Shape LEDs on top, Destination knob below
+const shapeWrap = document.createElement('div');
+shapeWrap.style.cssText = 'display:flex;flex-direction:column;align-items:center;justify-content:space-between;';
+const lfoShape = shapeSel(shapeWrap, 0, lfoShapes);
+const lfoDestRow = document.createElement('div');
+lfoDestRow.style.cssText = 'display:flex;align-items:flex-start;min-height:68px;';
+const lfoDest = knob(lfoDestRow, 'Destination', 0, 127);
+shapeWrap.appendChild(lfoDestRow);
+lfoLeft.appendChild(shapeWrap);
+
+// Right: 2-row grid matching real panel
+const lfoRight = srows(lfoLayout);
+
+const lfoTopRow = srow(lfoRight);
+const lfoFreq = knob(lfoTopRow, 'Frequency', 64, 150);
+const lfoKeySync = btn(lfoTopRow, 'Key Sync', 0);
+
+const lfoBotRow = srow(lfoRight);
+const lfoAmt = knob(lfoBotRow, 'Amount', 0, 127);
+const lfoClkSync = btn(lfoBotRow, 'Clk Sync', 0);
 
 function saveLfo() {
   const st = lfoState[activeLfo];
@@ -579,55 +635,46 @@ function switchLfo(i) {
 
 // OSCILLATORS
 s = section(row2, 'Oscillators');
+s.style.flex = '1';
 const oscRows = srows(s);
 const oscShapes = ['Sawtooth', 'Saw+Tri', 'Triangle', 'Square'];
 
 r = srow(oscRows);
+r.style.justifyContent = 'space-between';
 knob(r, 'Osc 1 Freq', 24, 120);
-knob(r, 'Fine Tune', 50, 100);
+knob(r, 'Fine Tune', 50, 100, {center: 0.5});
 shapeSel(r, 0, oscShapes);
 knob(r, 'Shape Mod', 0, 127);
 vdiv(r);
 knob(r, 'Sub Octave', 0, 127);
 knob(r, 'Noise', 0, 127);
 
-r = srow(oscRows);
-r.style.minHeight = '36px';
-const sp1 = document.createElement('div'); sp1.style.width = '66px'; r.appendChild(sp1);
-btn(r, 'Sync', 0);
-const sp2 = document.createElement('div'); sp2.style.flex = '1'; r.appendChild(sp2);
-const layerWrap = document.createElement('div');
-layerWrap.style.cssText = 'display:flex;gap:4px;align-items:center;padding-top:8px;margin-left:auto;';
-[1, 2].forEach(n => {
-  const b = document.createElement('div');
-  b.className = 'btn-sm' + (n === 1 ? ' on' : '');
-  b.textContent = n;
-  layerWrap.appendChild(b);
-  b.onclick = () => {
-    layerWrap.querySelectorAll('.btn-sm').forEach(x => x.className = 'btn-sm');
-    b.className = 'btn-sm on';
-  };
-});
-r.appendChild(layerWrap);
+// Sync button — positioned between osc rows without taking layout space
+oscRows.style.position = 'relative';
+const syncWrap = document.createElement('div');
+syncWrap.style.cssText = 'position:absolute;left:78px;top:53%;transform:translate(-50%,-50%);z-index:1;';
+btn(syncWrap, 'Sync', 0);
+oscRows.appendChild(syncWrap);
 
 r = srow(oscRows);
+r.style.justifyContent = 'space-between';
 knob(r, 'Osc 2 Freq', 24, 120);
-knob(r, 'Fine Tune', 50, 100);
+knob(r, 'Fine Tune', 50, 100, {center: 0.5});
 shapeSel(r, 0, oscShapes);
 knob(r, 'Shape Mod', 0, 127);
 vdiv(r);
-knob(r, 'Osc Mix', 64, 127);
+knob(r, 'Osc Mix', 64, 127, {center: 64/127});
 knob(r, 'Osc Slop', 0, 127);
 
 // LOW-PASS FILTER
 s = section(row2, 'Low-Pass Filter');
-s.style.flex = '3';
+s.style.flex = '1';
 rows = srows(s);
 r = srow(rows);
 r.style.justifyContent = 'space-between';
 knob(r, 'Cutoff', 100, 164);
 knob(r, 'Resonance', 0, 127);
-knob(r, 'Env Amount', 64, 254);
+knob(r, 'Env Amount', 127, 254, {center: 127/254});
 knob(r, 'Velocity', 0, 127);
 knob(r, 'Key Amount', 0, 127);
 knob(r, 'Audio Mod', 0, 127);
@@ -642,11 +689,10 @@ knob(r, 'Release', 40, 127);
 
 // AMPLIFIER
 s = section(row2, 'Amplifier');
-s.style.flex = '2';
 rows = srows(s);
 r = srow(rows);
 r.style.justifyContent = 'space-between';
-knob(r, 'Pan Spread', 64, 127);
+knob(r, 'Pan Spread', 64, 127, {center: 64/127});
 knob(r, 'Env Amount', 100, 127);
 knob(r, 'Velocity', 0, 127);
 knob(r, 'Delay', 0, 127);
