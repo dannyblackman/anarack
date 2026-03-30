@@ -6,7 +6,7 @@
 <title>Prophet Rev2 — Anarack</title>
 <style>
   /* Fonts: loaded from Google Fonts in browser, falls back to system fonts in plugin WebView */
-  @import url('https://fonts.googleapis.com/css2?family=Archivo+Black&family=Inter:wght@400;500;600;700&display=swap');
+  @import url('https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=Inter:wght@400;500;600;700&display=swap');
 
   :root {
     --bg: #1a1a1a;
@@ -20,8 +20,8 @@
   }
 
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  html, body { height: 100%; }
-  body { background: #111; color: var(--text); font-family: 'Inter', -apple-system, sans-serif; font-size: 12px; display: flex; align-items: center; justify-content: center; min-height: 100vh; }
+  html, body { height: 100%; overflow: hidden; }
+  body { background: #111; color: var(--text); font-family: 'Inter', -apple-system, sans-serif; font-size: 12px; }
 
   .panel {
     background: var(--panel);
@@ -30,15 +30,96 @@
     border-radius: 10px;
   }
 
+  /* Connection controls (right side of header) */
+  .topbar-controls {
+    display: flex; align-items: center; gap: 14px; margin-left: auto;
+  }
+  .conn-group {
+    display: flex; align-items: center; gap: 6px;
+  }
+  .conn-label {
+    font-size: 9px; font-weight: 600; color: rgba(255,255,255,0.3);
+    text-transform: uppercase; letter-spacing: 2px; flex-shrink: 0;
+  }
+  .conn-input {
+    background: rgba(255,255,255,0.05); color: #fff;
+    border: 1px solid rgba(255,255,255,0.12); padding: 5px 10px;
+    font-family: 'Inter', sans-serif; font-size: 11px; font-weight: 400;
+    border-radius: 3px; outline: none; transition: border-color 0.2s;
+  }
+  .conn-input:focus { border-color: #E8A849; }
+  .conn-select {
+    background: rgba(255,255,255,0.05); color: #fff;
+    border: 1px solid rgba(255,255,255,0.12); padding: 5px 10px;
+    font-family: 'Inter', sans-serif; font-size: 11px;
+    border-radius: 3px; outline: none; appearance: auto;
+  }
+  .conn-select option { background: #1e1e1e; color: #fff; }
+  .midi-status {
+    font-size: 9px; color: rgba(255,255,255,0.25);
+  }
+  .conn-btn {
+    background: #E8A849; color: #111; border: none;
+    padding: 5px 16px; font-family: 'Inter', sans-serif;
+    font-size: 10px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 1.5px; border-radius: 3px;
+    cursor: pointer; transition: all 0.15s; flex-shrink: 0;
+  }
+  .conn-btn:hover { filter: brightness(1.1); }
+  .conn-btn.disconnect { background: #E85454; color: #fff; }
+  .conn-btn.secondary {
+    background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.4);
+    border: 1px solid rgba(255,255,255,0.1);
+  }
+  .conn-btn.secondary:hover { color: #fff; background: rgba(255,255,255,0.1); }
+
+  /* Status bar (below topbar controls) */
+  .statusbar {
+    display: flex; align-items: center; gap: 14px;
+    padding: 0 0 10px; flex-shrink: 0;
+  }
+  .status-pill {
+    display: flex; align-items: center; gap: 6px;
+    padding: 3px 10px; border-radius: 20px;
+    background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.06);
+  }
+  .status-dot {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: rgba(255,255,255,0.15); transition: all 0.3s;
+  }
+  .status-dot.live { background: #5BDB7E; box-shadow: 0 0 8px rgba(91,219,126,0.5); }
+  .status-dot.connecting { background: #E8A849; box-shadow: 0 0 8px rgba(232,168,73,0.4); animation: pulse 1.5s infinite; }
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
+  .status-label {
+    font-size: 9px; font-weight: 600; color: rgba(255,255,255,0.3);
+    text-transform: uppercase; letter-spacing: 1.5px;
+  }
+  .status-pill.live .status-label { color: #5BDB7E; }
+  .stat-group {
+    display: flex; align-items: baseline; gap: 3px;
+  }
+  .stat-val {
+    font-family: 'Inter', sans-serif; font-size: 9px; font-weight: 600;
+    color: #5BDB7E; letter-spacing: 1px;
+  }
+  .stat-unit {
+    font-size: 9px; font-weight: 500; color: rgba(255,255,255,0.25);
+  }
+  .stat-val.dim { color: rgba(255,255,255,0.15); }
+  .conn-mode {
+    font-size: 9px; font-weight: 600; color: rgba(255,255,255,0.3);
+    text-transform: uppercase; letter-spacing: 1.5px;
+  }
+
   /* Header */
   .header {
-    display: flex; align-items: baseline; gap: 16px;
-    margin-bottom: 20px; padding-bottom: 10px; border-bottom: 1px solid rgba(255,255,255,0.15);
-    flex-shrink: 0;
+    display: flex; align-items: center; gap: 14px;
+    margin-bottom: 20px; padding-bottom: 10px;
+    border-bottom: 1px solid rgba(255,255,255,0.15);
+    flex-shrink: 0; position: relative;
   }
-  .logo { font-family: 'Archivo Black', sans-serif; font-size: 26px; font-weight: 400; color: #fff; letter-spacing: 6px; text-transform: uppercase; }
+  .logo { font-family: 'Syne', sans-serif; font-size: 36px; font-weight: 800; color: #fff; letter-spacing: 8px; text-transform: uppercase; }
   .logo span { color: transparent; -webkit-text-stroke: 1.5px #fff; }
-  .subtitle { font-size: 11px; color: rgba(255,255,255,0.3); text-transform: uppercase; letter-spacing: 2px; }
 
   /* Main layout: misc sidebar + rows */
   .main { display: flex; gap: 20px; align-items: stretch; }
@@ -193,6 +274,40 @@
 
   /* Vertical divider */
   .vdiv { width: 1px; background: rgba(255,255,255,0.15); margin: 0 6px; align-self: stretch; }
+
+  /* Footer */
+  .footer {
+    display: flex; align-items: center; justify-content: flex-end;
+    padding: 8px 0 0; margin-top: 12px;
+    border-top: 1px solid rgba(255,255,255,0.08);
+    flex-shrink: 0; gap: 16px;
+  }
+  .footer-toggle {
+    font-size: 9px; font-weight: 600; color: rgba(255,255,255,0.2);
+    text-transform: uppercase; letter-spacing: 1.5px;
+    cursor: pointer; user-select: none;
+  }
+  .footer-toggle:hover { color: rgba(255,255,255,0.4); }
+
+  /* Log — fixed bottom-right */
+  #log-wrapper {
+    position: fixed; bottom: 12px; right: 12px;
+    z-index: 100; display: flex; flex-direction: column; align-items: flex-end;
+  }
+  #log {
+    display: none; width: 320px;
+    height: 120px; background: rgba(0,0,0,0.9);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 6px; padding: 8px 10px;
+    margin-bottom: 4px;
+    font-family: 'Inter', monospace; font-size: 9px; font-weight: 400;
+    color: rgba(255,255,255,0.2);
+    overflow-y: auto; line-height: 1.6;
+    backdrop-filter: blur(8px);
+  }
+  #log.visible { display: block; }
+  #log div { opacity: 0.6; }
+  #log div:last-child { opacity: 1; color: rgba(255,255,255,0.4); }
 </style>
 </head>
 <body>
@@ -200,7 +315,41 @@
 <div class="panel" id="panel">
   <div class="header">
     <div class="logo">PROPHET <span>REV2</span></div>
-    <div class="subtitle">Anarack Remote</div>
+    <div class="status-pill" id="status-pill">
+      <div class="status-dot" id="status-dot"></div>
+      <span class="status-label" id="status-label">Offline</span>
+    </div>
+    <span class="conn-mode" id="conn-mode"></span>
+    <div class="stat-group" id="rtt-group" style="display:none">
+      <span class="stat-val" id="rtt-val">—</span>
+      <span class="stat-unit">ms RTT</span>
+    </div>
+    <div class="stat-group" id="buf-group" style="display:none">
+      <span class="stat-val dim" id="buf-val">—</span>
+      <span class="stat-unit">ms buf</span>
+    </div>
+    <div class="topbar-controls">
+      <button class="conn-btn" id="connect-btn" onclick="toggleConnect()">Connect</button>
+      <button class="conn-btn secondary" id="advanced-toggle" onclick="toggleAdvanced()">&#9881;</button>
+    </div>
+    <!-- Advanced panel (hidden by default) -->
+    <div id="advanced-panel" style="display:none;position:absolute;right:24px;top:52px;z-index:50;background:rgba(0,0,0,0.92);border:1px solid rgba(255,255,255,0.1);border-radius:6px;padding:12px 16px;backdrop-filter:blur(8px);display:none;">
+      <div style="display:flex;flex-direction:column;gap:10px;">
+        <div class="conn-group">
+          <span class="conn-label">Server</span>
+          <input class="conn-input" type="text" id="server-host" value="play.anarack.com" style="width:170px">
+        </div>
+        <div class="conn-group">
+          <label style="display:flex;align-items:center;gap:4px;cursor:pointer;">
+            <input type="checkbox" id="lan-mode" style="accent-color:#E8A849;">
+            <span style="font-size:8px;color:rgba(255,255,255,0.3);text-transform:uppercase;letter-spacing:1px;">LAN mode (direct connection, no WireGuard)</span>
+          </label>
+        </div>
+        <div class="conn-group">
+          <button class="conn-btn secondary" onclick="doPing()" style="width:100%;">Ping</button>
+        </div>
+      </div>
+    </div>
   </div>
 
   <div class="main">
@@ -211,6 +360,11 @@
       <div class="row" id="row1"></div>
       <div class="row" id="row2"></div>
     </div>
+  </div>
+
+  <div id="log"></div>
+  <div class="footer">
+    <span class="footer-toggle" onclick="document.getElementById('log').classList.toggle('visible')">Log</span>
   </div>
 </div>
 
@@ -314,6 +468,90 @@ if (_juce) {
   _juce.addEventListener("paramUpdate", (e) => {
     const ctrl = ccRegistry[e.cc];
     if (ctrl) ctrl.setValue(e.value);
+  });
+}
+
+// ── Log ──
+function log(msg) {
+  const el = document.getElementById('log');
+  const d = document.createElement('div');
+  d.textContent = new Date().toLocaleTimeString('en-GB', {hour12: false}) + ' ' + msg;
+  el.appendChild(d);
+  el.scrollTop = el.scrollHeight;
+  while (el.children.length > 200) el.removeChild(el.firstChild);
+}
+log('Ready');
+
+// ── Connection controls ──
+let _connected = false;
+
+function toggleAdvanced() {
+  const panel = document.getElementById('advanced-panel');
+  panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+}
+
+function toggleConnect() {
+  const host = document.getElementById('server-host').value;
+  const lan = document.getElementById('lan-mode').checked;
+  log(_connected ? 'Disconnecting...' : 'Connecting to ' + host + (lan ? ' (LAN)' : ' (WireGuard)') + '...');
+  if (_juce) _juce.emitEvent(_connected ? "doDisconnect" : "doConnect", { host, lan });
+}
+
+function doPing() {
+  log('Measuring latency...');
+  if (_juce) _juce.emitEvent("doPing", {});
+}
+
+// ── Connection status updates from C++ ──
+function updateConnectionStatus(state) {
+  const dot = document.getElementById('status-dot');
+  const label = document.getElementById('status-label');
+  const pill = document.getElementById('status-pill');
+  const mode = document.getElementById('conn-mode');
+  const rttGroup = document.getElementById('rtt-group');
+  const rttVal = document.getElementById('rtt-val');
+  const bufGroup = document.getElementById('buf-group');
+  const bufVal = document.getElementById('buf-val');
+  const btn = document.getElementById('connect-btn');
+
+  const wasConnected = _connected;
+  _connected = state.connected;
+  if (_connected && !wasConnected) log('Connected via ' + (state.mode || 'unknown'));
+  if (!_connected && wasConnected) log('Disconnected');
+  dot.className = 'status-dot' + (_connected ? ' live' : '');
+  label.textContent = _connected ? 'Live' : 'Offline';
+  pill.className = 'status-pill' + (_connected ? ' live' : '');
+  mode.textContent = state.mode || '';
+
+  btn.textContent = _connected ? 'Disconnect' : 'Connect';
+  btn.className = 'conn-btn' + (_connected ? ' disconnect' : '');
+
+  if (_connected && state.rtt > 0) {
+    rttGroup.style.display = 'flex';
+    rttVal.textContent = state.rtt;
+    rttVal.className = 'stat-val';
+  } else {
+    rttGroup.style.display = 'none';
+  }
+
+  if (_connected && state.bufferMs >= 0) {
+    bufGroup.style.display = 'flex';
+    bufVal.textContent = state.bufferMs.toFixed(0);
+  } else {
+    bufGroup.style.display = 'none';
+  }
+
+}
+
+// Listen for initial config (server host, WG state) from C++
+if (_juce) {
+  _juce.addEventListener("connectionStatus", (e) => updateConnectionStatus(e));
+  _juce.addEventListener("initConfig", (e) => {
+    if (e.host) document.getElementById('server-host').value = e.host;
+    if (e.lan !== undefined) document.getElementById('lan-mode').checked = !!e.lan;
+  });
+  _juce.addEventListener("logMessage", (e) => {
+    if (e.msg) log(e.msg);
   });
 }
 
@@ -735,6 +973,24 @@ knob(r, 'Attack', 0, 127);
 knob(r, 'Decay', 64, 127);
 knob(r, 'Sustain', 100, 127);
 knob(r, 'Release', 40, 127);
+
+// ── Auto-scale panel to fit viewport ──
+function scalePanel() {
+  const panel = document.getElementById('panel');
+  panel.style.transform = 'none';
+  panel.style.position = 'absolute';
+  panel.style.transformOrigin = '0 0';
+  const pw = panel.offsetWidth;
+  const ph = panel.offsetHeight;
+  const vw = window.innerWidth;
+  const vh = window.innerHeight;
+  const scale = Math.min(vw / pw, vh / ph, 1);
+  panel.style.transform = `scale(${scale})`;
+  panel.style.left = Math.max(0, (vw - pw * scale) / 2) + 'px';
+  panel.style.top = Math.max(0, (vh - ph * scale) / 2) + 'px';
+}
+scalePanel();
+window.addEventListener('resize', scalePanel);
 
 </script>
 </body>

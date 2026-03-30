@@ -8,38 +8,12 @@
 AnarackEditor::AnarackEditor(AnarackProcessor& p)
     : AudioProcessorEditor(&p), processor(p)
 {
-    setSize(1400, 600);
-    setResizable(true, true);
-
-    // ── Connection bar ──
-    hostLabel.setText("Server:", juce::dontSendNotification);
-    hostLabel.setFont(juce::FontOptions(12.0f));
-    addAndMakeVisible(hostLabel);
-
-    hostInput.setText(processor.serverHost);
-    hostInput.setFont(juce::FontOptions(12.0f));
-    hostInput.onReturnKey = [this] { toggleConnection(); };
-    addAndMakeVisible(hostInput);
-
-    wgToggle.setButtonText("WG");
-    wgToggle.setToggleState(processor.useWireGuard, juce::dontSendNotification);
-    addAndMakeVisible(wgToggle);
-
-    connectButton.setButtonText("Connect");
-    connectButton.onClick = [this] { toggleConnection(); };
-    addAndMakeVisible(connectButton);
-
-    statusLabel.setText("Disconnected", juce::dontSendNotification);
-    statusLabel.setFont(juce::FontOptions(11.0f));
-    statusLabel.setColour(juce::Label::textColourId, juce::Colours::grey);
-    addAndMakeVisible(statusLabel);
-
-    // ── WebView panel ──
+    // ── WebView with event wiring ──
     auto options = juce::WebBrowserComponent::Options{}
         .withNativeIntegrationEnabled()
+        // CC changes from knobs/buttons
         .withEventListener("ccChange", [this](const juce::var& payload)
         {
-            // JS sends: { cc: N, value: V }
             int cc = (int)payload.getProperty("cc", -1);
             int value = (int)payload.getProperty("value", 0);
             if (cc >= 0 && cc <= 127 && value >= 0 && value <= 127)
@@ -48,87 +22,111 @@ AnarackEditor::AnarackEditor(AnarackProcessor& p)
                 processor.getTransport().sendMidi(msg, 3);
             }
         })
+        // Connect button
+        .withEventListener("doConnect", [this](const juce::var& payload)
+        {
+            auto host = payload.getProperty("host", "").toString();
+            bool lan = (bool)payload.getProperty("lan", false);
+            if (host.isNotEmpty())
+            {
+                processor.serverHost = host;
+                processor.useWireGuard = !lan;
+                auto& t = processor.getTransport();
+                if (lan)
+                    t.connect(host);
+                else
+                {
+                    auto ep = processor.wgEndpoint + ":" + juce::String(processor.wgPort);
+                    t.connectWireGuard(ep, processor.wgServerPubkey);
+                }
+            }
+        })
+        // Disconnect button
+        .withEventListener("doDisconnect", [this](const juce::var&)
+        {
+            processor.getTransport().disconnect();
+        })
+        // Ping button
+        .withEventListener("doPing", [this](const juce::var&)
+        {
+            // RTT is already measured by the transport; just log it
+            auto rtt = processor.getTransport().getEstimatedRtt();
+            if (webView)
+            {
+                auto obj = juce::DynamicObject::Ptr(new juce::DynamicObject());
+                obj->setProperty("msg", "RTT: " + juce::String(rtt) + "ms");
+                webView->emitEventIfBrowserIsVisible("logMessage", juce::var(obj.get()));
+            }
+        })
+        // Serve the HTML panel
         .withResourceProvider([](const juce::String& url) -> std::optional<juce::WebBrowserComponent::Resource>
         {
-            // Serve rev2-panel.html for root request
             if (url == "/" || url.isEmpty())
             {
-                juce::WebBrowserComponent::Resource res;
-                res.data = std::vector<std::byte>(
-                    reinterpret_cast<const std::byte*>(BinaryData::rev2panel_html),
-                    reinterpret_cast<const std::byte*>(BinaryData::rev2panel_html) + BinaryData::rev2panel_htmlSize
-                );
-                res.mimeType = "text/html";
-                return res;
+                auto* data = BinaryData::rev2panel_html;
+                auto size = BinaryData::rev2panel_htmlSize;
+                return juce::WebBrowserComponent::Resource{
+                    { reinterpret_cast<const std::byte*>(data),
+                      reinterpret_cast<const std::byte*>(data) + size },
+                    "text/html"
+                };
             }
             return std::nullopt;
         })
-        .withBackend(juce::WebBrowserComponent::Options::Backend::defaultBackend);
+        // Send initial config to JS after page loads
+        .withInitialisationData("config", [this]()
+        {
+            auto obj = juce::DynamicObject::Ptr(new juce::DynamicObject());
+            obj->setProperty("host", processor.serverHost);
+            obj->setProperty("lan", !processor.useWireGuard);
+            return juce::var(obj.get());
+        }());
 
     webView = std::make_unique<juce::WebBrowserComponent>(options);
     addAndMakeVisible(*webView);
     webView->goToURL(juce::WebBrowserComponent::getResourceProviderRoot());
 
+    // Send initConfig once WebView is ready (slight delay for page load)
+    juce::Timer::callAfterDelay(500, [this]()
+    {
+        if (webView)
+        {
+            auto obj = juce::DynamicObject::Ptr(new juce::DynamicObject());
+            obj->setProperty("host", processor.serverHost);
+            obj->setProperty("lan", !processor.useWireGuard);
+            webView->emitEventIfBrowserIsVisible("initConfig", juce::var(obj.get()));
+        }
+    });
+
+    setSize(1900, 516);
+    setResizable(true, true);
     startTimerHz(10);
 }
 
 AnarackEditor::~AnarackEditor() { stopTimer(); }
 
-void AnarackEditor::toggleConnection()
-{
-    auto& t = processor.getTransport();
-    if (t.isConnected())
-    {
-        t.disconnect();
-        connectButton.setButtonText("Connect");
-    }
-    else
-    {
-        processor.serverHost = hostInput.getText();
-        processor.useWireGuard = wgToggle.getToggleState();
-        if (processor.useWireGuard)
-        {
-            auto ep = processor.wgEndpoint + ":" + juce::String(processor.wgPort);
-            t.connectWireGuard(ep, processor.wgServerPubkey);
-        }
-        else
-            t.connect(processor.serverHost);
-        connectButton.setButtonText("Disconnect");
-    }
-}
-
 void AnarackEditor::timerCallback()
 {
     auto& t = processor.getTransport();
     bool c = t.isConnected();
-    auto s = juce::String(c ? (t.isWireGuard() ? "WG" : "LAN") : "Disconnected");
-    if (c)
+
+    if (webView)
     {
-        s += " | Buf: " + juce::String((float)t.getBufferLevel() / 48.0f, 0) + "ms";
-        s += " | Pkts: " + juce::String(t.getPacketsReceived());
-        int r = t.getEstimatedRtt();
-        if (r > 0) s += " | RTT: " + juce::String(r) + "ms";
+        auto state = juce::DynamicObject::Ptr(new juce::DynamicObject());
+        state->setProperty("connected", c);
+        state->setProperty("mode", c ? juce::String(t.isWireGuard() ? "WireGuard" : "LAN") : juce::String());
+        state->setProperty("rtt", c ? t.getEstimatedRtt() : 0);
+        state->setProperty("bufferMs", c ? (float)t.getBufferLevel() / 48.0f : 0.0f);
+        webView->emitEventIfBrowserIsVisible("connectionStatus", juce::var(state.get()));
     }
-    statusLabel.setText(s, juce::dontSendNotification);
-    statusLabel.setColour(juce::Label::textColourId, c ? juce::Colour(0xff4ade80) : juce::Colours::grey);
 }
 
 void AnarackEditor::paint(juce::Graphics& g)
 {
-    g.fillAll(juce::Colour(0xff0a0a0a));
+    g.fillAll(juce::Colour(0xff111111));
 }
 
 void AnarackEditor::resized()
 {
-    auto area = getLocalBounds();
-    auto top = area.removeFromTop(26).reduced(4, 2);
-    hostLabel.setBounds(top.removeFromLeft(50));
-    connectButton.setBounds(top.removeFromRight(80));
-    top.removeFromRight(4);
-    wgToggle.setBounds(top.removeFromRight(40));
-    top.removeFromRight(4);
-    hostInput.setBounds(top.removeFromLeft(150));
-    top.removeFromLeft(8);
-    statusLabel.setBounds(top);
-    webView->setBounds(area);
+    if (webView) webView->setBounds(getLocalBounds());
 }

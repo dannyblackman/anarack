@@ -12,16 +12,7 @@ public:
     void resized() override;
 private:
     void timerCallback() override;
-    void toggleConnection();
-
     AnarackProcessor& processor;
-    juce::Label hostLabel;
-    juce::TextEditor hostInput;
-    juce::ToggleButton wgToggle;
-    juce::TextButton connectButton;
-    juce::Label statusLabel;
-
     std::unique_ptr<juce::WebBrowserComponent> webView;
-
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(AnarackEditor)
 };
