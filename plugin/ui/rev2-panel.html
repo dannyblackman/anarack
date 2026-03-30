@@ -577,13 +577,14 @@ function knob(parent, label, value, max, opts) {
     const cv = max > 127 ? Math.round(value * 127 / max) : value;
     sendCC(cc, cv);
   }
-  c.onmousedown = e => { dy0 = e.clientY; v0 = value; e.preventDefault(); };
+  c.onmousedown = e => { dy0 = e.clientY; v0 = value; e.preventDefault(); document.body.style.cursor = 'grabbing'; };
   window.addEventListener('mousemove', e => {
     if (dy0 === null) return;
-    const nv = Math.max(0, Math.min(max, Math.round(v0 + (dy0 - e.clientY) * 0.5)));
+    const sensitivity = max > 127 ? 1.0 : 0.7; // higher sensitivity for wider ranges
+    const nv = Math.max(0, Math.min(max, Math.round(v0 + (dy0 - e.clientY) * sensitivity)));
     if (nv !== value) { value = nv; drawKnob(c, value, max, center); emitCC(); }
   });
-  window.addEventListener('mouseup', () => { dy0 = null; });
+  window.addEventListener('mouseup', () => { dy0 = null; document.body.style.cursor = ''; });
   c.onwheel = e => { e.preventDefault(); const nv = Math.max(0, Math.min(max, value + (e.deltaY < 0 ? 1 : -1))); if (nv !== value) { value = nv; drawKnob(c, value, max, center); emitCC(); } };
   return ctrl;
 }
@@ -653,17 +654,14 @@ let s, r, rows;
 // ═══════════════════════════════════════════════════════
 // MISC PARAMETERS — sidebar, no border, spans both rows
 // ═══════════════════════════════════════════════════════
-// Master Volume (centred)
-knob(miscCol, 'Master Vol', 100, 127);
+knob(miscCol, 'Master Vol', 127, 127, {cc: 37}); // voiceVolume
 
-// Rate/Time + Glide
 const miscRow1 = document.createElement('div');
 miscRow1.style.cssText = 'display:flex;align-items:flex-start;gap:0;';
 knob(miscRow1, 'Rate/Time', 64, 127);
-btn(miscRow1, 'Glide', 0);
+btn(miscRow1, 'Glide', 0, null, {cc: 65}); // glideOnOff
 miscCol.appendChild(miscRow1);
 
-// Unison + Hold
 const miscRow2 = document.createElement('div');
 miscRow2.style.cssText = 'display:flex;align-items:flex-start;gap:0;';
 btn(miscRow2, 'Unison', 0);
@@ -693,7 +691,7 @@ miscCol.appendChild(trWrap);
 // ROW 1: MODULATION | CLOCK | ARP | SEQUENCER | PROGRAMS | EFFECT | AUX ENV
 // ═══════════════════════════════════════════════════════
 
-// MODULATION
+// MODULATION (no CCs — mod matrix is NRPN-only on Rev2)
 s = section(row1, 'Modulation');
 rows = srows(s);
 r = srow(rows);
@@ -707,23 +705,22 @@ knob(r, 'Amount', 0, 127);
 s = section(row1, 'Clock');
 rows = srows(s);
 r = srow(rows);
-knob(r, 'BPM', 120, 250);
-knob(r, 'Divide', 0, 127);
+knob(r, 'BPM', 120, 250, {cc: 14});        // bpmTempo max=250
+knob(r, 'Divide', 6, 12, {cc: 15});         // clockDivide max=12
 r = srow(rows);
-// Centre tap tempo: spacer + btn + spacer
 const tapSpacer = document.createElement('div'); tapSpacer.style.cssText = 'flex:1;';
 r.appendChild(tapSpacer);
 btn(r, 'Tap Tempo', 0);
 const tapSpacer2 = document.createElement('div'); tapSpacer2.style.cssText = 'flex:1;';
 r.appendChild(tapSpacer2);
 
-// ARP (stacked vertically)
+// ARP
 s = section(row1, 'Arp');
 rows = srows(s);
 r = srow(rows);
-knob(r, 'Mode', 0, 4);
+knob(r, 'Mode', 0, 4, {cc: 34});            // arpMode
 r = srow(rows);
-btn(r, 'On/Off', 0);
+btn(r, 'On/Off', 0, null, {cc: 33});        // arpOnOff
 
 // SEQUENCER
 s = section(row1, 'Sequencer');
@@ -794,27 +791,27 @@ progLayout.appendChild(pgWrap);
 s = section(row1, 'Effect');
 rows = srows(s);
 r = srow(rows);
-btn(r, 'On/Off', 0);
-knob(r, 'Select', 0, 13);
-knob(r, 'Mix', 0, 127);
+btn(r, 'On/Off', 0, null, {cc: 16});        // fxOnOff
+knob(r, 'Select', 0, 13, {cc: 3});          // fxType max=13
+knob(r, 'Mix', 64, 127, {cc: 17});          // fxMix
 r = srow(rows);
 btn(r, 'Clk Sync', 0);
-knob(r, 'Param 1', 64, 127);
-knob(r, 'Param 2', 64, 127);
+knob(r, 'Param 1', 64, 255, {cc: 12});      // fxParam1 max=255
+knob(r, 'Param 2', 64, 127, {cc: 13});      // fxParam2
 
-// AUXILIARY ENVELOPE
+// AUXILIARY ENVELOPE (Env 3)
 s = section(row1, 'Auxiliary Envelope');
 rows = srows(s);
 r = srow(rows);
-knob(r, 'Destination', 0, 127);
-knob(r, 'Env Amount', 0, 127);
-knob(r, 'Velocity', 0, 127);
-knob(r, 'Delay', 0, 127);
+knob(r, 'Destination', 0, 52, {cc: 85});    // env3Dest max=52
+knob(r, 'Env Amount', 127, 254, {cc: 86, center: 127/254}); // env3Amt bipolar
+knob(r, 'Velocity', 0, 127, {cc: 87});      // env3Vel
+knob(r, 'Delay', 0, 127, {cc: 88});         // env3Delay
 r = srow(rows);
-knob(r, 'Attack', 0, 127);
-knob(r, 'Decay', 64, 127);
-knob(r, 'Sustain', 64, 127);
-knob(r, 'Release', 40, 127);
+knob(r, 'Attack', 0, 127, {cc: 89});        // env3Attack
+knob(r, 'Decay', 64, 127, {cc: 90});        // env3Decay
+knob(r, 'Sustain', 64, 127, {cc: 77});      // env3Sustain
+knob(r, 'Release', 64, 127, {cc: 78});      // env3Release
 
 // ═══════════════════════════════════════════════════════
 // ROW 2: LFOs | OSCILLATORS + MIXER | FILTER | AMPLIFIER
@@ -828,11 +825,12 @@ s.appendChild(lfoLabel);
 const lfoContent = srows(s);
 
 const lfoShapes = ['Triangle', 'Sawtooth', 'Rev Saw', 'Square', 'Random'];
+// LFO defaults from synth definition (NRPN-only, no CCs)
 const lfoState = [
-  { shape: 0, freq: 64, keysync: 0, dest: 0, amount: 0, clksync: 0 },
-  { shape: 0, freq: 64, keysync: 0, dest: 0, amount: 0, clksync: 0 },
-  { shape: 0, freq: 64, keysync: 0, dest: 0, amount: 0, clksync: 0 },
-  { shape: 0, freq: 64, keysync: 0, dest: 0, amount: 0, clksync: 0 },
+  { shape: 0, freq: 30, keysync: 0, dest: 0, amount: 0, clksync: 0 },
+  { shape: 0, freq: 30, keysync: 0, dest: 0, amount: 0, clksync: 0 },
+  { shape: 0, freq: 30, keysync: 0, dest: 0, amount: 0, clksync: 0 },
+  { shape: 0, freq: 30, keysync: 0, dest: 0, amount: 0, clksync: 0 },
 ];
 let activeLfo = 0;
 
@@ -866,7 +864,7 @@ shapeWrap.style.cssText = 'display:flex;flex-direction:column;align-items:center
 const lfoShape = shapeSel(shapeWrap, 0, lfoShapes);
 const lfoDestRow = document.createElement('div');
 lfoDestRow.style.cssText = 'display:flex;align-items:flex-start;min-height:68px;';
-const lfoDest = knob(lfoDestRow, 'Destination', 0, 127);
+const lfoDest = knob(lfoDestRow, 'Destination', 0, 52);
 shapeWrap.appendChild(lfoDestRow);
 lfoLeft.appendChild(shapeWrap);
 
@@ -874,7 +872,7 @@ lfoLeft.appendChild(shapeWrap);
 const lfoRight = srows(lfoLayout);
 
 const lfoTopRow = srow(lfoRight);
-const lfoFreq = knob(lfoTopRow, 'Frequency', 64, 150);
+const lfoFreq = knob(lfoTopRow, 'Frequency', 30, 150);
 const lfoKeySync = btn(lfoTopRow, 'Key Sync', 0);
 
 const lfoBotRow = srow(lfoRight);
@@ -912,15 +910,15 @@ const oscShapes = ['Sawtooth', 'Saw+Tri', 'Triangle', 'Square'];
 
 r = srow(oscRows);
 r.style.justifyContent = 'space-between';
-knob(r, 'Osc 1 Freq', 24, 120);
-knob(r, 'Fine Tune', 50, 100, {center: 0.5});
-shapeSel(r, 0, oscShapes);
-knob(r, 'Shape Mod', 0, 127);
+knob(r, 'Osc 1 Freq', 36, 120, {cc: 20});              // osc1Freq max=120 def=36
+knob(r, 'Fine Tune', 50, 100, {cc: 21, center: 0.5});   // osc1FineTune center=50
+shapeSel(r, 1, oscShapes);                                // osc1Shape (CC 22 via shapeSel)
+knob(r, 'Shape Mod', 50, 99, {cc: 30, center: 0.5});    // osc1PulseWidth max=99 def=50
 vdiv(r);
-knob(r, 'Sub Octave', 0, 127);
-knob(r, 'Noise', 0, 127);
+knob(r, 'Sub Octave', 0, 127, {cc: 8});                 // subOsc
+knob(r, 'Noise', 0, 127, {cc: 29});                     // noiseLevel
 
-// Sync button — positioned between osc rows without taking layout space
+// Sync button — positioned between osc rows
 oscRows.style.position = 'relative';
 const syncWrap = document.createElement('div');
 syncWrap.style.cssText = 'position:absolute;left:78px;top:53%;transform:translate(-50%,-50%);z-index:1;';
@@ -929,13 +927,13 @@ oscRows.appendChild(syncWrap);
 
 r = srow(oscRows);
 r.style.justifyContent = 'space-between';
-knob(r, 'Osc 2 Freq', 24, 120);
-knob(r, 'Fine Tune', 50, 100, {center: 0.5});
-shapeSel(r, 0, oscShapes);
-knob(r, 'Shape Mod', 0, 127);
+knob(r, 'Osc 2 Freq', 36, 120, {cc: 24});              // osc2Freq max=120 def=36
+knob(r, 'Fine Tune', 50, 100, {cc: 25, center: 0.5});   // osc2FineTune
+shapeSel(r, 1, oscShapes);                                // osc2Shape (CC 26)
+knob(r, 'Shape Mod', 50, 99, {cc: 31, center: 0.5});    // osc2PulseWidth max=99 def=50
 vdiv(r);
-knob(r, 'Osc Mix', 64, 127, {center: 64/127});
-knob(r, 'Osc Slop', 0, 127);
+knob(r, 'Osc Mix', 0, 127, {cc: 28});                   // oscMix (0=osc1, 127=osc2)
+knob(r, 'Osc Slop', 0, 127, {cc: 9});                   // oscSlop
 
 // LOW-PASS FILTER
 s = section(row2, 'Low-Pass Filter');
@@ -943,36 +941,36 @@ s.style.flex = '1';
 rows = srows(s);
 r = srow(rows);
 r.style.justifyContent = 'space-between';
-knob(r, 'Cutoff', 100, 164);
-knob(r, 'Resonance', 0, 127);
-knob(r, 'Env Amount', 127, 254, {center: 127/254});
-knob(r, 'Velocity', 0, 127);
-knob(r, 'Key Amount', 0, 127);
-knob(r, 'Audio Mod', 0, 127);
+knob(r, 'Cutoff', 164, 164, {cc: 102});                  // filterFreq max=164 def=164
+knob(r, 'Resonance', 0, 127, {cc: 103});                 // filterRes
+knob(r, 'Env Amount', 127, 254, {cc: 106, center: 127/254}); // filterEnvAmt bipolar
+knob(r, 'Velocity', 0, 127, {cc: 107});                  // filterEnvVel
+knob(r, 'Key Amount', 0, 127, {cc: 104});                // filterKeyAmt
+knob(r, 'Audio Mod', 0, 127, {cc: 105});                 // filterAudioMod
 r = srow(rows);
 r.style.justifyContent = 'space-between';
 btn(r, '4 Pole', 1);
-knob(r, 'Delay', 0, 127);
-knob(r, 'Attack', 0, 127);
-knob(r, 'Decay', 64, 127);
-knob(r, 'Sustain', 64, 127);
-knob(r, 'Release', 40, 127);
+knob(r, 'Delay', 0, 127, {cc: 108});                     // filterEnvDelay
+knob(r, 'Attack', 0, 127, {cc: 109});                    // filterEnvAttack
+knob(r, 'Decay', 64, 127, {cc: 110});                    // filterEnvDecay
+knob(r, 'Sustain', 64, 127, {cc: 111});                  // filterEnvSustain
+knob(r, 'Release', 64, 127, {cc: 112});                  // filterEnvRelease
 
 // AMPLIFIER
 s = section(row2, 'Amplifier');
 rows = srows(s);
 r = srow(rows);
 r.style.justifyContent = 'space-between';
-knob(r, 'Pan Spread', 64, 127, {center: 64/127});
-knob(r, 'Env Amount', 100, 127);
-knob(r, 'Velocity', 0, 127);
-knob(r, 'Delay', 0, 127);
+knob(r, 'Pan Spread', 0, 127, {cc: 114});                // panSpread
+knob(r, 'Env Amount', 127, 127, {cc: 115});              // ampEnvAmt def=127
+knob(r, 'Velocity', 0, 127, {cc: 116});                  // ampEnvVel
+knob(r, 'Delay', 0, 127, {cc: 117});                     // ampEnvDelay
 r = srow(rows);
 r.style.justifyContent = 'space-between';
-knob(r, 'Attack', 0, 127);
-knob(r, 'Decay', 64, 127);
-knob(r, 'Sustain', 100, 127);
-knob(r, 'Release', 40, 127);
+knob(r, 'Attack', 0, 127, {cc: 118});                    // ampEnvAttack
+knob(r, 'Decay', 64, 127, {cc: 119});                    // ampEnvDecay
+knob(r, 'Sustain', 64, 127, {cc: 75});                   // ampEnvSustain
+knob(r, 'Release', 64, 127, {cc: 76});                   // ampEnvRelease
 
 // ── Auto-scale panel to fit viewport ──
 function scalePanel() {
