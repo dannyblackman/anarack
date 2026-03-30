@@ -1,187 +1,166 @@
 #include "PluginEditor.h"
 
-// ─────────────────────────────────────────────
-// SynthPanel — renders all controls from definition
-// ─────────────────────────────────────────────
+// ═══════════════════════════════════════════════
+// SynthPanel — hard-coded Rev2 front panel layout
+// ═══════════════════════════════════════════════
 
 void SynthPanel::loadDefinition(const juce::String& jsonStr)
 {
-    groups.clear();
+    allControls.clear();
+    positioned.clear();
+    labels.clear();
+
     auto root = juce::JSON::parse(jsonStr);
     if (!root.isObject()) return;
 
-    // Parse layout config
-    auto layoutConfig = root.getProperty("layout", {});
-    if (layoutConfig.isObject())
-    {
-        auto colorStr = layoutConfig.getProperty("accentColor", "").toString();
-        if (colorStr.isNotEmpty())
-            accentColour = juce::Colour::fromString("FF" + colorStr.trimCharactersAtStart("#"));
-        panelNativeWidth = (int)layoutConfig.getProperty("width", 1600);
-    }
-
     auto enums = root.getProperty("enums", {});
-    auto groupsArr = *root.getProperty("groups", {}).getArray();
+    auto groupsArr = root.getProperty("groups", {});
+    if (!groupsArr.isArray()) return;
 
-    for (auto& g : groupsArr)
+    for (auto& g : *groupsArr.getArray())
     {
-        auto* group = new SynthGroup();
-        group->name = g.getProperty("name", "").toString();
-
-        // Parse group layout
-        auto gl = g.getProperty("layout", {});
-        if (gl.isObject())
-        {
-            group->layoutX = (int)gl.getProperty("x", 0);
-            group->layoutY = (int)gl.getProperty("y", 0);
-            group->layoutW = (int)gl.getProperty("w", 0);
-            group->layoutH = (int)gl.getProperty("h", 0);
-        }
-
         auto paramsArr = g.getProperty("parameters", {});
         if (!paramsArr.isArray()) continue;
-
         for (auto& p : *paramsArr.getArray())
         {
-            auto* ctrl = new SynthControl();
-            ctrl->id = p.getProperty("id", "").toString();
-            ctrl->name = p.getProperty("name", "").toString();
-            ctrl->type = p.getProperty("type", "knob").toString();
-            ctrl->cc = (int)p.getProperty("cc", -1);
-            ctrl->min = (int)p.getProperty("min", 0);
-            ctrl->max = (int)p.getProperty("max", 127);
-            ctrl->value = (int)p.getProperty("default", 0);
-
-            // Resolve enum values
+            auto* c = new SynthControl();
+            c->id = p.getProperty("id", "").toString();
+            c->name = p.getProperty("name", "").toString();
+            c->type = p.getProperty("type", "knob").toString();
+            c->cc = (int)p.getProperty("cc", -1);
+            c->min = (int)p.getProperty("min", 0);
+            c->max = (int)p.getProperty("max", 127);
+            c->value = (int)p.getProperty("default", 0);
             auto enumRef = p.getProperty("enumRef", "").toString();
             if (enumRef.isNotEmpty() && enums.isObject())
             {
-                auto enumArr = enums.getProperty(enumRef, {});
-                if (enumArr.isArray())
-                    for (auto& v : *enumArr.getArray())
-                        ctrl->values.add(v.toString());
+                auto ea = enums.getProperty(enumRef, {});
+                if (ea.isArray()) for (auto& v : *ea.getArray()) c->values.add(v.toString());
             }
-            auto valuesArr = p.getProperty("values", {});
-            if (valuesArr.isArray())
-                for (auto& v : *valuesArr.getArray())
-                    ctrl->values.add(v.toString());
-
-            // Parse control layout
-            auto cl = p.getProperty("layout", {});
-            if (cl.isObject())
-            {
-                ctrl->layoutX = (int)cl.getProperty("x", 0);
-                ctrl->layoutY = (int)cl.getProperty("y", 0);
-            }
-
-            group->controls.add(ctrl);
+            auto va = p.getProperty("values", {});
+            if (va.isArray()) for (auto& v : *va.getArray()) c->values.add(v.toString());
+            allControls.add(c);
         }
-
-        if (group->controls.size() > 0)
-            groups.add(group);
-        else
-            delete group;
     }
 
-    layoutGroups();
+    auto lay = root.getProperty("layout", {});
+    if (lay.isObject())
+    {
+        auto cs = lay.getProperty("accentColor", "").toString();
+        if (cs.isNotEmpty()) accent = juce::Colour::fromString("FF" + cs.trimCharactersAtStart("#"));
+    }
+
+    buildRev2Layout();
     repaint();
+}
+
+SynthControl* SynthPanel::findByName(const juce::String& n)
+{
+    for (auto* c : allControls) if (c->name == n) return c;
+    return nullptr;
+}
+SynthControl* SynthPanel::findByCC(int cc)
+{
+    for (auto* c : allControls) if (c->cc == cc) return c;
+    return nullptr;
+}
+void SynthPanel::addCtrl(int x, int y, SynthControl* c) { if (c) positioned.push_back({c, x, y}); }
+void SynthPanel::addLabel(const juce::String& n, int x, int y, int w) { labels.push_back({n, x, y, w}); }
+
+SynthControl* SynthPanel::findById(const juce::String& id)
+{
+    for (auto* c : allControls) if (c->id == id) return c;
+    return nullptr;
+}
+
+void SynthPanel::buildRev2Layout()
+{
+    // Matching the Rev2 front panel diagram
+    // Top row: LFOs | Effects | Aux Envelope
+    // Bottom row: OSC1 | OSC2 | Mixer | Filter | Filter Env | Amp | Amp Env
+
+    int x, y;
+    const int S = 12; // section gap
+    auto c = [&](int dx, int dy, const char* id) { addCtrl(x+dx*CW, y+dy, findById(id)); };
+
+    // ═══ TOP ROW ═══
+    x = 0; y = 0;
+    addLabel("LFO 1", x, y, 3*CW); y=14;
+    c(0,y,"lfo1Freq"); c(1,y,"lfo1Shape"); c(2,y,"lfo1Amt");
+    x += 3*CW+S; y=0;
+
+    addLabel("LFO 2", x, y, 3*CW); y=14;
+    c(0,y,"lfo2Freq"); c(1,y,"lfo2Shape"); c(2,y,"lfo2Amt");
+    x += 3*CW+S; y=0;
+
+    addLabel("LFO 3", x, y, 3*CW); y=14;
+    c(0,y,"lfo3Freq"); c(1,y,"lfo3Shape"); c(2,y,"lfo3Amt");
+    x += 3*CW+S; y=0;
+
+    addLabel("LFO 4", x, y, 3*CW); y=14;
+    c(0,y,"lfo4Freq"); c(1,y,"lfo4Shape"); c(2,y,"lfo4Amt");
+    x += 3*CW+S; y=0;
+
+    addLabel("EFFECTS", x, y, 5*CW); y=14;
+    c(0,y,"fxType"); c(1,y,"fxOnOff"); c(2,y,"fxMix"); c(3,y,"fxParam1"); c(4,y,"fxParam2");
+    x += 5*CW+S; y=0;
+
+    addLabel("AUX ENVELOPE", x, y, 7*CW); y=14;
+    c(0,y,"env3Dest"); c(1,y,"env3Amt"); c(2,y,"env3Vel");
+    c(3,y,"env3Delay"); c(4,y,"env3Attack"); c(5,y,"env3Decay"); c(6,y,"env3Sustain");
+    int topW = x + 7*CW;
+
+    // ═══ BOTTOM ROW ═══
+    x = 0; y = CH+28;
+    int y0 = y;
+
+    addLabel("OSC 1", x, y, 5*CW); y=y0+14;
+    c(0,y,"osc1Freq"); c(1,y,"osc1FineTune"); c(2,y,"osc1Shape"); c(3,y,"osc1PulseWidth"); c(4,y,"osc1Glide");
+    x += 5*CW+S; y=y0;
+
+    addLabel("OSC 2", x, y, 5*CW); y=y0+14;
+    c(0,y,"osc2Freq"); c(1,y,"osc2FineTune"); c(2,y,"osc2Shape"); c(3,y,"osc2PulseWidth"); c(4,y,"osc2Glide");
+    x += 5*CW+S; y=y0;
+
+    addLabel("MIXER", x, y, 4*CW); y=y0+14;
+    c(0,y,"oscMix"); c(1,y,"subOsc"); c(2,y,"noiseLevel"); c(3,y,"oscSlop");
+    x += 4*CW+S; y=y0;
+
+    addLabel("LOW-PASS FILTER", x, y, 4*CW); y=y0+14;
+    c(0,y,"filterFreq"); c(1,y,"filterRes"); c(2,y,"filterKeyAmt"); c(3,y,"filterAudioMod");
+    x += 4*CW+S; y=y0;
+
+    addLabel("FILTER ENVELOPE", x, y, 7*CW); y=y0+14;
+    c(0,y,"filterEnvAmt"); c(1,y,"filterEnvVel"); c(2,y,"filterEnvDelay");
+    c(3,y,"filterEnvAttack"); c(4,y,"filterEnvDecay"); c(5,y,"filterEnvSustain"); c(6,y,"filterEnvRelease");
+    x += 7*CW+S; y=y0;
+
+    addLabel("AMPLIFIER", x, y, 3*CW); y=y0+14;
+    c(0,y,"vcaLevel"); c(1,y,"voiceVolume"); c(2,y,"panSpread");
+    x += 3*CW+S; y=y0;
+
+    addLabel("AMP ENVELOPE", x, y, 7*CW); y=y0+14;
+    c(0,y,"ampEnvAmt"); c(1,y,"ampEnvVel"); c(2,y,"ampEnvDelay");
+    c(3,y,"ampEnvAttack"); c(4,y,"ampEnvDecay"); c(5,y,"ampEnvSustain"); c(6,y,"ampEnvRelease");
+    int botW = x + 7*CW;
+
+    setSize(std::max(topW, botW) + 20, 2*(CH+28) + 10);
 }
 
 void SynthPanel::setParamValue(int cc, int value)
 {
-    for (auto* g : groups)
-        for (auto* c : g->controls)
-            if (c->cc == cc)
-            {
-                c->value = value;
-                repaint();
-                return;
-            }
-}
-
-void SynthPanel::layoutGroups()
-{
-    layout.clear();
-
-    // Read panel dimensions from definition
-    int panelW = 1400, panelH = 520;
-    // These will be set from the definition's layout field
-
-    int maxX = 0, maxY = 0;
-
-    for (auto* group : groups)
-    {
-        // Skip groups without layout or sequencer groups
-        if (group->name.containsIgnoreCase("Poly Seq") ||
-            group->name.containsIgnoreCase("Gated Seq"))
-            continue;
-
-        GroupLayout gl;
-        gl.group = group;
-
-        // Use layout coordinates from definition if available
-        bool hasLayout = false;
-        // We store layout info in the group's raw data — check via controls
-        // For now, use stored layoutX/Y/W/H values
-        int gx = group->layoutX;
-        int gy = group->layoutY;
-        int gw = group->layoutW;
-        int gh = group->layoutH;
-
-        if (gw > 0 && gh > 0)
-        {
-            hasLayout = true;
-            gl.bounds = { gx, gy, gw, gh };
-
-            for (int ci = 0; ci < group->controls.size(); ci++)
-            {
-                auto* ctrl = group->controls[ci];
-                ControlLayout cl;
-                cl.ctrl = ctrl;
-                cl.bounds = { gx + GROUP_PAD_X + ctrl->layoutX,
-                              gy + GROUP_HEADER + ctrl->layoutY,
-                              CONTROL_W, CONTROL_H };
-                gl.controls.push_back(cl);
-            }
-        }
-        else
-        {
-            // Fallback: auto-layout
-            int numCtrls = group->controls.size();
-            int groupW = numCtrls * CONTROL_W + GROUP_PAD_X * 2;
-            int groupH = GROUP_HEADER + CONTROL_H + GROUP_PAD_Y;
-            gl.bounds = { 0, maxY, groupW, groupH };
-
-            for (int ci = 0; ci < numCtrls; ci++)
-            {
-                ControlLayout cl;
-                cl.ctrl = group->controls[ci];
-                cl.bounds = { GROUP_PAD_X + ci * CONTROL_W, maxY + GROUP_HEADER, CONTROL_W, CONTROL_H };
-                gl.controls.push_back(cl);
-            }
-            maxY += groupH + ROW_GAP;
-        }
-
-        maxX = std::max(maxX, gl.bounds.getRight());
-        maxY = std::max(maxY, gl.bounds.getBottom());
-
-        layout.push_back(std::move(gl));
-    }
-
-    setSize(std::max(maxX + 10, getWidth()), maxY + 10);
+    for (auto& pc : positioned)
+        if (pc.ctrl && pc.ctrl->cc == cc) { pc.ctrl->value = value; repaint(); return; }
 }
 
 SynthControl* SynthPanel::getControlAt(juce::Point<float> pos)
 {
-    // Convert screen coords to native coords (accounting for scale)
-    float scale = (float)getWidth() / (float)panelNativeWidth;
+    float scale = std::min((float)getParentWidth() / (float)getWidth(), 1.0f);
     if (scale <= 0) scale = 1.0f;
-    auto nativePos = pos / scale;
-
-    for (auto& gl : layout)
-        for (auto& cl : gl.controls)
-            if (cl.bounds.toFloat().contains(nativePos))
-                return cl.ctrl;
+    auto np = pos / scale;
+    for (auto& pc : positioned)
+        if (pc.ctrl && juce::Rectangle<int>(pc.x, pc.y, CW, CH).toFloat().contains(np))
+            return pc.ctrl;
     return nullptr;
 }
 
@@ -189,353 +168,215 @@ void SynthPanel::paint(juce::Graphics& g)
 {
     g.fillAll(juce::Colour(0xff0a0a0a));
 
-    // Scale to fit window width
-    float scale = (float)getWidth() / (float)panelNativeWidth;
-    if (scale <= 0) scale = 1.0f;
-    g.addTransform(juce::AffineTransform::scale(scale));
-
-    for (auto& gl : layout)
+    for (auto& sl : labels)
     {
-        // Group background
-        g.setColour(juce::Colour(0xff111111));
-        g.fillRoundedRectangle(gl.bounds.toFloat(), 3);
-
-        // Group border (technical diagram style — thin lines)
+        g.setColour(accent);
+        g.setFont(juce::FontOptions(8.0f, juce::Font::bold));
+        g.drawText(sl.name, sl.x, sl.y, sl.w, 12, juce::Justification::centredLeft);
         g.setColour(juce::Colour(0xff2a2a2a));
-        g.drawRoundedRectangle(gl.bounds.toFloat().reduced(0.5f), 2, 1.0f);
+        g.drawHorizontalLine(sl.y + 12, (float)sl.x, (float)(sl.x + sl.w));
+    }
 
-        // Group title — dashed line style header
-        g.setColour(accentColour);
-        g.setFont(juce::FontOptions(7.5f, juce::Font::bold));
-        auto titleBounds = juce::Rectangle<int>(gl.bounds.getX() + 4, gl.bounds.getY() + 1,
-                                                 gl.bounds.getWidth() - 8, 13);
-        g.drawText(gl.group->name.toUpperCase(), titleBounds, juce::Justification::centredLeft);
-
-        // Title underline
-        g.setColour(juce::Colour(0xff2a2a2a));
-        g.drawHorizontalLine(gl.bounds.getY() + 14, (float)gl.bounds.getX() + 2, (float)gl.bounds.getRight() - 2);
-
-        // Controls
-        for (auto& cl : gl.controls)
-        {
-            if (cl.ctrl->type == "selector")
-                drawSelector(g, cl.bounds, cl.ctrl);
-            else if (cl.ctrl->type == "toggle")
-                drawToggle(g, cl.bounds, cl.ctrl);
-            else
-                drawKnob(g, cl.bounds, cl.ctrl);
-        }
+    for (auto& pc : positioned)
+    {
+        if (!pc.ctrl) continue;
+        if (pc.ctrl->type == "selector") drawSelector(g, pc.x, pc.y, pc.ctrl);
+        else if (pc.ctrl->type == "toggle") drawToggle(g, pc.x, pc.y, pc.ctrl);
+        else drawKnob(g, pc.x, pc.y, pc.ctrl);
     }
 }
 
-void SynthPanel::drawKnob(juce::Graphics& g, juce::Rectangle<int> bounds, SynthControl* ctrl)
+void SynthPanel::drawKnob(juce::Graphics& g, int x, int y, SynthControl* c)
 {
-    float cx = bounds.getCentreX();
-    float cy = bounds.getY() + 28.0f;
-    float r = 18.0f;
+    float cx = x + CW/2.0f, cy = y + 24.0f, r = 18.0f;
+    float sa = juce::MathConstants<float>::pi * 1.25f;
+    float sw = juce::MathConstants<float>::pi * 1.5f;
+    float norm = c->max > 0 ? (float)c->value / (float)c->max : 0;
 
-    float startAng = juce::MathConstants<float>::pi * 1.25f;
-    float sweep = juce::MathConstants<float>::pi * 1.5f;
-    float norm = ctrl->max > 0 ? (float)ctrl->value / (float)ctrl->max : 0;
-    float valAng = norm * sweep;
+    juce::Path track; track.addCentredArc(cx, cy, r, r, 0, -sa, -sa + sw, true);
+    g.setColour(juce::Colour(0xff333333)); g.strokePath(track, juce::PathStrokeType(2.0f));
 
-    // Track
-    juce::Path track;
-    track.addCentredArc(cx, cy, r, r, 0, -startAng, -startAng + sweep, true);
-    g.setColour(juce::Colour(0xff333333));
-    g.strokePath(track, juce::PathStrokeType(2.0f));
+    juce::Path arc; arc.addCentredArc(cx, cy, r, r, 0, -sa, -sa + norm*sw, true);
+    g.setColour(accent); g.strokePath(arc, juce::PathStrokeType(2.5f));
 
-    // Value arc
-    juce::Path arc;
-    arc.addCentredArc(cx, cy, r, r, 0, -startAng, -startAng + valAng, true);
-    g.setColour(accentColour);
-    g.strokePath(arc, juce::PathStrokeType(2.5f));
+    g.setColour(juce::Colour(0xff222222)); g.fillEllipse(cx-r+4, cy-r+4, (r-4)*2, (r-4)*2);
+    g.setColour(juce::Colour(0xff3a3a3a)); g.drawEllipse(cx-r+4, cy-r+4, (r-4)*2, (r-4)*2, 0.5f);
 
-    // Body
-    g.setColour(juce::Colour(0xff2a2a2a));
-    g.fillEllipse(cx - r + 4, cy - r + 4, (r - 4) * 2, (r - 4) * 2);
+    float ang = -sa + norm*sw;
+    g.setColour(juce::Colours::white); g.drawLine(cx, cy, cx+std::cos(ang)*(r-5), cy+std::sin(ang)*(r-5), 2.0f);
 
-    // Indicator line
-    float ang = -startAng + valAng;
-    float il = r - 5;
-    g.setColour(juce::Colours::white);
-    g.drawLine(cx, cy, cx + std::cos(ang) * il, cy + std::sin(ang) * il, 2.0f);
+    g.setColour(juce::Colour(0xff666666)); g.setFont(juce::FontOptions(7.5f));
+    g.drawText(juce::String(c->value), (int)(cx-12), (int)(cy-4), 24, 10, juce::Justification::centred);
 
-    // Value text
-    g.setColour(juce::Colour(0xff777777));
-    g.setFont(juce::FontOptions(8.0f));
-    g.drawText(juce::String(ctrl->value), (int)(cx - 12), (int)(cy - 5), 24, 10, juce::Justification::centred);
-
-    // Label
-    g.setColour(juce::Colour(0xff999999));
-    g.setFont(juce::FontOptions(8.0f));
-    g.drawText(ctrl->name, bounds.getX(), bounds.getBottom() - 14, bounds.getWidth(), 12, juce::Justification::centred);
+    g.setColour(juce::Colour(0xff888888)); g.setFont(juce::FontOptions(7.0f));
+    g.drawText(c->name, x, y+CH-12, CW, 10, juce::Justification::centred);
 }
 
-void SynthPanel::drawSelector(juce::Graphics& g, juce::Rectangle<int> bounds, SynthControl* ctrl)
+void SynthPanel::drawSelector(juce::Graphics& g, int x, int y, SynthControl* c)
 {
-    float cx = bounds.getCentreX();
-
-    // Label
-    g.setColour(juce::Colour(0xff999999));
-    g.setFont(juce::FontOptions(8.0f));
-    g.drawText(ctrl->name, bounds.getX(), bounds.getY() + 8, bounds.getWidth(), 12, juce::Justification::centred);
-
-    // Value
-    juce::String valText = (ctrl->value >= 0 && ctrl->value < ctrl->values.size())
-                             ? ctrl->values[ctrl->value] : juce::String(ctrl->value);
-    g.setColour(accentColour);
-    g.setFont(juce::FontOptions(8.0f, juce::Font::bold));
-    g.drawText(valText, bounds.getX(), bounds.getY() + 26, bounds.getWidth(), 12, juce::Justification::centred);
-
-    // Bottom label
-    g.setColour(juce::Colour(0xff999999));
-    g.setFont(juce::FontOptions(8.0f));
-    g.drawText(ctrl->name, bounds.getX(), bounds.getBottom() - 14, bounds.getWidth(), 12, juce::Justification::centred);
+    g.setColour(juce::Colour(0xff888888)); g.setFont(juce::FontOptions(7.0f));
+    g.drawText(c->name, x, y+4, CW, 10, juce::Justification::centred);
+    juce::String val = (c->value >= 0 && c->value < c->values.size()) ? c->values[c->value] : juce::String(c->value);
+    g.setColour(accent); g.setFont(juce::FontOptions(8.0f, juce::Font::bold));
+    g.drawText(val, x, y+22, CW, 12, juce::Justification::centred);
+    g.setColour(juce::Colour(0xff888888)); g.setFont(juce::FontOptions(7.0f));
+    g.drawText(c->name, x, y+CH-12, CW, 10, juce::Justification::centred);
 }
 
-void SynthPanel::drawToggle(juce::Graphics& g, juce::Rectangle<int> bounds, SynthControl* ctrl)
+void SynthPanel::drawToggle(juce::Graphics& g, int x, int y, SynthControl* c)
 {
-    float cx = bounds.getCentreX();
-    bool on = ctrl->value > 0;
-
-    // Button
-    auto btnBounds = juce::Rectangle<float>(cx - 16, bounds.getY() + 22.0f, 32, 16);
-    g.setColour(on ? accentColour : juce::Colour(0xff333333));
-    g.fillRoundedRectangle(btnBounds, 3);
-
-    juce::String label = (ctrl->values.size() > 1) ? ctrl->values[on ? 1 : 0] : (on ? "ON" : "OFF");
+    bool on = c->value > 0;
+    auto btn = juce::Rectangle<float>(x+CW/2.0f-14, y+18.0f, 28, 14);
+    g.setColour(on ? accent : juce::Colour(0xff333333)); g.fillRoundedRectangle(btn, 3);
     g.setColour(on ? juce::Colours::white : juce::Colour(0xff888888));
-    g.setFont(juce::FontOptions(8.0f, juce::Font::bold));
-    g.drawText(label, btnBounds.toNearestInt(), juce::Justification::centred);
-
-    // Label
-    g.setColour(juce::Colour(0xff999999));
-    g.setFont(juce::FontOptions(8.0f));
-    g.drawText(ctrl->name, bounds.getX(), bounds.getBottom() - 14, bounds.getWidth(), 12, juce::Justification::centred);
+    g.setFont(juce::FontOptions(7.5f, juce::Font::bold));
+    g.drawText((c->values.size()>1 ? c->values[on?1:0] : (on?"ON":"OFF")), btn.toNearestInt(), juce::Justification::centred);
+    g.setColour(juce::Colour(0xff888888)); g.setFont(juce::FontOptions(7.0f));
+    g.drawText(c->name, x, y+CH-12, CW, 10, juce::Justification::centred);
 }
 
 void SynthPanel::mouseDown(const juce::MouseEvent& e)
 {
-    dragControl = getControlAt(e.position);
-    if (!dragControl) return;
-
-    if (dragControl->type == "toggle")
-    {
-        dragControl->value = dragControl->value > 0 ? 0 : 1;
-        if (onParamChange && dragControl->cc >= 0)
-            onParamChange(dragControl->cc, dragControl->value);
-        repaint();
-        dragControl = nullptr;
-        return;
+    dragCtrl = getControlAt(e.position);
+    if (!dragCtrl) return;
+    if (dragCtrl->type == "toggle") {
+        dragCtrl->value = dragCtrl->value > 0 ? 0 : 1;
+        if (onParamChange && dragCtrl->cc >= 0) onParamChange(dragCtrl->cc, dragCtrl->value);
+        repaint(); dragCtrl = nullptr; return;
     }
-
-    if (dragControl->type == "selector")
-    {
-        // Click cycles through values
-        int numVals = dragControl->values.size();
-        if (numVals == 0) numVals = dragControl->max + 1;
-        dragControl->value = (dragControl->value + 1) % numVals;
-        if (onParamChange && dragControl->cc >= 0)
-        {
-            int ccVal = dragControl->max > 127
-                ? juce::roundToInt(dragControl->value * 127.0 / dragControl->max)
-                : dragControl->value;
-            onParamChange(dragControl->cc, ccVal);
+    if (dragCtrl->type == "selector") {
+        int n = dragCtrl->values.size(); if (!n) n = dragCtrl->max+1;
+        dragCtrl->value = (dragCtrl->value+1) % n;
+        if (onParamChange && dragCtrl->cc >= 0) {
+            int cv = dragCtrl->max>127 ? juce::roundToInt(dragCtrl->value*127.0/dragCtrl->max) : dragCtrl->value;
+            onParamChange(dragCtrl->cc, cv);
         }
-        repaint();
-        dragControl = nullptr;
-        return;
+        repaint(); dragCtrl = nullptr; return;
     }
-
-    dragStartY = e.position.y;
-    dragStartValue = dragControl->value;
+    dragStartY = e.position.y; dragStartVal = dragCtrl->value;
 }
 
 void SynthPanel::mouseDrag(const juce::MouseEvent& e)
 {
-    if (!dragControl || dragControl->type != "knob") return;
+    if (!dragCtrl || dragCtrl->type != "knob") return;
     float dy = dragStartY - e.position.y;
-    int newVal = juce::jlimit(dragControl->min, dragControl->max,
-                              dragStartValue + (int)(dy * 0.7f));
-    if (newVal != dragControl->value)
-    {
-        dragControl->value = newVal;
-        if (onParamChange && dragControl->cc >= 0)
-        {
-            int ccVal = dragControl->max > 127
-                ? juce::roundToInt(dragControl->value * 127.0 / dragControl->max)
-                : dragControl->value;
-            onParamChange(dragControl->cc, ccVal);
+    int nv = juce::jlimit(dragCtrl->min, dragCtrl->max, dragStartVal + (int)(dy * 0.7f));
+    if (nv != dragCtrl->value) {
+        dragCtrl->value = nv;
+        if (onParamChange && dragCtrl->cc >= 0) {
+            int cv = dragCtrl->max>127 ? juce::roundToInt(dragCtrl->value*127.0/dragCtrl->max) : dragCtrl->value;
+            onParamChange(dragCtrl->cc, cv);
         }
         repaint();
     }
 }
 
-void SynthPanel::mouseUp(const juce::MouseEvent&)
-{
-    dragControl = nullptr;
-}
+void SynthPanel::mouseUp(const juce::MouseEvent&) { dragCtrl = nullptr; }
 
-void SynthPanel::mouseWheelMove(const juce::MouseEvent& e, const juce::MouseWheelDetails& wheel)
+void SynthPanel::mouseWheelMove(const juce::MouseEvent& e, const juce::MouseWheelDetails& w)
 {
-    auto* ctrl = getControlAt(e.position);
-    if (!ctrl || ctrl->type != "knob") return;
-
-    int delta = wheel.deltaY > 0 ? 1 : -1;
-    ctrl->value = juce::jlimit(ctrl->min, ctrl->max, ctrl->value + delta);
-    if (onParamChange && ctrl->cc >= 0)
-    {
-        int ccVal = ctrl->max > 127
-            ? juce::roundToInt(ctrl->value * 127.0 / ctrl->max)
-            : ctrl->value;
-        onParamChange(ctrl->cc, ccVal);
+    auto* c = getControlAt(e.position);
+    if (!c || c->type != "knob") return;
+    c->value = juce::jlimit(c->min, c->max, c->value + (w.deltaY > 0 ? 1 : -1));
+    if (onParamChange && c->cc >= 0) {
+        int cv = c->max>127 ? juce::roundToInt(c->value*127.0/c->max) : c->value;
+        onParamChange(c->cc, cv);
     }
     repaint();
 }
 
-// ─────────────────────────────────────────────
+// ═══════════════════════════════════════════════
 // AnarackEditor
-// ─────────────────────────────────────────────
+// ═══════════════════════════════════════════════
 
 AnarackEditor::AnarackEditor(AnarackProcessor& p)
     : AudioProcessorEditor(&p), processor(p)
 {
-    setSize(800, 600);
+    setSize(1200, 220);
     setResizable(true, true);
 
     hostLabel.setText("Server:", juce::dontSendNotification);
-    hostLabel.setFont(juce::FontOptions(12.0f));
-    addAndMakeVisible(hostLabel);
-
+    hostLabel.setFont(juce::FontOptions(12.0f)); addAndMakeVisible(hostLabel);
     hostInput.setText(processor.serverHost);
     hostInput.setFont(juce::FontOptions(12.0f));
     hostInput.onReturnKey = [this] { toggleConnection(); };
     addAndMakeVisible(hostInput);
-
     wgToggle.setButtonText("WG");
     wgToggle.setToggleState(processor.useWireGuard, juce::dontSendNotification);
     addAndMakeVisible(wgToggle);
-
     connectButton.setButtonText("Connect");
     connectButton.onClick = [this] { toggleConnection(); };
     addAndMakeVisible(connectButton);
-
     statusLabel.setText("Disconnected", juce::dontSendNotification);
     statusLabel.setFont(juce::FontOptions(11.0f));
     statusLabel.setColour(juce::Label::textColourId, juce::Colours::grey);
     addAndMakeVisible(statusLabel);
 
-    // Synth panel in a scrollable viewport
     synthPanel.onParamChange = [this](int cc, int value) {
-        processor.getTransport().sendMidi(
-            (const uint8_t[]){ 0xB0, (uint8_t)cc, (uint8_t)value }, 3);
+        processor.getTransport().sendMidi((const uint8_t[]){0xB0,(uint8_t)cc,(uint8_t)value}, 3);
     };
     viewport.setViewedComponent(&synthPanel, false);
-    viewport.setScrollBarsShown(true, false);
+    viewport.setScrollBarsShown(false, true);
     addAndMakeVisible(viewport);
-
     startTimerHz(10);
 }
 
-AnarackEditor::~AnarackEditor()
-{
-    stopTimer();
-}
+AnarackEditor::~AnarackEditor() { stopTimer(); }
 
 void AnarackEditor::toggleConnection()
 {
-    auto& transport = processor.getTransport();
-
-    if (transport.isConnected())
-    {
-        transport.disconnect();
-        connectButton.setButtonText("Connect");
-        definitionLoaded = false;
-    }
-    else
-    {
+    auto& t = processor.getTransport();
+    if (t.isConnected()) { t.disconnect(); connectButton.setButtonText("Connect"); defLoaded=false; }
+    else {
         processor.serverHost = hostInput.getText();
         processor.useWireGuard = wgToggle.getToggleState();
-
-        if (processor.useWireGuard)
-        {
-            auto endpoint = processor.wgEndpoint + ":" + juce::String(processor.wgPort);
-            transport.connectWireGuard(endpoint, processor.wgServerPubkey);
-        }
-        else
-        {
-            transport.connect(processor.serverHost);
-        }
+        if (processor.useWireGuard) {
+            auto ep = processor.wgEndpoint + ":" + juce::String(processor.wgPort);
+            t.connectWireGuard(ep, processor.wgServerPubkey);
+        } else t.connect(processor.serverHost);
         connectButton.setButtonText("Disconnect");
-
-        // Fetch the synth definition
         fetchDefinition();
     }
 }
 
 void AnarackEditor::fetchDefinition()
 {
-    // Fetch definition from server via a background thread
     auto host = processor.serverHost;
     juce::Thread::launch([this, host]() {
         auto url = juce::URL("http://" + host + ":8080/api/synth/definition");
-        auto stream = url.createInputStream(juce::URL::InputStreamOptions(juce::URL::ParameterHandling::inAddress)
-                                                .withConnectionTimeoutMs(3000));
-        if (stream)
-        {
+        auto stream = url.createInputStream(juce::URL::InputStreamOptions(juce::URL::ParameterHandling::inAddress).withConnectionTimeoutMs(3000));
+        if (stream) {
             auto json = stream->readEntireStreamAsString();
-            juce::MessageManager::callAsync([this, json]() {
-                synthPanel.setSize(viewport.getWidth(), 2000);
-                synthPanel.loadDefinition(json);
-                definitionLoaded = true;
-            });
+            juce::MessageManager::callAsync([this, json]() { synthPanel.loadDefinition(json); defLoaded=true; resized(); });
         }
     });
 }
 
 void AnarackEditor::timerCallback()
 {
-    auto& transport = processor.getTransport();
-    bool conn = transport.isConnected();
-
-    auto statusText = juce::String("Disconnected");
-    if (conn)
-    {
-        float bufMs = (float)transport.getBufferLevel() / 48.0f;
-        int rtt = transport.getEstimatedRtt();
-        statusText = (transport.isWireGuard() ? "WG" : "LAN");
-        statusText += " | Buf: " + juce::String(bufMs, 0) + "ms";
-        statusText += " | Pkts: " + juce::String(transport.getPacketsReceived());
-        if (rtt > 0) statusText += " | RTT: " + juce::String(rtt) + "ms";
+    auto& t = processor.getTransport();
+    bool c = t.isConnected();
+    auto s = juce::String(c ? (t.isWireGuard() ? "WG" : "LAN") : "Disconnected");
+    if (c) {
+        s += " | Buf: " + juce::String((float)t.getBufferLevel()/48.0f,0) + "ms";
+        s += " | Pkts: " + juce::String(t.getPacketsReceived());
+        int r = t.getEstimatedRtt(); if (r>0) s += " | RTT: " + juce::String(r) + "ms";
     }
-
-    statusLabel.setText(statusText, juce::dontSendNotification);
-    statusLabel.setColour(juce::Label::textColourId,
-                          conn ? juce::Colour(0xff4ade80) : juce::Colours::grey);
+    statusLabel.setText(s, juce::dontSendNotification);
+    statusLabel.setColour(juce::Label::textColourId, c ? juce::Colour(0xff4ade80) : juce::Colours::grey);
 }
 
-void AnarackEditor::paint(juce::Graphics& g)
-{
-    g.fillAll(juce::Colour(0xff0a0a0a));
-}
+void AnarackEditor::paint(juce::Graphics& g) { g.fillAll(juce::Colour(0xff0a0a0a)); }
 
 void AnarackEditor::resized()
 {
     auto area = getLocalBounds();
-
-    // Connection bar at top (30px)
-    auto topBar = area.removeFromTop(30).reduced(4, 2);
-    hostLabel.setBounds(topBar.removeFromLeft(50));
-    connectButton.setBounds(topBar.removeFromRight(80));
-    topBar.removeFromRight(4);
-    wgToggle.setBounds(topBar.removeFromRight(40));
-    topBar.removeFromRight(4);
-    hostInput.setBounds(topBar.removeFromLeft(150));
-    topBar.removeFromLeft(8);
-    statusLabel.setBounds(topBar);
-
-    // Synth panel viewport fills the rest
+    auto top = area.removeFromTop(26).reduced(4, 2);
+    hostLabel.setBounds(top.removeFromLeft(50));
+    connectButton.setBounds(top.removeFromRight(80));
+    top.removeFromRight(4); wgToggle.setBounds(top.removeFromRight(40));
+    top.removeFromRight(4); hostInput.setBounds(top.removeFromLeft(150));
+    top.removeFromLeft(8); statusLabel.setBounds(top);
     viewport.setBounds(area);
-    synthPanel.setSize(area.getWidth(), std::max(synthPanel.getHeight(), area.getHeight()));
+    synthPanel.setSize(std::max(synthPanel.getWidth(), area.getWidth()), area.getHeight());
 }

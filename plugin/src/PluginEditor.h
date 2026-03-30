@@ -2,28 +2,15 @@
 #include <juce_audio_processors/juce_audio_processors.h>
 #include "PluginProcessor.h"
 
-// A single parameter control — renders as knob, selector, or toggle
 struct SynthControl
 {
-    juce::String id;
-    juce::String name;
-    juce::String type; // "knob", "selector", "toggle"
-    int cc = -1;
-    int min = 0;
-    int max = 127;
-    int value = 0;
-    juce::StringArray values; // for selector/toggle
-    int layoutX = 0, layoutY = 0; // position within group
+    juce::String id, name, type;
+    int cc = -1, min = 0, max = 127, value = 0;
+    juce::StringArray values;
 };
 
-// Group of controls
-struct SynthGroup
-{
-    juce::String name;
-    juce::OwnedArray<SynthControl> controls;
-    int layoutX = 0, layoutY = 0, layoutW = 0, layoutH = 0;
-};
-
+// Renders the synth panel as two horizontal rows of controls with section dividers
+// Layout matches the real Rev2 front panel exactly
 class SynthPanel : public juce::Component
 {
 public:
@@ -37,32 +24,35 @@ public:
     std::function<void(int cc, int value)> onParamChange;
     void setParamValue(int cc, int value);
 
-    juce::Colour accentColour { 0xff6366f1 }; // default indigo, overridden per synth
-    int panelNativeWidth = 1600; // native coordinate space width
+    juce::Colour accent { 0xffE53935 };
 
 private:
-    juce::OwnedArray<SynthGroup> groups;
-    SynthControl* dragControl = nullptr;
-    float dragStartY = 0;
-    int dragStartValue = 0;
+    // A positioned control
+    struct PosCtrl { SynthControl* ctrl; int x; int y; };
+    // A section label
+    struct SectionLabel { juce::String name; int x; int y; int w; };
+
+    juce::OwnedArray<SynthControl> allControls;
+    std::vector<PosCtrl> positioned;
+    std::vector<SectionLabel> labels;
+
+    void buildRev2Layout();
+    SynthControl* findByName(const juce::String& name);
+    SynthControl* findByCC(int cc);
+    SynthControl* findById(const juce::String& id);
+    void addCtrl(int x, int y, SynthControl* c);
+    void addLabel(const juce::String& name, int x, int y, int w);
 
     SynthControl* getControlAt(juce::Point<float> pos);
-    void layoutGroups();
-    void drawKnob(juce::Graphics& g, juce::Rectangle<int> bounds, SynthControl* ctrl);
-    void drawSelector(juce::Graphics& g, juce::Rectangle<int> bounds, SynthControl* ctrl);
-    void drawToggle(juce::Graphics& g, juce::Rectangle<int> bounds, SynthControl* ctrl);
+    void drawKnob(juce::Graphics& g, int x, int y, SynthControl* c);
+    void drawSelector(juce::Graphics& g, int x, int y, SynthControl* c);
+    void drawToggle(juce::Graphics& g, int x, int y, SynthControl* c);
 
-    // Layout: each control has a computed position
-    struct ControlLayout { SynthControl* ctrl; juce::Rectangle<int> bounds; };
-    struct GroupLayout { SynthGroup* group; juce::Rectangle<int> bounds; std::vector<ControlLayout> controls; };
-    std::vector<GroupLayout> layout;
-
-    static constexpr int GROUP_HEADER = 16;
-    static constexpr int CONTROL_W = 62;
-    static constexpr int CONTROL_H = 64;
-    static constexpr int GROUP_PAD_X = 3;
-    static constexpr int GROUP_PAD_Y = 3;
-    static constexpr int ROW_GAP = 3;
+    SynthControl* dragCtrl = nullptr;
+    float dragStartY = 0;
+    int dragStartVal = 0;
+    static constexpr int CW = 55; // control width
+    static constexpr int CH = 62; // control height
 };
 
 class AnarackEditor : public juce::AudioProcessorEditor, private juce::Timer
@@ -70,26 +60,20 @@ class AnarackEditor : public juce::AudioProcessorEditor, private juce::Timer
 public:
     AnarackEditor(AnarackProcessor&);
     ~AnarackEditor() override;
-
     void paint(juce::Graphics&) override;
     void resized() override;
-
 private:
     void timerCallback() override;
     void toggleConnection();
     void fetchDefinition();
-
     AnarackProcessor& processor;
-
     juce::Label hostLabel;
     juce::TextEditor hostInput;
     juce::ToggleButton wgToggle;
     juce::TextButton connectButton;
     juce::Label statusLabel;
-
     SynthPanel synthPanel;
     juce::Viewport viewport;
-    bool definitionLoaded = false;
-
+    bool defLoaded = false;
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(AnarackEditor)
 };

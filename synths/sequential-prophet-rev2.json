@@ -203,7 +203,8 @@
           "layout": {
             "x": 0,
             "y": 0
-          }
+          },
+          "frontPanel": true
         },
         {
           "id": "osc1FineTune",
@@ -217,9 +218,10 @@
           "type": "knob",
           "description": "Fine tuning, 50 = center",
           "layout": {
-            "x": 50,
+            "x": 55,
             "y": 0
-          }
+          },
+          "frontPanel": true
         },
         {
           "id": "osc1Shape",
@@ -233,9 +235,10 @@
           "type": "selector",
           "values": "oscShape",
           "layout": {
-            "x": 100,
+            "x": 110,
             "y": 0
-          }
+          },
+          "frontPanel": true
         },
         {
           "id": "osc1PulseWidth",
@@ -248,9 +251,10 @@
           "default": 50,
           "type": "knob",
           "layout": {
-            "x": 150,
+            "x": 165,
             "y": 0
-          }
+          },
+          "frontPanel": true
         },
         {
           "id": "osc1Glide",
@@ -263,9 +267,10 @@
           "default": 0,
           "type": "knob",
           "layout": {
-            "x": 200,
+            "x": 220,
             "y": 0
-          }
+          },
+          "frontPanel": true
         },
         {
           "id": "osc1KeyTrack",
@@ -277,10 +282,7 @@
           "max": 1,
           "default": 1,
           "type": "toggle",
-          "layout": {
-            "x": 250,
-            "y": 0
-          }
+          "frontPanel": false
         },
         {
           "id": "osc1NoteReset",
@@ -292,18 +294,15 @@
           "max": 1,
           "default": 0,
           "type": "toggle",
-          "layout": {
-            "x": 300,
-            "y": 0
-          }
+          "frontPanel": false
         }
       ],
       "order": 1,
       "layout": {
-        "x": 10,
-        "y": 195,
-        "w": 360,
-        "h": 80
+        "x": 0,
+        "y": 170,
+        "w": 283,
+        "h": 78
       }
     },
     {
@@ -324,7 +323,8 @@
           "layout": {
             "x": 0,
             "y": 0
-          }
+          },
+          "frontPanel": true
         },
         {
           "id": "osc2FineTune",
@@ -338,9 +338,10 @@
           "type": "knob",
           "description": "Fine tuning, 50 = center",
           "layout": {
-            "x": 50,
+            "x": 55,
             "y": 0
-          }
+          },
+          "frontPanel": true
         },
         {
           "id": "osc2Shape",
@@ -354,9 +355,10 @@
           "type": "selector",
           "values": "oscShape",
           "layout": {
-            "x": 100,
+            "x": 110,
             "y": 0
-          }
+          },
+          "frontPanel": true
         },
         {
           "id": "osc2PulseWidth",
@@ -369,9 +371,10 @@
           "default": 50,
           "type": "knob",
           "layout": {
-            "x": 150,
+            "x": 165,
             "y": 0
-          }
+          },
+          "frontPanel": true
         },
         {
           "id": "osc2Glide",
@@ -384,9 +387,10 @@
           "default": 0,
           "type": "knob",
           "layout": {
-            "x": 200,
+            "x": 220,
             "y": 0
-          }
+          },
+          "frontPanel": true
         },
         {
           "id": "osc2KeyTrack",
@@ -398,10 +402,7 @@
           "max": 1,
           "default": 1,
           "type": "toggle",
-          "layout": {
-            "x": 250,
-            "y": 0
-          }
+          "frontPanel": false
         },
         {
           "id": "osc2NoteReset",
@@ -413,18 +414,15 @@
           "max": 1,
           "default": 0,
           "type": "toggle",
-          "layout": {
-            "x": 300,
-            "y": 0
-          }
+          "frontPanel": false
         }
       ],
       "order": 2,
       "layout": {
-        "x": 10,
-        "y": 280,
-        "w": 360,
-        "h": 80
+        "x": 0,
+        "y": 252,
+        "w": 283,
+        "h": 78
       }
     },
     {
@@ -445,7 +443,8 @@
           "layout": {
             "x": 0,
             "y": 0
-          }
+          },
+          "frontPanel": true
         },
         {
           "id": "subOsc",
@@ -458,9 +457,10 @@
           "default": 0,
           "type": "knob",
           "layout": {
-            "x": 50,
+            "x": 55,
             "y": 0
-          }
+          },
+          "frontPanel": true
         },
         {
           "id": "noiseLevel",
@@ -473,9 +473,10 @@
           "default": 0,
           "type": "knob",
           "layout": {
-            "x": 100,
+            "x": 110,
             "y": 0
-          }
+          },
+          "frontPanel": true
         },
         {
           "id": "sync",
@@ -488,9 +489,10 @@
           "default": 0,
           "type": "toggle",
           "layout": {
-            "x": 150,
+            "x": 165,
             "y": 0
-          }
+          },
+          "frontPanel": true
         },
         {
           "id": "glideMode",
@@ -503,10 +505,7 @@
           "default": 0,
           "type": "selector",
           "values": "glideMode",
-          "layout": {
-            "x": 200,
-            "y": 0
-          }
+          "frontPanel": false
         },
         {
           "id": "glideOnOff",
@@ -518,10 +517,7 @@
           "max": 1,
           "default": 0,
           "type": "toggle",
-          "layout": {
-            "x": 250,
-            "y": 0
-          }
+          "frontPanel": false
         },
         {
           "id": "pitchBendRange",
@@ -533,10 +529,7 @@
           "max": 12,
           "default": 2,
           "type": "knob",
-          "layout": {
-            "x": 300,
-            "y": 0
-          }
+          "frontPanel": false
         },
         {
           "id": "oscSlop",
@@ -549,17 +542,18 @@
           "default": 0,
           "type": "knob",
           "layout": {
-            "x": 350,
+            "x": 220,
             "y": 0
-          }
+          },
+          "frontPanel": true
         }
       ],
       "order": 3,
       "layout": {
-        "x": 375,
-        "y": 195,
-        "w": 410,
-        "h": 80
+        "x": 289,
+        "y": 170,
+        "w": 283,
+        "h": 78
       }
     },
     {
@@ -643,7 +637,8 @@
           "layout": {
             "x": 0,
             "y": 0
-          }
+          },
+          "frontPanel": true
         },
         {
           "id": "filterEnvVel",
@@ -656,9 +651,10 @@
           "default": 0,
           "type": "knob",
           "layout": {
-            "x": 50,
+            "x": 55,
             "y": 0
-          }
+          },
+          "frontPanel": true
         },
         {
           "id": "filterEnvDelay",
@@ -671,9 +667,10 @@
           "default": 0,
           "type": "knob",
           "layout": {
-            "x": 100,
+            "x": 110,
             "y": 0
-          }
+          },
+          "frontPanel": true
         },
         {
           "id": "filterEnvAttack",
@@ -686,9 +683,10 @@
           "default": 0,
           "type": "knob",
           "layout": {
-            "x": 150,
+            "x": 165,
             "y": 0
-          }
+          },
+          "frontPanel": true
         },
         {
           "id": "filterEnvDecay",
@@ -701,9 +699,10 @@
           "default": 64,
           "type": "knob",
           "layout": {
-            "x": 200,
+            "x": 220,
             "y": 0
-          }
+          },
+          "frontPanel": true
         },
         {
           "id": "filterEnvSustain",
@@ -716,9 +715,10 @@
           "default": 64,
           "type": "knob",
           "layout": {
-            "x": 250,
+            "x": 275,
             "y": 0
-          }
+          },
+          "frontPanel": true
         },
         {
           "id": "filterEnvRelease",
@@ -731,17 +731,18 @@
           "default": 64,
           "type": "knob",
           "layout": {
-            "x": 300,
+            "x": 330,
             "y": 0
-          }
+          },
+          "frontPanel": true
         }
       ],
       "order": 5,
       "layout": {
-        "x": 375,
-        "y": 280,
-        "w": 360,
-        "h": 80
+        "x": 578,
+        "y": 170,
+        "w": 393,
+        "h": 78
       }
     },
     {
@@ -761,7 +762,8 @@
           "layout": {
             "x": 0,
             "y": 0
-          }
+          },
+          "frontPanel": true
         },
         {
           "id": "voiceVolume",
@@ -774,9 +776,10 @@
           "default": 127,
           "type": "knob",
           "layout": {
-            "x": 50,
+            "x": 55,
             "y": 0
-          }
+          },
+          "frontPanel": true
         },
         {
           "id": "panSpread",
@@ -789,9 +792,10 @@
           "default": 0,
           "type": "knob",
           "layout": {
-            "x": 100,
+            "x": 110,
             "y": 0
-          }
+          },
+          "frontPanel": true
         },
         {
           "id": "panMode",
@@ -804,18 +808,15 @@
           "default": 0,
           "type": "selector",
           "values": "panMode",
-          "layout": {
-            "x": 150,
-            "y": 0
-          }
+          "frontPanel": false
         }
       ],
       "order": 6,
       "layout": {
-        "x": 740,
-        "y": 280,
-        "w": 210,
-        "h": 80
+        "x": 578,
+        "y": 252,
+        "w": 173,
+        "h": 78
       }
     },
     {
@@ -835,7 +836,8 @@
           "layout": {
             "x": 0,
             "y": 0
-          }
+          },
+          "frontPanel": true
         },
         {
           "id": "ampEnvVel",
@@ -848,9 +850,10 @@
           "default": 0,
           "type": "knob",
           "layout": {
-            "x": 50,
+            "x": 55,
             "y": 0
-          }
+          },
+          "frontPanel": true
         },
         {
           "id": "ampEnvDelay",
@@ -863,9 +866,10 @@
           "default": 0,
           "type": "knob",
           "layout": {
-            "x": 100,
+            "x": 110,
             "y": 0
-          }
+          },
+          "frontPanel": true
         },
         {
           "id": "ampEnvAttack",
@@ -878,9 +882,10 @@
           "default": 0,
           "type": "knob",
           "layout": {
-            "x": 150,
+            "x": 165,
             "y": 0
-          }
+          },
+          "frontPanel": true
         },
         {
           "id": "ampEnvDecay",
@@ -893,9 +898,10 @@
           "default": 64,
           "type": "knob",
           "layout": {
-            "x": 200,
+            "x": 220,
             "y": 0
-          }
+          },
+          "frontPanel": true
         },
         {
           "id": "ampEnvSustain",
@@ -908,9 +914,10 @@
           "default": 64,
           "type": "knob",
           "layout": {
-            "x": 250,
+            "x": 275,
             "y": 0
-          }
+          },
+          "frontPanel": true
         },
         {
           "id": "ampEnvRelease",
@@ -923,17 +930,18 @@
           "default": 64,
           "type": "knob",
           "layout": {
-            "x": 300,
+            "x": 330,
             "y": 0
-          }
+          },
+          "frontPanel": true
         }
       ],
       "order": 7,
       "layout": {
-        "x": 945,
-        "y": 280,
-        "w": 360,
-        "h": 80
+        "x": 751,
+        "y": 252,
+        "w": 393,
+        "h": 78
       }
     },
     {
@@ -954,7 +962,8 @@
           "layout": {
             "x": 0,
             "y": 0
-          }
+          },
+          "frontPanel": true
         },
         {
           "id": "env3Repeat",
@@ -967,9 +976,10 @@
           "default": 0,
           "type": "toggle",
           "layout": {
-            "x": 50,
+            "x": 55,
             "y": 0
-          }
+          },
+          "frontPanel": true
         },
         {
           "id": "env3Amt",
@@ -983,9 +993,10 @@
           "type": "knob",
           "description": "Bipolar: 0=-127, 127=0, 254=+127",
           "layout": {
-            "x": 100,
+            "x": 110,
             "y": 0
-          }
+          },
+          "frontPanel": true
         },
         {
           "id": "env3Vel",
@@ -998,9 +1009,10 @@
           "default": 0,
           "type": "knob",
           "layout": {
-            "x": 150,
+            "x": 165,
             "y": 0
-          }
+          },
+          "frontPanel": true
         },
         {
           "id": "env3Delay",
@@ -1013,9 +1025,10 @@
           "default": 0,
           "type": "knob",
           "layout": {
-            "x": 200,
+            "x": 220,
             "y": 0
-          }
+          },
+          "frontPanel": true
         },
         {
           "id": "env3Attack",
@@ -1028,9 +1041,10 @@
           "default": 0,
           "type": "knob",
           "layout": {
-            "x": 250,
+            "x": 275,
             "y": 0
-          }
+          },
+          "frontPanel": true
         },
         {
           "id": "env3Decay",
@@ -1043,9 +1057,10 @@
           "default": 64,
           "type": "knob",
           "layout": {
-            "x": 300,
+            "x": 330,
             "y": 0
-          }
+          },
+          "frontPanel": true
         },
         {
           "id": "env3Sustain",
@@ -1058,9 +1073,10 @@
           "default": 64,
           "type": "knob",
           "layout": {
-            "x": 0,
-            "y": 55
-          }
+            "x": 385,
+            "y": 0
+          },
+          "frontPanel": true
         },
         {
           "id": "env3Release",
@@ -1073,17 +1089,18 @@
           "default": 64,
           "type": "knob",
           "layout": {
-            "x": 50,
-            "y": 55
-          }
+            "x": 440,
+            "y": 0
+          },
+          "frontPanel": true
         }
       ],
       "order": 8,
       "layout": {
-        "x": 625,
-        "y": 95,
-        "w": 360,
-        "h": 131
+        "x": 358,
+        "y": 82,
+        "w": 503,
+        "h": 78
       }
     },
     {
@@ -1103,7 +1120,8 @@
           "layout": {
             "x": 0,
             "y": 0
-          }
+          },
+          "frontPanel": true
         },
         {
           "id": "lfo1Shape",
@@ -1117,9 +1135,10 @@
           "type": "selector",
           "values": "lfoShape",
           "layout": {
-            "x": 50,
+            "x": 55,
             "y": 0
-          }
+          },
+          "frontPanel": true
         },
         {
           "id": "lfo1Amt",
@@ -1132,9 +1151,10 @@
           "default": 0,
           "type": "knob",
           "layout": {
-            "x": 100,
+            "x": 110,
             "y": 0
-          }
+          },
+          "frontPanel": true
         },
         {
           "id": "lfo1Dest",
@@ -1147,10 +1167,7 @@
           "default": 0,
           "type": "selector",
           "values": "modDest",
-          "layout": {
-            "x": 0,
-            "y": 55
-          }
+          "frontPanel": false
         },
         {
           "id": "lfo1ClockSync",
@@ -1162,10 +1179,7 @@
           "max": 1,
           "default": 0,
           "type": "toggle",
-          "layout": {
-            "x": 50,
-            "y": 55
-          }
+          "frontPanel": false
         },
         {
           "id": "lfo1KeySync",
@@ -1177,18 +1191,15 @@
           "max": 1,
           "default": 0,
           "type": "toggle",
-          "layout": {
-            "x": 100,
-            "y": 55
-          }
+          "frontPanel": false
         }
       ],
       "order": 9,
       "layout": {
-        "x": 10,
-        "y": 10,
-        "w": 160,
-        "h": 131
+        "x": 0,
+        "y": 0,
+        "w": 173,
+        "h": 78
       }
     },
     {
@@ -1208,7 +1219,8 @@
           "layout": {
             "x": 0,
             "y": 0
-          }
+          },
+          "frontPanel": true
         },
         {
           "id": "lfo2Shape",
@@ -1222,9 +1234,10 @@
           "type": "selector",
           "values": "lfoShape",
           "layout": {
-            "x": 50,
+            "x": 55,
             "y": 0
-          }
+          },
+          "frontPanel": true
         },
         {
           "id": "lfo2Amt",
@@ -1237,9 +1250,10 @@
           "default": 0,
           "type": "knob",
           "layout": {
-            "x": 100,
+            "x": 110,
             "y": 0
-          }
+          },
+          "frontPanel": true
         },
         {
           "id": "lfo2Dest",
@@ -1252,10 +1266,7 @@
           "default": 0,
           "type": "selector",
           "values": "modDest",
-          "layout": {
-            "x": 0,
-            "y": 55
-          }
+          "frontPanel": false
         },
         {
           "id": "lfo2ClockSync",
@@ -1267,10 +1278,7 @@
           "max": 1,
           "default": 0,
           "type": "toggle",
-          "layout": {
-            "x": 50,
-            "y": 55
-          }
+          "frontPanel": false
         },
         {
           "id": "lfo2KeySync",
@@ -1282,18 +1290,15 @@
           "max": 1,
           "default": 0,
           "type": "toggle",
-          "layout": {
-            "x": 100,
-            "y": 55
-          }
+          "frontPanel": false
         }
       ],
       "order": 10,
       "layout": {
-        "x": 10,
-        "y": 95,
-        "w": 160,
-        "h": 131
+        "x": 0,
+        "y": 82,
+        "w": 173,
+        "h": 78
       }
     },
     {
@@ -1313,7 +1318,8 @@
           "layout": {
             "x": 0,
             "y": 0
-          }
+          },
+          "frontPanel": true
         },
         {
           "id": "lfo3Shape",
@@ -1327,9 +1333,10 @@
           "type": "selector",
           "values": "lfoShape",
           "layout": {
-            "x": 50,
+            "x": 55,
             "y": 0
-          }
+          },
+          "frontPanel": true
         },
         {
           "id": "lfo3Amt",
@@ -1342,9 +1349,10 @@
           "default": 0,
           "type": "knob",
           "layout": {
-            "x": 100,
+            "x": 110,
             "y": 0
-          }
+          },
+          "frontPanel": true
         },
         {
           "id": "lfo3Dest",
@@ -1357,10 +1365,7 @@
           "default": 0,
           "type": "selector",
           "values": "modDest",
-          "layout": {
-            "x": 0,
-            "y": 55
-          }
+          "frontPanel": false
         },
         {
           "id": "lfo3ClockSync",
@@ -1372,10 +1377,7 @@
           "max": 1,
           "default": 0,
           "type": "toggle",
-          "layout": {
-            "x": 50,
-            "y": 55
-          }
+          "frontPanel": false
         },
         {
           "id": "lfo3KeySync",
@@ -1387,18 +1389,15 @@
           "max": 1,
           "default": 0,
           "type": "toggle",
-          "layout": {
-            "x": 100,
-            "y": 55
-          }
+          "frontPanel": false
         }
       ],
       "order": 11,
       "layout": {
-        "x": 175,
-        "y": 10,
-        "w": 160,
-        "h": 131
+        "x": 179,
+        "y": 0,
+        "w": 173,
+        "h": 78
       }
     },
     {
@@ -1418,7 +1417,8 @@
           "layout": {
             "x": 0,
             "y": 0
-          }
+          },
+          "frontPanel": true
         },
         {
           "id": "lfo4Shape",
@@ -1432,9 +1432,10 @@
           "type": "selector",
           "values": "lfoShape",
           "layout": {
-            "x": 50,
+            "x": 55,
             "y": 0
-          }
+          },
+          "frontPanel": true
         },
         {
           "id": "lfo4Amt",
@@ -1447,9 +1448,10 @@
           "default": 0,
           "type": "knob",
           "layout": {
-            "x": 100,
+            "x": 110,
             "y": 0
-          }
+          },
+          "frontPanel": true
         },
         {
           "id": "lfo4Dest",
@@ -1462,10 +1464,7 @@
           "default": 0,
           "type": "selector",
           "values": "modDest",
-          "layout": {
-            "x": 0,
-            "y": 55
-          }
+          "frontPanel": false
         },
         {
           "id": "lfo4ClockSync",
@@ -1477,10 +1476,7 @@
           "max": 1,
           "default": 0,
           "type": "toggle",
-          "layout": {
-            "x": 50,
-            "y": 55
-          }
+          "frontPanel": false
         },
         {
           "id": "lfo4KeySync",
@@ -1492,18 +1488,15 @@
           "max": 1,
           "default": 0,
           "type": "toggle",
-          "layout": {
-            "x": 100,
-            "y": 55
-          }
+          "frontPanel": false
         }
       ],
       "order": 12,
       "layout": {
-        "x": 175,
-        "y": 95,
-        "w": 160,
-        "h": 131
+        "x": 179,
+        "y": 82,
+        "w": 173,
+        "h": 78
       }
     },
     {
@@ -1538,7 +1531,7 @@
           "type": "knob",
           "description": "Bipolar: 0=-127, 127=0, 254=+127",
           "layout": {
-            "x": 50,
+            "x": 52,
             "y": 0
           }
         },
@@ -1554,7 +1547,7 @@
           "type": "selector",
           "values": "modDest",
           "layout": {
-            "x": 100,
+            "x": 104,
             "y": 0
           }
         },
@@ -1570,8 +1563,8 @@
           "type": "selector",
           "values": "modSource",
           "layout": {
-            "x": 0,
-            "y": 55
+            "x": 156,
+            "y": 0
           }
         },
         {
@@ -1586,7 +1579,7 @@
           "type": "knob",
           "description": "Bipolar: 0=-127, 127=0, 254=+127",
           "layout": {
-            "x": 50,
+            "x": 0,
             "y": 55
           }
         },
@@ -1602,7 +1595,7 @@
           "type": "selector",
           "values": "modDest",
           "layout": {
-            "x": 100,
+            "x": 52,
             "y": 55
           }
         },
@@ -1618,8 +1611,8 @@
           "type": "selector",
           "values": "modSource",
           "layout": {
-            "x": 0,
-            "y": 110
+            "x": 104,
+            "y": 55
           }
         },
         {
@@ -1634,8 +1627,8 @@
           "type": "knob",
           "description": "Bipolar: 0=-127, 127=0, 254=+127",
           "layout": {
-            "x": 50,
-            "y": 110
+            "x": 156,
+            "y": 55
           }
         },
         {
@@ -1650,7 +1643,7 @@
           "type": "selector",
           "values": "modDest",
           "layout": {
-            "x": 100,
+            "x": 0,
             "y": 110
           }
         },
@@ -1666,8 +1659,8 @@
           "type": "selector",
           "values": "modSource",
           "layout": {
-            "x": 0,
-            "y": 165
+            "x": 52,
+            "y": 110
           }
         },
         {
@@ -1682,8 +1675,8 @@
           "type": "knob",
           "description": "Bipolar: 0=-127, 127=0, 254=+127",
           "layout": {
-            "x": 50,
-            "y": 165
+            "x": 104,
+            "y": 110
           }
         },
         {
@@ -1698,8 +1691,8 @@
           "type": "selector",
           "values": "modDest",
           "layout": {
-            "x": 100,
-            "y": 165
+            "x": 156,
+            "y": 110
           }
         },
         {
@@ -1715,7 +1708,7 @@
           "values": "modSource",
           "layout": {
             "x": 0,
-            "y": 220
+            "y": 165
           }
         },
         {
@@ -1730,8 +1723,8 @@
           "type": "knob",
           "description": "Bipolar: 0=-127, 127=0, 254=+127",
           "layout": {
-            "x": 50,
-            "y": 220
+            "x": 52,
+            "y": 165
           }
         },
         {
@@ -1746,8 +1739,8 @@
           "type": "selector",
           "values": "modDest",
           "layout": {
-            "x": 100,
-            "y": 220
+            "x": 104,
+            "y": 165
           }
         },
         {
@@ -1762,8 +1755,8 @@
           "type": "selector",
           "values": "modSource",
           "layout": {
-            "x": 0,
-            "y": 275
+            "x": 156,
+            "y": 165
           }
         },
         {
@@ -1778,8 +1771,8 @@
           "type": "knob",
           "description": "Bipolar: 0=-127, 127=0, 254=+127",
           "layout": {
-            "x": 50,
-            "y": 275
+            "x": 0,
+            "y": 220
           }
         },
         {
@@ -1794,8 +1787,8 @@
           "type": "selector",
           "values": "modDest",
           "layout": {
-            "x": 100,
-            "y": 275
+            "x": 52,
+            "y": 220
           }
         },
         {
@@ -1810,8 +1803,8 @@
           "type": "selector",
           "values": "modSource",
           "layout": {
-            "x": 0,
-            "y": 330
+            "x": 104,
+            "y": 220
           }
         },
         {
@@ -1826,8 +1819,8 @@
           "type": "knob",
           "description": "Bipolar: 0=-127, 127=0, 254=+127",
           "layout": {
-            "x": 50,
-            "y": 330
+            "x": 156,
+            "y": 220
           }
         },
         {
@@ -1842,8 +1835,8 @@
           "type": "selector",
           "values": "modDest",
           "layout": {
-            "x": 100,
-            "y": 330
+            "x": 0,
+            "y": 275
           }
         },
         {
@@ -1858,8 +1851,8 @@
           "type": "selector",
           "values": "modSource",
           "layout": {
-            "x": 0,
-            "y": 385
+            "x": 52,
+            "y": 275
           }
         },
         {
@@ -1874,8 +1867,8 @@
           "type": "knob",
           "description": "Bipolar: 0=-127, 127=0, 254=+127",
           "layout": {
-            "x": 50,
-            "y": 385
+            "x": 104,
+            "y": 275
           }
         },
         {
@@ -1890,18 +1883,12 @@
           "type": "selector",
           "values": "modDest",
           "layout": {
-            "x": 100,
-            "y": 385
+            "x": 156,
+            "y": 275
           }
         }
       ],
-      "order": 13,
-      "layout": {
-        "x": 340,
-        "y": 10,
-        "w": 160,
-        "h": 461
-      }
+      "order": 13
     },
     {
       "id": "extMod",
@@ -1935,7 +1922,7 @@
           "type": "selector",
           "values": "modDest",
           "layout": {
-            "x": 50,
+            "x": 52,
             "y": 0
           }
         },
@@ -1967,7 +1954,7 @@
           "type": "selector",
           "values": "modDest",
           "layout": {
-            "x": 50,
+            "x": 52,
             "y": 55
           }
         },
@@ -1999,7 +1986,7 @@
           "type": "selector",
           "values": "modDest",
           "layout": {
-            "x": 50,
+            "x": 52,
             "y": 110
           }
         },
@@ -2031,7 +2018,7 @@
           "type": "selector",
           "values": "modDest",
           "layout": {
-            "x": 50,
+            "x": 52,
             "y": 165
           }
         },
@@ -2063,18 +2050,12 @@
           "type": "selector",
           "values": "modDest",
           "layout": {
-            "x": 50,
+            "x": 52,
             "y": 220
           }
         }
       ],
-      "order": 14,
-      "layout": {
-        "x": 510,
-        "y": 10,
-        "w": 110,
-        "h": 296
-      }
+      "order": 14
     },
     {
       "id": "fx",
@@ -2170,7 +2151,8 @@
           "layout": {
             "x": 0,
             "y": 0
-          }
+          },
+          "frontPanel": true
         },
         {
           "id": "unisonOnOff",
@@ -2183,9 +2165,10 @@
           "default": 0,
           "type": "toggle",
           "layout": {
-            "x": 50,
+            "x": 55,
             "y": 0
-          }
+          },
+          "frontPanel": true
         },
         {
           "id": "unisonMode",
@@ -2199,9 +2182,10 @@
           "type": "knob",
           "description": "0=Chord, 1-16 = number of voices",
           "layout": {
-            "x": 100,
+            "x": 110,
             "y": 0
-          }
+          },
+          "frontPanel": true
         },
         {
           "id": "unisonDetune",
@@ -2214,17 +2198,18 @@
           "default": 8,
           "type": "knob",
           "layout": {
-            "x": 150,
+            "x": 165,
             "y": 0
-          }
+          },
+          "frontPanel": true
         }
       ],
       "order": 16,
       "layout": {
-        "x": 10,
-        "y": 375,
-        "w": 210,
-        "h": 70
+        "x": 0,
+        "y": 340,
+        "w": 228,
+        "h": 78
       }
     },
     {
@@ -2244,7 +2229,8 @@
           "layout": {
             "x": 0,
             "y": 0
-          }
+          },
+          "frontPanel": true
         },
         {
           "id": "clockDivide",
@@ -2258,17 +2244,18 @@
           "type": "selector",
           "values": "clockDivide",
           "layout": {
-            "x": 50,
+            "x": 55,
             "y": 0
-          }
+          },
+          "frontPanel": true
         }
       ],
       "order": 17,
       "layout": {
-        "x": 220,
-        "y": 375,
-        "w": 110,
-        "h": 70
+        "x": 234,
+        "y": 340,
+        "w": 118,
+        "h": 78
       }
     },
     {
@@ -2997,9 +2984,8 @@
     }
   },
   "layout": {
-    "width": 1600,
-    "height": 460,
-    "accentColor": "#E53935",
-    "controlSize": 50
+    "width": 1800,
+    "height": 440,
+    "accentColor": "#E53935"
   }
 }
