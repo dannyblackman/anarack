@@ -57,6 +57,18 @@ AnarackEditor::AnarackEditor(AnarackProcessor& p)
         {
             processor.clearLearn();
         })
+        // Encoder sensitivity
+        .withEventListener("setSensitivity", [this](const juce::var& payload)
+        {
+            int val = (int)payload.getProperty("value", 3);
+            processor.encoderSensitivity.store(juce::jlimit(1, 10, val));
+        })
+        // Open direct MIDI input device
+        .withEventListener("openMidiInput", [this](const juce::var& payload)
+        {
+            auto name = payload.getProperty("name", "").toString();
+            processor.openDirectMidiInput(name);
+        })
         // Ping button
         .withEventListener("doPing", [this](const juce::var&)
         {
@@ -105,6 +117,11 @@ AnarackEditor::AnarackEditor(AnarackProcessor& p)
             auto obj = juce::DynamicObject::Ptr(new juce::DynamicObject());
             obj->setProperty("host", processor.serverHost);
             obj->setProperty("lan", !processor.useWireGuard);
+            // Send available MIDI input devices
+            juce::Array<juce::var> devs;
+            for (auto& name : processor.getAvailableMidiInputs())
+                devs.add(name);
+            obj->setProperty("midiInputs", devs);
             webView->emitEventIfBrowserIsVisible("initConfig", juce::var(obj.get()));
         }
     });

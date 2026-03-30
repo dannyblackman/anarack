@@ -347,6 +347,17 @@
           <input class="conn-input" type="text" id="server-host" value="play.anarack.com" style="width:170px">
         </div>
         <div class="conn-group">
+          <span class="conn-label">Controller</span>
+          <select class="conn-select" id="midi-input" style="min-width:200px" onchange="onMidiInputChange()">
+            <option value="">None (use DAW routing)</option>
+          </select>
+        </div>
+        <div class="conn-group">
+          <span class="conn-label">Sensitivity</span>
+          <input type="range" id="sensitivity" min="1" max="10" value="3" style="width:100px;accent-color:#E8A849;" oninput="onSensitivityChange()">
+          <span id="sensitivity-val" style="font-size:9px;color:rgba(255,255,255,0.4);min-width:16px;">3</span>
+        </div>
+        <div class="conn-group">
           <label style="display:flex;align-items:center;gap:4px;cursor:pointer;">
             <input type="checkbox" id="lan-mode" style="accent-color:#E8A849;">
             <span style="font-size:8px;color:rgba(255,255,255,0.3);text-transform:uppercase;letter-spacing:1px;">LAN mode (direct connection, no WireGuard)</span>
@@ -475,6 +486,7 @@ function registerCC(cc, ctrl) { if (cc >= 0) ccRegistry[cc] = ctrl; }
 // Listen for param updates pushed from C++ (e.g. controller knobs, program change)
 if (_juce) {
   _juce.addEventListener("paramUpdate", (e) => {
+    log('paramUpdate cc=' + e.cc + ' val=' + e.value + ' reg=' + !!ccRegistry[e.cc]);
     const ctrl = ccRegistry[e.cc];
     if (ctrl) {
       // Scale from 0-127 CC range back to native range if needed
@@ -497,6 +509,18 @@ log('Ready');
 
 // ── Connection controls ──
 let _connected = false;
+
+function onSensitivityChange() {
+  const val = document.getElementById('sensitivity').value;
+  document.getElementById('sensitivity-val').textContent = val;
+  if (_juce) _juce.emitEvent("setSensitivity", { value: parseInt(val) });
+}
+
+function onMidiInputChange() {
+  const name = document.getElementById('midi-input').value;
+  if (_juce) _juce.emitEvent("openMidiInput", { name });
+  log(name ? 'Opened direct MIDI: ' + name : 'Using DAW MIDI routing');
+}
 
 function toggleAdvanced() {
   const panel = document.getElementById('advanced-panel');
@@ -581,6 +605,18 @@ if (_juce) {
   _juce.addEventListener("initConfig", (e) => {
     if (e.host) document.getElementById('server-host').value = e.host;
     if (e.lan !== undefined) document.getElementById('lan-mode').checked = !!e.lan;
+    // Populate MIDI input dropdown
+    if (e.midiInputs) {
+      const sel = document.getElementById('midi-input');
+      e.midiInputs.forEach(name => {
+        const opt = document.createElement('option');
+        opt.value = name; opt.textContent = name;
+        sel.appendChild(opt);
+      });
+      // Auto-select LaunchKey if found
+      const lk = e.midiInputs.find(n => n.toLowerCase().includes('launchkey'));
+      if (lk) { sel.value = lk; onMidiInputChange(); }
+    }
   });
   _juce.addEventListener("logMessage", (e) => {
     if (e.msg) log(e.msg);

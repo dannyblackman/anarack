@@ -8,11 +8,102 @@ AnarackProcessor::AnarackProcessor()
 {
     std::fill(std::begin(ccMap), std::end(ccMap), -1);
     std::fill(std::begin(ccValues), std::end(ccValues), 0);
+    std::fill(std::begin(lastRawVal), std::end(lastRawVal), -1);
 }
 
 AnarackProcessor::~AnarackProcessor()
 {
+    if (directMidiInput) directMidiInput->stop();
     transport.disconnect();
+}
+
+juce::StringArray AnarackProcessor::getAvailableMidiInputs() const
+{
+    juce::StringArray names;
+    for (auto& dev : juce::MidiInput::getAvailableDevices())
+        names.add(dev.name);
+    return names;
+}
+
+void AnarackProcessor::openDirectMidiInput(const juce::String& name)
+{
+    if (directMidiInput) { directMidiInput->stop(); directMidiInput.reset(); }
+    if (name.isEmpty()) return;
+    for (auto& dev : juce::MidiInput::getAvailableDevices())
+    {
+        if (dev.name == name)
+        {
+            directMidiInput = juce::MidiInput::openDevice(dev.identifier, this);
+            if (directMidiInput) directMidiInput->start();
+            return;
+        }
+    }
+}
+
+void AnarackProcessor::handleIncomingMidiMessage(juce::MidiInput*, const juce::MidiMessage& msg)
+{
+    // This runs on the MIDI input thread — same handling as processBlock
+    midiInCount.fetch_add(1, std::memory_order_relaxed);
+
+    if (msg.isController())
+    {
+        int inCC = msg.getControllerNumber();
+        int val = msg.getControllerValue();
+
+        // MIDI Learn
+        int target = learnTargetCC.load();
+        if (target >= 0)
+        {
+            for (int i = 0; i < 128; i++)
+                if (ccMap[i] == target) ccMap[i] = -1;
+            ccMap[inCC] = target;
+            lastLearnedFrom.store(inCC);
+            lastLearnedTo.store(target);
+            learnTargetCC.store(-1);
+            return;
+        }
+
+        // Apply CC mapping with relative support
+        int synthCC = ccMap[inCC];
+        if (synthCC >= 0)
+        {
+            int absVal;
+            lastRawVal[inCC]++;
+
+            if (val == 0 || val == 127)
+            {
+                if (lastRawVal[inCC] % 2 != 0) return;
+                int dir = (val == 127) ? 1 : -1;
+                absVal = juce::jlimit(0, 127, ccValues[synthCC] + dir);
+            }
+            else if (val >= 57 && val <= 71 && val != 64)
+            {
+                int delta = (val - 64) * encoderSensitivity.load(std::memory_order_relaxed);
+                absVal = juce::jlimit(0, 127, ccValues[synthCC] + delta);
+            }
+            else if (val == 64)
+            {
+                return;
+            }
+            else
+            {
+                absVal = val;
+            }
+
+            ccValues[synthCC] = absVal;
+            const uint8_t mapped[3] = { 0xB0, (uint8_t)synthCC, (uint8_t)absVal };
+            transport.sendMidi(mapped, 3);
+            mappedSendCount.fetch_add(1, std::memory_order_relaxed);
+
+            int w = ccRingWrite.load(std::memory_order_relaxed);
+            ccRing[w % CC_RING_SIZE] = { (uint8_t)synthCC, (uint8_t)absVal };
+            ccRingWrite.store(w + 1, std::memory_order_release);
+            return;
+        }
+    }
+
+    // Forward unmapped (notes etc) to transport
+    transport.sendMidi(msg.getRawData(), msg.getRawDataSize());
 }
 
 void AnarackProcessor::prepareToPlay(double sampleRate, int samplesPerBlock)
@@ -72,22 +163,29 @@ void AnarackProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::Midi
             if (synthCC >= 0)
             {
                 int absVal;
-                // Match browser client logic exactly:
-                // Values 57-71 (excluding 64) = relative offset from 64
-                // Values 0 or 127 = ignore (LaunchKey toggle noise)
-                // Everything else = absolute
-                if (val != 0 && val != 127 && val >= 57 && val <= 71 && val != 64)
+                lastRawVal[inCC]++;
+
+                // LaunchKey sends alternating 0/127 per encoder tick.
+                // Process only every OTHER message (skip the second of each pair).
+                // For other values, use offset-binary relative or absolute.
+                if (val == 0 || val == 127)
                 {
-                    int offset = val - 64; // e.g. 65=+1, 63=-1
-                    absVal = juce::jlimit(0, 127, ccValues[synthCC] + offset);
+                    if (lastRawVal[inCC] % 2 != 0) continue; // skip every other 0/127
+                    // Direction: 127 = increment, 0 = decrement
+                    int dir = (val == 0) ? 1 : -1;
+                    absVal = juce::jlimit(0, 127, ccValues[synthCC] + dir);
                 }
-                else if (val == 0 || val == 127)
+                else if (val >= 57 && val <= 71 && val != 64)
                 {
-                    continue; // drop toggle noise
+                    absVal = juce::jlimit(0, 127, ccValues[synthCC] + (val - 64));
+                }
+                else if (val == 64)
+                {
+                    continue;
                 }
                 else
                 {
-                    absVal = val; // absolute from normal controllers
+                    absVal = val;
                 }
 
                 ccValues[synthCC] = absVal;

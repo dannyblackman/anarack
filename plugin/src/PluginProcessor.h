@@ -1,10 +1,11 @@
 #pragma once
 #include <juce_audio_processors/juce_audio_processors.h>
 #include <juce_audio_basics/juce_audio_basics.h>
+#include <juce_audio_devices/juce_audio_devices.h>
 #include "AudioRingBuffer.h"
 #include "NetworkTransport.h"
 
-class AnarackProcessor : public juce::AudioProcessor
+class AnarackProcessor : public juce::AudioProcessor, private juce::MidiInputCallback
 {
 public:
     AnarackProcessor();
@@ -51,6 +52,14 @@ public:
     std::atomic<int> ccRingRead { 0 };
     int ccMap[128];                               // ccMap[controllerCC] = synthCC, -1 = unmapped
     int ccValues[128];                            // current value per synth CC (for relative mode)
+    int lastRawVal[128];                          // last raw value per controller CC (for 0/127 direction detection)
+    std::atomic<int> encoderSensitivity { 3 };    // multiplier for relative encoder ticks
+
+    // Direct MIDI input (bypasses DAW routing for proper encoder support)
+    std::unique_ptr<juce::MidiInput> directMidiInput;
+    void handleIncomingMidiMessage(juce::MidiInput* source, const juce::MidiMessage& msg) override;
+    juce::StringArray getAvailableMidiInputs() const;
+    void openDirectMidiInput(const juce::String& name);
     void startLearn(int synthCC) { learnTargetCC.store(synthCC); }
     void clearLearn() { learnTargetCC.store(-1); }
     void clearMapping(int controllerCC) { if (controllerCC >= 0 && controllerCC < 128) ccMap[controllerCC] = -1; }
