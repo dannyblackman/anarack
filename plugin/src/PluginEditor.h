@@ -38,6 +38,7 @@ public:
     void setParamValue(int cc, int value);
 
     juce::Colour accentColour { 0xff6366f1 }; // default indigo, overridden per synth
+    int panelNativeWidth = 1600; // native coordinate space width
 
 private:
     juce::OwnedArray<SynthGroup> groups;

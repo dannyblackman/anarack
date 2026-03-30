@@ -217,7 +217,7 @@
           "type": "knob",
           "description": "Fine tuning, 50 = center",
           "layout": {
-            "x": 62,
+            "x": 50,
             "y": 0
           }
         },
@@ -233,7 +233,7 @@
           "type": "selector",
           "values": "oscShape",
           "layout": {
-            "x": 124,
+            "x": 100,
             "y": 0
           }
         },
@@ -248,7 +248,7 @@
           "default": 50,
           "type": "knob",
           "layout": {
-            "x": 186,
+            "x": 150,
             "y": 0
           }
         },
@@ -263,7 +263,7 @@
           "default": 0,
           "type": "knob",
           "layout": {
-            "x": 248,
+            "x": 200,
             "y": 0
           }
         },
@@ -278,7 +278,7 @@
           "default": 1,
           "type": "toggle",
           "layout": {
-            "x": 310,
+            "x": 250,
             "y": 0
           }
         },
@@ -293,7 +293,7 @@
           "default": 0,
           "type": "toggle",
           "layout": {
-            "x": 372,
+            "x": 300,
             "y": 0
           }
         }
@@ -301,9 +301,9 @@
       "order": 1,
       "layout": {
         "x": 10,
-        "y": 210,
-        "w": 280,
-        "h": 90
+        "y": 195,
+        "w": 360,
+        "h": 80
       }
     },
     {
@@ -338,7 +338,7 @@
           "type": "knob",
           "description": "Fine tuning, 50 = center",
           "layout": {
-            "x": 62,
+            "x": 50,
             "y": 0
           }
         },
@@ -354,7 +354,7 @@
           "type": "selector",
           "values": "oscShape",
           "layout": {
-            "x": 124,
+            "x": 100,
             "y": 0
           }
         },
@@ -369,7 +369,7 @@
           "default": 50,
           "type": "knob",
           "layout": {
-            "x": 186,
+            "x": 150,
             "y": 0
           }
         },
@@ -384,7 +384,7 @@
           "default": 0,
           "type": "knob",
           "layout": {
-            "x": 248,
+            "x": 200,
             "y": 0
           }
         },
@@ -399,7 +399,7 @@
           "default": 1,
           "type": "toggle",
           "layout": {
-            "x": 310,
+            "x": 250,
             "y": 0
           }
         },
@@ -414,7 +414,7 @@
           "default": 0,
           "type": "toggle",
           "layout": {
-            "x": 372,
+            "x": 300,
             "y": 0
           }
         }
@@ -422,9 +422,9 @@
       "order": 2,
       "layout": {
         "x": 10,
-        "y": 305,
-        "w": 280,
-        "h": 90
+        "y": 280,
+        "w": 360,
+        "h": 80
       }
     },
     {
@@ -458,7 +458,7 @@
           "default": 0,
           "type": "knob",
           "layout": {
-            "x": 62,
+            "x": 50,
             "y": 0
           }
         },
@@ -473,7 +473,7 @@
           "default": 0,
           "type": "knob",
           "layout": {
-            "x": 124,
+            "x": 100,
             "y": 0
           }
         },
@@ -488,7 +488,7 @@
           "default": 0,
           "type": "toggle",
           "layout": {
-            "x": 186,
+            "x": 150,
             "y": 0
           }
         },
@@ -504,7 +504,7 @@
           "type": "selector",
           "values": "glideMode",
           "layout": {
-            "x": 248,
+            "x": 200,
             "y": 0
           }
         },
@@ -519,7 +519,7 @@
           "default": 0,
           "type": "toggle",
           "layout": {
-            "x": 310,
+            "x": 250,
             "y": 0
           }
         },
@@ -534,7 +534,7 @@
           "default": 2,
           "type": "knob",
           "layout": {
-            "x": 372,
+            "x": 300,
             "y": 0
           }
         },
@@ -549,17 +549,17 @@
           "default": 0,
           "type": "knob",
           "layout": {
-            "x": 434,
+            "x": 350,
             "y": 0
           }
         }
       ],
       "order": 3,
       "layout": {
-        "x": 295,
-        "y": 210,
-        "w": 190,
-        "h": 185
+        "x": 375,
+        "y": 195,
+        "w": 410,
+        "h": 80
       }
     },
     {
@@ -656,7 +656,7 @@
           "default": 0,
           "type": "knob",
           "layout": {
-            "x": 62,
+            "x": 50,
             "y": 0
           }
         },
@@ -671,7 +671,7 @@
           "default": 0,
           "type": "knob",
           "layout": {
-            "x": 124,
+            "x": 100,
             "y": 0
           }
         },
@@ -686,7 +686,7 @@
           "default": 0,
           "type": "knob",
           "layout": {
-            "x": 186,
+            "x": 150,
             "y": 0
           }
         },
@@ -701,7 +701,7 @@
           "default": 64,
           "type": "knob",
           "layout": {
-            "x": 248,
+            "x": 200,
             "y": 0
           }
         },
@@ -716,7 +716,7 @@
           "default": 64,
           "type": "knob",
           "layout": {
-            "x": 310,
+            "x": 250,
             "y": 0
           }
         },
@@ -731,17 +731,17 @@
           "default": 64,
           "type": "knob",
           "layout": {
-            "x": 372,
+            "x": 300,
             "y": 0
           }
         }
       ],
       "order": 5,
       "layout": {
-        "x": 715,
-        "y": 210,
-        "w": 215,
-        "h": 185
+        "x": 375,
+        "y": 280,
+        "w": 360,
+        "h": 80
       }
     },
     {
@@ -774,7 +774,7 @@
           "default": 127,
           "type": "knob",
           "layout": {
-            "x": 62,
+            "x": 50,
             "y": 0
           }
         },
@@ -789,7 +789,7 @@
           "default": 0,
           "type": "knob",
           "layout": {
-            "x": 124,
+            "x": 100,
             "y": 0
           }
         },
@@ -805,17 +805,17 @@
           "type": "selector",
           "values": "panMode",
           "layout": {
-            "x": 186,
+            "x": 150,
             "y": 0
           }
         }
       ],
       "order": 6,
       "layout": {
-        "x": 935,
-        "y": 210,
-        "w": 150,
-        "h": 185
+        "x": 740,
+        "y": 280,
+        "w": 210,
+        "h": 80
       }
     },
     {
@@ -848,7 +848,7 @@
           "default": 0,
           "type": "knob",
           "layout": {
-            "x": 62,
+            "x": 50,
             "y": 0
           }
         },
@@ -863,7 +863,7 @@
           "default": 0,
           "type": "knob",
           "layout": {
-            "x": 124,
+            "x": 100,
             "y": 0
           }
         },
@@ -878,7 +878,7 @@
           "default": 0,
           "type": "knob",
           "layout": {
-            "x": 186,
+            "x": 150,
             "y": 0
           }
         },
@@ -893,7 +893,7 @@
           "default": 64,
           "type": "knob",
           "layout": {
-            "x": 248,
+            "x": 200,
             "y": 0
           }
         },
@@ -908,7 +908,7 @@
           "default": 64,
           "type": "knob",
           "layout": {
-            "x": 310,
+            "x": 250,
             "y": 0
           }
         },
@@ -923,17 +923,17 @@
           "default": 64,
           "type": "knob",
           "layout": {
-            "x": 372,
+            "x": 300,
             "y": 0
           }
         }
       ],
       "order": 7,
       "layout": {
-        "x": 1090,
-        "y": 210,
-        "w": 215,
-        "h": 185
+        "x": 945,
+        "y": 280,
+        "w": 360,
+        "h": 80
       }
     },
     {
@@ -967,7 +967,7 @@
           "default": 0,
           "type": "toggle",
           "layout": {
-            "x": 62,
+            "x": 50,
             "y": 0
           }
         },
@@ -983,7 +983,7 @@
           "type": "knob",
           "description": "Bipolar: 0=-127, 127=0, 254=+127",
           "layout": {
-            "x": 124,
+            "x": 100,
             "y": 0
           }
         },
@@ -998,7 +998,7 @@
           "default": 0,
           "type": "knob",
           "layout": {
-            "x": 186,
+            "x": 150,
             "y": 0
           }
         },
@@ -1013,7 +1013,7 @@
           "default": 0,
           "type": "knob",
           "layout": {
-            "x": 248,
+            "x": 200,
             "y": 0
           }
         },
@@ -1028,7 +1028,7 @@
           "default": 0,
           "type": "knob",
           "layout": {
-            "x": 310,
+            "x": 250,
             "y": 0
           }
         },
@@ -1043,7 +1043,7 @@
           "default": 64,
           "type": "knob",
           "layout": {
-            "x": 372,
+            "x": 300,
             "y": 0
           }
         },
@@ -1058,8 +1058,8 @@
           "default": 64,
           "type": "knob",
           "layout": {
-            "x": 434,
-            "y": 0
+            "x": 0,
+            "y": 55
           }
         },
         {
@@ -1073,17 +1073,17 @@
           "default": 64,
           "type": "knob",
           "layout": {
-            "x": 496,
-            "y": 0
+            "x": 50,
+            "y": 55
           }
         }
       ],
       "order": 8,
       "layout": {
-        "x": 1175,
-        "y": 10,
-        "w": 215,
-        "h": 185
+        "x": 625,
+        "y": 95,
+        "w": 360,
+        "h": 131
       }
     },
     {
@@ -1117,7 +1117,7 @@
           "type": "selector",
           "values": "lfoShape",
           "layout": {
-            "x": 62,
+            "x": 50,
             "y": 0
           }
         },
@@ -1132,7 +1132,7 @@
           "default": 0,
           "type": "knob",
           "layout": {
-            "x": 124,
+            "x": 100,
             "y": 0
           }
         },
@@ -1148,8 +1148,8 @@
           "type": "selector",
           "values": "modDest",
           "layout": {
-            "x": 186,
-            "y": 0
+            "x": 0,
+            "y": 55
           }
         },
         {
@@ -1163,8 +1163,8 @@
           "default": 0,
           "type": "toggle",
           "layout": {
-            "x": 248,
-            "y": 0
+            "x": 50,
+            "y": 55
           }
         },
         {
@@ -1178,8 +1178,8 @@
           "default": 0,
           "type": "toggle",
           "layout": {
-            "x": 310,
-            "y": 0
+            "x": 100,
+            "y": 55
           }
         }
       ],
@@ -1187,8 +1187,8 @@
       "layout": {
         "x": 10,
         "y": 10,
-        "w": 190,
-        "h": 90
+        "w": 160,
+        "h": 131
       }
     },
     {
@@ -1222,7 +1222,7 @@
           "type": "selector",
           "values": "lfoShape",
           "layout": {
-            "x": 62,
+            "x": 50,
             "y": 0
           }
         },
@@ -1237,7 +1237,7 @@
           "default": 0,
           "type": "knob",
           "layout": {
-            "x": 124,
+            "x": 100,
             "y": 0
           }
         },
@@ -1253,8 +1253,8 @@
           "type": "selector",
           "values": "modDest",
           "layout": {
-            "x": 186,
-            "y": 0
+            "x": 0,
+            "y": 55
           }
         },
         {
@@ -1268,8 +1268,8 @@
           "default": 0,
           "type": "toggle",
           "layout": {
-            "x": 248,
-            "y": 0
+            "x": 50,
+            "y": 55
           }
         },
         {
@@ -1283,17 +1283,17 @@
           "default": 0,
           "type": "toggle",
           "layout": {
-            "x": 310,
-            "y": 0
+            "x": 100,
+            "y": 55
           }
         }
       ],
       "order": 10,
       "layout": {
         "x": 10,
-        "y": 105,
-        "w": 190,
-        "h": 90
+        "y": 95,
+        "w": 160,
+        "h": 131
       }
     },
     {
@@ -1327,7 +1327,7 @@
           "type": "selector",
           "values": "lfoShape",
           "layout": {
-            "x": 62,
+            "x": 50,
             "y": 0
           }
         },
@@ -1342,7 +1342,7 @@
           "default": 0,
           "type": "knob",
           "layout": {
-            "x": 124,
+            "x": 100,
             "y": 0
           }
         },
@@ -1358,8 +1358,8 @@
           "type": "selector",
           "values": "modDest",
           "layout": {
-            "x": 186,
-            "y": 0
+            "x": 0,
+            "y": 55
           }
         },
         {
@@ -1373,8 +1373,8 @@
           "default": 0,
           "type": "toggle",
           "layout": {
-            "x": 248,
-            "y": 0
+            "x": 50,
+            "y": 55
           }
         },
         {
@@ -1388,17 +1388,17 @@
           "default": 0,
           "type": "toggle",
           "layout": {
-            "x": 310,
-            "y": 0
+            "x": 100,
+            "y": 55
           }
         }
       ],
       "order": 11,
       "layout": {
-        "x": 205,
+        "x": 175,
         "y": 10,
-        "w": 190,
-        "h": 90
+        "w": 160,
+        "h": 131
       }
     },
     {
@@ -1432,7 +1432,7 @@
           "type": "selector",
           "values": "lfoShape",
           "layout": {
-            "x": 62,
+            "x": 50,
             "y": 0
           }
         },
@@ -1447,7 +1447,7 @@
           "default": 0,
           "type": "knob",
           "layout": {
-            "x": 124,
+            "x": 100,
             "y": 0
           }
         },
@@ -1463,8 +1463,8 @@
           "type": "selector",
           "values": "modDest",
           "layout": {
-            "x": 186,
-            "y": 0
+            "x": 0,
+            "y": 55
           }
         },
         {
@@ -1478,8 +1478,8 @@
           "default": 0,
           "type": "toggle",
           "layout": {
-            "x": 248,
-            "y": 0
+            "x": 50,
+            "y": 55
           }
         },
         {
@@ -1493,17 +1493,17 @@
           "default": 0,
           "type": "toggle",
           "layout": {
-            "x": 310,
-            "y": 0
+            "x": 100,
+            "y": 55
           }
         }
       ],
       "order": 12,
       "layout": {
-        "x": 205,
-        "y": 105,
-        "w": 190,
-        "h": 90
+        "x": 175,
+        "y": 95,
+        "w": 160,
+        "h": 131
       }
     },
     {
@@ -1538,7 +1538,7 @@
           "type": "knob",
           "description": "Bipolar: 0=-127, 127=0, 254=+127",
           "layout": {
-            "x": 62,
+            "x": 50,
             "y": 0
           }
         },
@@ -1554,7 +1554,7 @@
           "type": "selector",
           "values": "modDest",
           "layout": {
-            "x": 124,
+            "x": 100,
             "y": 0
           }
         },
@@ -1570,8 +1570,8 @@
           "type": "selector",
           "values": "modSource",
           "layout": {
-            "x": 186,
-            "y": 0
+            "x": 0,
+            "y": 55
           }
         },
         {
@@ -1586,8 +1586,8 @@
           "type": "knob",
           "description": "Bipolar: 0=-127, 127=0, 254=+127",
           "layout": {
-            "x": 248,
-            "y": 0
+            "x": 50,
+            "y": 55
           }
         },
         {
@@ -1602,8 +1602,8 @@
           "type": "selector",
           "values": "modDest",
           "layout": {
-            "x": 310,
-            "y": 0
+            "x": 100,
+            "y": 55
           }
         },
         {
@@ -1618,8 +1618,8 @@
           "type": "selector",
           "values": "modSource",
           "layout": {
-            "x": 372,
-            "y": 0
+            "x": 0,
+            "y": 110
           }
         },
         {
@@ -1634,8 +1634,8 @@
           "type": "knob",
           "description": "Bipolar: 0=-127, 127=0, 254=+127",
           "layout": {
-            "x": 434,
-            "y": 0
+            "x": 50,
+            "y": 110
           }
         },
         {
@@ -1650,8 +1650,8 @@
           "type": "selector",
           "values": "modDest",
           "layout": {
-            "x": 496,
-            "y": 0
+            "x": 100,
+            "y": 110
           }
         },
         {
@@ -1666,8 +1666,8 @@
           "type": "selector",
           "values": "modSource",
           "layout": {
-            "x": 558,
-            "y": 0
+            "x": 0,
+            "y": 165
           }
         },
         {
@@ -1682,8 +1682,8 @@
           "type": "knob",
           "description": "Bipolar: 0=-127, 127=0, 254=+127",
           "layout": {
-            "x": 620,
-            "y": 0
+            "x": 50,
+            "y": 165
           }
         },
         {
@@ -1698,8 +1698,8 @@
           "type": "selector",
           "values": "modDest",
           "layout": {
-            "x": 682,
-            "y": 0
+            "x": 100,
+            "y": 165
           }
         },
         {
@@ -1714,8 +1714,8 @@
           "type": "selector",
           "values": "modSource",
           "layout": {
-            "x": 744,
-            "y": 0
+            "x": 0,
+            "y": 220
           }
         },
         {
@@ -1730,8 +1730,8 @@
           "type": "knob",
           "description": "Bipolar: 0=-127, 127=0, 254=+127",
           "layout": {
-            "x": 806,
-            "y": 0
+            "x": 50,
+            "y": 220
           }
         },
         {
@@ -1746,8 +1746,8 @@
           "type": "selector",
           "values": "modDest",
           "layout": {
-            "x": 868,
-            "y": 0
+            "x": 100,
+            "y": 220
           }
         },
         {
@@ -1762,8 +1762,8 @@
           "type": "selector",
           "values": "modSource",
           "layout": {
-            "x": 930,
-            "y": 0
+            "x": 0,
+            "y": 275
           }
         },
         {
@@ -1778,8 +1778,8 @@
           "type": "knob",
           "description": "Bipolar: 0=-127, 127=0, 254=+127",
           "layout": {
-            "x": 992,
-            "y": 0
+            "x": 50,
+            "y": 275
           }
         },
         {
@@ -1794,8 +1794,8 @@
           "type": "selector",
           "values": "modDest",
           "layout": {
-            "x": 1054,
-            "y": 0
+            "x": 100,
+            "y": 275
           }
         },
         {
@@ -1810,8 +1810,8 @@
           "type": "selector",
           "values": "modSource",
           "layout": {
-            "x": 1116,
-            "y": 0
+            "x": 0,
+            "y": 330
           }
         },
         {
@@ -1826,8 +1826,8 @@
           "type": "knob",
           "description": "Bipolar: 0=-127, 127=0, 254=+127",
           "layout": {
-            "x": 1178,
-            "y": 0
+            "x": 50,
+            "y": 330
           }
         },
         {
@@ -1842,8 +1842,8 @@
           "type": "selector",
           "values": "modDest",
           "layout": {
-            "x": 1240,
-            "y": 0
+            "x": 100,
+            "y": 330
           }
         },
         {
@@ -1858,8 +1858,8 @@
           "type": "selector",
           "values": "modSource",
           "layout": {
-            "x": 1302,
-            "y": 0
+            "x": 0,
+            "y": 385
           }
         },
         {
@@ -1874,8 +1874,8 @@
           "type": "knob",
           "description": "Bipolar: 0=-127, 127=0, 254=+127",
           "layout": {
-            "x": 1364,
-            "y": 0
+            "x": 50,
+            "y": 385
           }
         },
         {
@@ -1890,17 +1890,17 @@
           "type": "selector",
           "values": "modDest",
           "layout": {
-            "x": 1426,
-            "y": 0
+            "x": 100,
+            "y": 385
           }
         }
       ],
       "order": 13,
       "layout": {
-        "x": 400,
+        "x": 340,
         "y": 10,
-        "w": 340,
-        "h": 185
+        "w": 160,
+        "h": 461
       }
     },
     {
@@ -1935,7 +1935,7 @@
           "type": "selector",
           "values": "modDest",
           "layout": {
-            "x": 62,
+            "x": 50,
             "y": 0
           }
         },
@@ -1951,8 +1951,8 @@
           "type": "knob",
           "description": "Bipolar: 0=-127, 127=0, 254=+127",
           "layout": {
-            "x": 124,
-            "y": 0
+            "x": 0,
+            "y": 55
           }
         },
         {
@@ -1967,8 +1967,8 @@
           "type": "selector",
           "values": "modDest",
           "layout": {
-            "x": 186,
-            "y": 0
+            "x": 50,
+            "y": 55
           }
         },
         {
@@ -1983,8 +1983,8 @@
           "type": "knob",
           "description": "Bipolar: 0=-127, 127=0, 254=+127",
           "layout": {
-            "x": 248,
-            "y": 0
+            "x": 0,
+            "y": 110
           }
         },
         {
@@ -1999,8 +1999,8 @@
           "type": "selector",
           "values": "modDest",
           "layout": {
-            "x": 310,
-            "y": 0
+            "x": 50,
+            "y": 110
           }
         },
         {
@@ -2015,8 +2015,8 @@
           "type": "knob",
           "description": "Bipolar: 0=-127, 127=0, 254=+127",
           "layout": {
-            "x": 372,
-            "y": 0
+            "x": 0,
+            "y": 165
           }
         },
         {
@@ -2031,8 +2031,8 @@
           "type": "selector",
           "values": "modDest",
           "layout": {
-            "x": 434,
-            "y": 0
+            "x": 50,
+            "y": 165
           }
         },
         {
@@ -2047,8 +2047,8 @@
           "type": "knob",
           "description": "Bipolar: 0=-127, 127=0, 254=+127",
           "layout": {
-            "x": 496,
-            "y": 0
+            "x": 0,
+            "y": 220
           }
         },
         {
@@ -2063,17 +2063,17 @@
           "type": "selector",
           "values": "modDest",
           "layout": {
-            "x": 558,
-            "y": 0
+            "x": 50,
+            "y": 220
           }
         }
       ],
       "order": 14,
       "layout": {
-        "x": 745,
+        "x": 510,
         "y": 10,
-        "w": 200,
-        "h": 185
+        "w": 110,
+        "h": 296
       }
     },
     {
@@ -2183,7 +2183,7 @@
           "default": 0,
           "type": "toggle",
           "layout": {
-            "x": 62,
+            "x": 50,
             "y": 0
           }
         },
@@ -2199,7 +2199,7 @@
           "type": "knob",
           "description": "0=Chord, 1-16 = number of voices",
           "layout": {
-            "x": 124,
+            "x": 100,
             "y": 0
           }
         },
@@ -2214,7 +2214,7 @@
           "default": 8,
           "type": "knob",
           "layout": {
-            "x": 186,
+            "x": 150,
             "y": 0
           }
         }
@@ -2222,9 +2222,9 @@
       "order": 16,
       "layout": {
         "x": 10,
-        "y": 410,
-        "w": 200,
-        "h": 90
+        "y": 375,
+        "w": 210,
+        "h": 70
       }
     },
     {
@@ -2258,17 +2258,17 @@
           "type": "selector",
           "values": "clockDivide",
           "layout": {
-            "x": 62,
+            "x": 50,
             "y": 0
           }
         }
       ],
       "order": 17,
       "layout": {
-        "x": 215,
-        "y": 410,
-        "w": 150,
-        "h": 90
+        "x": 220,
+        "y": 375,
+        "w": 110,
+        "h": 70
       }
     },
     {
@@ -2997,10 +2997,9 @@
     }
   },
   "layout": {
-    "width": 1400,
-    "height": 520,
+    "width": 1600,
+    "height": 460,
     "accentColor": "#E53935",
-    "backgroundColor": "#0a0a0a",
-    "lineColor": "#333333"
+    "controlSize": 50
   }
 }

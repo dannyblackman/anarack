@@ -17,6 +17,7 @@ void SynthPanel::loadDefinition(const juce::String& jsonStr)
         auto colorStr = layoutConfig.getProperty("accentColor", "").toString();
         if (colorStr.isNotEmpty())
             accentColour = juce::Colour::fromString("FF" + colorStr.trimCharactersAtStart("#"));
+        panelNativeWidth = (int)layoutConfig.getProperty("width", 1600);
     }
 
     auto enums = root.getProperty("enums", {});
@@ -172,9 +173,14 @@ void SynthPanel::layoutGroups()
 
 SynthControl* SynthPanel::getControlAt(juce::Point<float> pos)
 {
+    // Convert screen coords to native coords (accounting for scale)
+    float scale = (float)getWidth() / (float)panelNativeWidth;
+    if (scale <= 0) scale = 1.0f;
+    auto nativePos = pos / scale;
+
     for (auto& gl : layout)
         for (auto& cl : gl.controls)
-            if (cl.bounds.toFloat().contains(pos))
+            if (cl.bounds.toFloat().contains(nativePos))
                 return cl.ctrl;
     return nullptr;
 }
@@ -183,21 +189,31 @@ void SynthPanel::paint(juce::Graphics& g)
 {
     g.fillAll(juce::Colour(0xff0a0a0a));
 
+    // Scale to fit window width
+    float scale = (float)getWidth() / (float)panelNativeWidth;
+    if (scale <= 0) scale = 1.0f;
+    g.addTransform(juce::AffineTransform::scale(scale));
+
     for (auto& gl : layout)
     {
         // Group background
-        g.setColour(juce::Colour(0xff141414));
-        g.fillRoundedRectangle(gl.bounds.toFloat(), 4);
+        g.setColour(juce::Colour(0xff111111));
+        g.fillRoundedRectangle(gl.bounds.toFloat(), 3);
 
-        // Group border (technical diagram style)
-        g.setColour(juce::Colour(0xff333333));
-        g.drawRoundedRectangle(gl.bounds.toFloat(), 2, 0.5f);
+        // Group border (technical diagram style — thin lines)
+        g.setColour(juce::Colour(0xff2a2a2a));
+        g.drawRoundedRectangle(gl.bounds.toFloat().reduced(0.5f), 2, 1.0f);
 
-        // Group title
+        // Group title — dashed line style header
         g.setColour(accentColour);
-        g.setFont(juce::FontOptions(8.0f, juce::Font::bold));
-        g.drawText(gl.group->name, gl.bounds.getX() + 4, gl.bounds.getY() + 1,
-                   gl.bounds.getWidth() - 8, 14, juce::Justification::centredLeft);
+        g.setFont(juce::FontOptions(7.5f, juce::Font::bold));
+        auto titleBounds = juce::Rectangle<int>(gl.bounds.getX() + 4, gl.bounds.getY() + 1,
+                                                 gl.bounds.getWidth() - 8, 13);
+        g.drawText(gl.group->name.toUpperCase(), titleBounds, juce::Justification::centredLeft);
+
+        // Title underline
+        g.setColour(juce::Colour(0xff2a2a2a));
+        g.drawHorizontalLine(gl.bounds.getY() + 14, (float)gl.bounds.getX() + 2, (float)gl.bounds.getRight() - 2);
 
         // Controls
         for (auto& cl : gl.controls)
