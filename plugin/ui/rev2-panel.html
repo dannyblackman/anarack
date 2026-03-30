@@ -1,0 +1,662 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Prophet Rev2 — Anarack</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Archivo+Black&family=Inter:wght@400;500;600;700&display=swap');
+
+  :root {
+    --bg: #1a1a1a;
+    --panel: #1e1e1e;
+    --border: rgba(255,255,255,0.4);
+    --text: #fff;
+    --accent: #E53935;
+    --btn-off: #333;
+    --btn-border: #555;
+    --led-off: #333;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { height: 100%; }
+  body { background: #111; color: var(--text); font-family: 'Inter', -apple-system, sans-serif; font-size: 12px; display: flex; align-items: center; justify-content: center; min-height: 100vh; }
+
+  .panel {
+    background: var(--panel);
+    padding: 20px 24px;
+    display: flex; flex-direction: column;
+    border-radius: 10px;
+  }
+
+  /* Header */
+  .header {
+    display: flex; align-items: baseline; gap: 16px;
+    margin-bottom: 20px; padding-bottom: 10px; border-bottom: 1px solid rgba(255,255,255,0.15);
+    flex-shrink: 0;
+  }
+  .logo { font-family: 'Archivo Black', sans-serif; font-size: 26px; font-weight: 400; color: #fff; letter-spacing: 6px; text-transform: uppercase; }
+  .logo span { color: transparent; -webkit-text-stroke: 1.5px #fff; }
+  .subtitle { font-size: 11px; color: rgba(255,255,255,0.3); text-transform: uppercase; letter-spacing: 2px; }
+
+  /* Main layout: misc sidebar + rows */
+  .main { display: flex; gap: 20px; align-items: stretch; }
+  .rows-col { display: flex; flex-direction: column; gap: 20px; }
+
+  /* Misc sidebar */
+  .misc-col {
+    width: 130px; flex-shrink: 0;
+    display: flex; flex-direction: column;
+    align-items: center;
+    justify-content: space-evenly;
+    padding: 10px 0;
+  }
+  .misc-ctrl { display: flex; flex-direction: column; align-items: center; }
+
+  /* Rows */
+  .row { display: flex; gap: 20px; align-items: stretch; flex-shrink: 0; }
+
+  /* Section */
+  .section {
+    border: 2px solid var(--border);
+    border-radius: 10px;
+    padding: 22px 12px 12px;
+    position: relative;
+    flex-shrink: 0;
+  }
+  .section-label {
+    position: absolute; top: -9px; left: 50%; transform: translateX(-50%);
+    background: var(--panel); padding: 0 10px;
+    font-size: 10px; font-weight: 700; color: #fff;
+    text-transform: uppercase; letter-spacing: 1.5px; white-space: nowrap;
+  }
+  .section-row { display: flex; align-items: flex-start; gap: 0; min-height: 68px; }
+  .section-rows { display: flex; flex-direction: column; gap: 4px; }
+
+  /* Knob control */
+  .ctrl { display: flex; flex-direction: column; align-items: center; width: 66px; }
+  .ctrl canvas { cursor: grab; }
+  .ctrl canvas:active { cursor: grabbing; }
+  .ctrl-label {
+    font-size: 8.5px; font-weight: 600; color: var(--text);
+    text-align: center; margin-top: 2px;
+    text-transform: uppercase; letter-spacing: 0.5px;
+    line-height: 1.2;
+  }
+
+  /* Button (toggle) */
+  .ctrl-btn { display: flex; flex-direction: column; align-items: center; width: 66px; padding-top: 8px; }
+  .btn {
+    width: 42px; height: 24px; border-radius: 3px;
+    background: var(--btn-off); border: 1px solid var(--btn-border);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 8px; font-weight: 700; color: rgba(255,255,255,0.4);
+    cursor: pointer; transition: all 0.08s; text-transform: uppercase;
+    user-select: none;
+  }
+  .btn.on { background: var(--accent); border-color: var(--accent); color: #fff; box-shadow: 0 0 8px rgba(229,57,53,0.4); }
+  .ctrl-btn .ctrl-label { margin-top: 4px; }
+
+  /* Small button variant */
+  .btn-sm {
+    min-width: 22px; height: 20px; padding: 0 4px; border-radius: 3px;
+    background: var(--btn-off); border: 1px solid var(--btn-border);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 8px; font-weight: 700; color: rgba(255,255,255,0.4);
+    cursor: pointer; transition: all 0.08s; user-select: none; flex-shrink: 0;
+  }
+  .btn-sm.on { background: var(--accent); border-color: var(--accent); color: #fff; box-shadow: 0 0 6px rgba(229,57,53,0.4); }
+
+  /* Shape selector (LED list) */
+  .shape-sel {
+    display: flex; flex-direction: column; gap: 2px;
+    padding: 2px 4px; cursor: pointer; user-select: none;
+    width: 76px;
+  }
+  .shape-opt {
+    display: flex; align-items: center; gap: 5px;
+    font-size: 8px; color: rgba(255,255,255,0.3);
+    text-transform: uppercase; letter-spacing: 0.3px;
+    padding: 1px 2px;
+  }
+  .shape-opt.active { color: #fff; }
+  .shape-led {
+    width: 7px; height: 3px; border-radius: 1px;
+    background: var(--led-off); flex-shrink: 0;
+  }
+  .shape-opt.active .shape-led { background: var(--accent); box-shadow: 0 0 4px rgba(229,57,53,0.6); }
+
+  /* LFO tab buttons */
+  .lfo-tab {
+    width: 28px; height: 22px; border-radius: 4px;
+    background: #2a2a2a; border: 1px solid #444;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 10px; font-weight: 700; color: rgba(255,255,255,0.4);
+    cursor: pointer; user-select: none; transition: all 0.08s;
+  }
+  .lfo-tab.active { background: var(--accent); border-color: var(--accent); color: #fff; box-shadow: 0 0 6px rgba(229,57,53,0.3); }
+
+  /* Programs section */
+  .prog-grid { display: grid; grid-template-columns: auto auto; gap: 6px; justify-content: center; }
+  .prog-btn {
+    padding: 8px 12px; border-radius: 6px;
+    background: #2a2a2a; border: 1px solid #444;
+    font-size: 8px; font-weight: 600; color: rgba(255,255,255,0.5);
+    cursor: pointer; text-align: center;
+    user-select: none; transition: all 0.08s; white-space: nowrap;
+  }
+  .prog-btn:hover { background: #333; }
+  .prog-btn.on { background: var(--accent); border-color: var(--accent); color: #fff; box-shadow: 0 0 6px rgba(229,57,53,0.4); }
+
+  /* Patch screen — OLED look */
+  .patch-screen {
+    width: 150px; height: 86px;
+    background: #000; border: 2px solid #222; border-radius: 4px;
+    padding: 8px 10px;
+    display: flex; flex-direction: column; justify-content: space-between;
+    font-family: 'Inter', monospace;
+    box-shadow: inset 0 0 12px rgba(0,0,0,0.8), 0 0 1px rgba(255,255,255,0.1);
+    position: relative;
+    overflow: hidden;
+  }
+  .patch-screen::before {
+    content: '';
+    position: absolute; inset: 0;
+    background: repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      rgba(255,255,255,0.015) 2px,
+      rgba(255,255,255,0.015) 3px
+    );
+    pointer-events: none;
+  }
+  .patch-screen::after {
+    content: '';
+    position: absolute; inset: 0;
+    background: radial-gradient(ellipse at center, transparent 50%, rgba(0,0,0,0.4) 100%);
+    pointer-events: none;
+  }
+  .patch-header { display: flex; justify-content: space-between; align-items: baseline; position: relative; z-index: 1; }
+  .patch-loc { font-size: 11px; font-weight: 700; color: #fff; text-shadow: 0 0 4px rgba(255,255,255,0.5); }
+  .patch-bpm { font-size: 9px; color: rgba(255,255,255,0.5); }
+  .patch-name { font-size: 10px; font-weight: 600; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; position: relative; z-index: 1; text-shadow: 0 0 4px rgba(255,255,255,0.4); }
+  .patch-param { display: flex; justify-content: space-between; align-items: baseline; position: relative; z-index: 1; }
+  .patch-param-name { font-size: 8px; color: rgba(255,255,255,0.4); text-transform: uppercase; }
+  .patch-param-val { font-size: 14px; font-weight: 700; color: #fff; text-shadow: 0 0 6px rgba(255,255,255,0.5); }
+
+  /* Transpose */
+  .transpose-row { display: flex; gap: 2px; align-items: center; justify-content: center; }
+  .transpose-label { font-size: 8px; font-weight: 600; color: var(--text); text-transform: uppercase; letter-spacing: 0.5px; text-align: center; margin-top: 4px; }
+
+  /* Vertical divider */
+  .vdiv { width: 1px; background: rgba(255,255,255,0.15); margin: 0 6px; align-self: stretch; }
+</style>
+</head>
+<body>
+
+<div class="panel" id="panel">
+  <div class="header">
+    <div class="logo">PROPHET <span>REV2</span></div>
+    <div class="subtitle">Anarack Remote</div>
+  </div>
+
+  <div class="main">
+    <!-- Misc sidebar (no border, spans both rows) -->
+    <div class="misc-col" id="misc-col"></div>
+
+    <div class="rows-col">
+      <div class="row" id="row1"></div>
+      <div class="row" id="row2"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+const DPR = window.devicePixelRatio || 1;
+const KS = 54;
+const ACCENT = '#E53935';
+
+// ── Knob Drawing ──
+function drawKnob(canvas, value, max) {
+  canvas.width = KS * DPR; canvas.height = KS * DPR;
+  canvas.style.width = KS + 'px'; canvas.style.height = KS + 'px';
+  const ctx = canvas.getContext('2d');
+  ctx.scale(DPR, DPR);
+  const cx = KS/2, cy = KS/2, r = KS/2 - 8;
+  const startA = 0.75 * Math.PI;
+  const sweep = 1.5 * Math.PI;
+  const norm = max > 0 ? value / max : 0;
+  const valA = startA + norm * sweep;
+
+  // Tick marks — radiating lines like the real Rev2 knobs
+  const tickCount = 11;
+  for (let i = 0; i <= tickCount; i++) {
+    const tickA = startA + (i / tickCount) * sweep;
+    const innerR = r + 1;
+    const outerR = r + 6;
+    ctx.beginPath();
+    ctx.moveTo(cx + Math.cos(tickA) * innerR, cy + Math.sin(tickA) * innerR);
+    ctx.lineTo(cx + Math.cos(tickA) * outerR, cy + Math.sin(tickA) * outerR);
+    ctx.strokeStyle = '#fff';
+    ctx.lineWidth = 1.5;
+    ctx.lineCap = 'round';
+    ctx.stroke();
+  }
+
+  ctx.beginPath(); ctx.arc(cx, cy, r, startA, startA + sweep);
+  ctx.strokeStyle = '#383838'; ctx.lineWidth = 2.5; ctx.lineCap = 'round'; ctx.stroke();
+
+  if (norm > 0.005) {
+    ctx.beginPath(); ctx.arc(cx, cy, r, startA, valA);
+    ctx.strokeStyle = ACCENT; ctx.lineWidth = 3; ctx.lineCap = 'round'; ctx.stroke();
+  }
+
+  ctx.beginPath(); ctx.arc(cx, cy, r - 4, 0, Math.PI * 2);
+  ctx.fillStyle = '#2a2a2a'; ctx.fill();
+  ctx.strokeStyle = '#444'; ctx.lineWidth = 0.5; ctx.stroke();
+
+  const il = r - 5;
+  ctx.beginPath();
+  ctx.moveTo(cx + Math.cos(valA) * 5, cy + Math.sin(valA) * 5);
+  ctx.lineTo(cx + Math.cos(valA) * il, cy + Math.sin(valA) * il);
+  ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.lineCap = 'round'; ctx.stroke();
+
+  ctx.fillStyle = 'rgba(255,255,255,0.35)';
+  ctx.font = '500 9px Inter, sans-serif';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText(value, cx, cy);
+}
+
+// ── Control Builders ──
+function knob(parent, label, value, max) {
+  const d = document.createElement('div'); d.className = 'ctrl';
+  const c = document.createElement('canvas'); drawKnob(c, value, max);
+  const l = document.createElement('div'); l.className = 'ctrl-label'; l.textContent = label;
+  d.appendChild(c); d.appendChild(l); parent.appendChild(d);
+  let dy0 = null, v0 = null;
+  const ctrl = {
+    el: d,
+    getValue() { return value; },
+    setValue(v) { value = v; drawKnob(c, value, max); }
+  };
+  c.onmousedown = e => { dy0 = e.clientY; v0 = value; e.preventDefault(); };
+  window.addEventListener('mousemove', e => {
+    if (dy0 === null) return;
+    value = Math.max(0, Math.min(max, Math.round(v0 + (dy0 - e.clientY) * 0.5)));
+    drawKnob(c, value, max);
+  });
+  window.addEventListener('mouseup', () => { dy0 = null; });
+  c.onwheel = e => { e.preventDefault(); value = Math.max(0, Math.min(max, value + (e.deltaY < 0 ? 1 : -1))); drawKnob(c, value, max); };
+  return ctrl;
+}
+
+function btn(parent, label, value, text) {
+  const d = document.createElement('div'); d.className = 'ctrl-btn';
+  const b = document.createElement('div');
+  b.className = 'btn' + (value ? ' on' : '');
+  b.textContent = text || (value ? 'ON' : 'OFF');
+  const l = document.createElement('div'); l.className = 'ctrl-label'; l.textContent = label;
+  d.appendChild(b); d.appendChild(l); parent.appendChild(d);
+  const ctrl = {
+    el: d,
+    getValue() { return value; },
+    setValue(v) { value = v; b.className = 'btn' + (value ? ' on' : ''); if (!text) b.textContent = value ? 'ON' : 'OFF'; }
+  };
+  b.onclick = () => { ctrl.setValue(value ? 0 : 1); };
+  return ctrl;
+}
+
+function shapeSel(parent, value, shapes) {
+  const d = document.createElement('div'); d.className = 'shape-sel';
+  const opts = [];
+  shapes.forEach((name, i) => {
+    const opt = document.createElement('div');
+    opt.className = 'shape-opt' + (i === value ? ' active' : '');
+    const led = document.createElement('div'); led.className = 'shape-led';
+    const txt = document.createTextNode(name);
+    opt.appendChild(led); opt.appendChild(txt);
+    d.appendChild(opt);
+    opts.push(opt);
+  });
+  parent.appendChild(d);
+  function update() { opts.forEach((o, i) => { o.className = 'shape-opt' + (i === value ? ' active' : ''); }); }
+  d.onclick = () => { value = (value + 1) % shapes.length; update(); };
+  return { el: d, getValue() { return value; }, setValue(v) { value = v; update(); } };
+}
+
+function vdiv(parent) {
+  const d = document.createElement('div'); d.className = 'vdiv'; parent.appendChild(d);
+}
+
+function section(parent, label) {
+  const s = document.createElement('div'); s.className = 'section';
+  if (label) { const l = document.createElement('div'); l.className = 'section-label'; l.textContent = label; s.appendChild(l); }
+  parent.appendChild(s);
+  return s;
+}
+
+function srow(parent) {
+  const r = document.createElement('div'); r.className = 'section-row'; parent.appendChild(r); return r;
+}
+
+function srows(parent) {
+  const r = document.createElement('div'); r.className = 'section-rows'; parent.appendChild(r); return r;
+}
+
+// ── BUILD PANEL ──
+const miscCol = document.getElementById('misc-col');
+const row1 = document.getElementById('row1');
+const row2 = document.getElementById('row2');
+
+let s, r, rows;
+
+// ═══════════════════════════════════════════════════════
+// MISC PARAMETERS — sidebar, no border, spans both rows
+// ═══════════════════════════════════════════════════════
+// Master Volume (centred)
+knob(miscCol, 'Master Vol', 100, 127);
+
+// Rate/Time + Glide
+const miscRow1 = document.createElement('div');
+miscRow1.style.cssText = 'display:flex;align-items:flex-start;gap:0;';
+knob(miscRow1, 'Rate/Time', 64, 127);
+btn(miscRow1, 'Glide', 0);
+miscCol.appendChild(miscRow1);
+
+// Unison + Hold
+const miscRow2 = document.createElement('div');
+miscRow2.style.cssText = 'display:flex;align-items:flex-start;gap:0;';
+btn(miscRow2, 'Unison', 0);
+btn(miscRow2, 'Hold', 0);
+miscCol.appendChild(miscRow2);
+
+// Transpose
+const trWrap = document.createElement('div');
+trWrap.style.cssText = 'display:flex;flex-direction:column;align-items:center;';
+const trRow = document.createElement('div'); trRow.className = 'transpose-row';
+[-2,-1,0,1,2].forEach(v => {
+  const b = document.createElement('div');
+  b.className = 'btn-sm' + (v === 0 ? ' on' : '');
+  b.textContent = v > 0 ? '+' + v : String(v);
+  trRow.appendChild(b);
+  b.onclick = () => {
+    trRow.querySelectorAll('.btn-sm').forEach(x => x.className = 'btn-sm');
+    b.className = 'btn-sm on';
+  };
+});
+trWrap.appendChild(trRow);
+const trLabel = document.createElement('div'); trLabel.className = 'transpose-label'; trLabel.textContent = 'TRANSPOSE';
+trWrap.appendChild(trLabel);
+miscCol.appendChild(trWrap);
+
+// ═══════════════════════════════════════════════════════
+// ROW 1: MODULATION | CLOCK | ARP | SEQUENCER | PROGRAMS | EFFECT | AUX ENV
+// ═══════════════════════════════════════════════════════
+
+// MODULATION
+s = section(row1, 'Modulation');
+rows = srows(s);
+r = srow(rows);
+knob(r, 'Source', 0, 127);
+knob(r, 'Select', 0, 127);
+r = srow(rows);
+knob(r, 'Destination', 0, 127);
+knob(r, 'Amount', 0, 127);
+
+// CLOCK
+s = section(row1, 'Clock');
+rows = srows(s);
+r = srow(rows);
+knob(r, 'BPM', 120, 250);
+knob(r, 'Divide', 0, 127);
+r = srow(rows);
+// Centre tap tempo: spacer + btn + spacer
+const tapSpacer = document.createElement('div'); tapSpacer.style.cssText = 'flex:1;';
+r.appendChild(tapSpacer);
+btn(r, 'Tap Tempo', 0);
+const tapSpacer2 = document.createElement('div'); tapSpacer2.style.cssText = 'flex:1;';
+r.appendChild(tapSpacer2);
+
+// ARP (stacked vertically)
+s = section(row1, 'Arp');
+rows = srows(s);
+r = srow(rows);
+knob(r, 'Mode', 0, 4);
+r = srow(rows);
+btn(r, 'On/Off', 0);
+
+// SEQUENCER
+s = section(row1, 'Sequencer');
+rows = srows(s);
+r = srow(rows);
+btn(r, 'Gated', 0);
+btn(r, 'Poly', 0);
+knob(r, 'Mode', 0, 4);
+knob(r, 'Track', 0, 5);
+r = srow(rows);
+btn(r, 'Play', 0);
+knob(r, 'Destination', 0, 127);
+knob(r, 'Record', 0, 1);
+knob(r, 'Value', 0, 127);
+
+// PROGRAMS — left knobs | screen | right knobs | buttons
+s = section(row1, 'Programs');
+r = document.createElement('div');
+r.style.cssText = 'display:flex;align-items:center;gap:8px;';
+s.appendChild(r);
+
+// Left knobs stacked
+const progLeft = document.createElement('div');
+progLeft.style.cssText = 'display:flex;flex-direction:column;align-items:center;gap:4px;';
+knob(progLeft, 'Parameter', 0, 127);
+knob(progLeft, 'Value', 0, 127);
+r.appendChild(progLeft);
+
+// Screen
+const screen = document.createElement('div'); screen.className = 'patch-screen';
+const screenHeader = document.createElement('div'); screenHeader.className = 'patch-header';
+const screenLoc = document.createElement('div'); screenLoc.className = 'patch-loc'; screenLoc.textContent = 'U1 P1';
+const screenBpm = document.createElement('div'); screenBpm.className = 'patch-bpm'; screenBpm.textContent = '120';
+screenHeader.appendChild(screenLoc); screenHeader.appendChild(screenBpm);
+const screenName = document.createElement('div'); screenName.className = 'patch-name'; screenName.textContent = 'REV 2 Massive Pad';
+const screenParam = document.createElement('div'); screenParam.className = 'patch-param';
+const screenPName = document.createElement('div'); screenPName.className = 'patch-param-name'; screenPName.textContent = 'Sub Level';
+const screenPVal = document.createElement('div'); screenPVal.className = 'patch-param-val'; screenPVal.textContent = '62';
+screenParam.appendChild(screenPName); screenParam.appendChild(screenPVal);
+screen.appendChild(screenHeader); screen.appendChild(screenName); screen.appendChild(screenParam);
+r.appendChild(screen);
+
+// Right knobs stacked
+const progRight = document.createElement('div');
+progRight.style.cssText = 'display:flex;flex-direction:column;align-items:center;gap:4px;';
+knob(progRight, 'Program', 0, 127);
+knob(progRight, 'Bank', 0, 7);
+r.appendChild(progRight);
+
+// Buttons grid to the right
+const pgGrid = document.createElement('div');
+pgGrid.className = 'prog-grid';
+['Global','Split A|B','Write','Stack A+B','Compare','Edit Layer B'].forEach(name => {
+  const b = document.createElement('div');
+  b.className = 'prog-btn';
+  b.textContent = name;
+  pgGrid.appendChild(b);
+  b.onclick = () => { b.className = b.className.includes('on') ? 'prog-btn' : 'prog-btn on'; };
+});
+r.appendChild(pgGrid);
+
+// EFFECT
+s = section(row1, 'Effect');
+rows = srows(s);
+r = srow(rows);
+btn(r, 'On/Off', 0);
+knob(r, 'Select', 0, 13);
+knob(r, 'Mix', 0, 127);
+r = srow(rows);
+btn(r, 'Clk Sync', 0);
+knob(r, 'Param 1', 64, 127);
+knob(r, 'Param 2', 64, 127);
+
+// AUXILIARY ENVELOPE
+s = section(row1, 'Auxiliary Envelope');
+rows = srows(s);
+r = srow(rows);
+knob(r, 'Destination', 0, 127);
+knob(r, 'Env Amount', 0, 127);
+knob(r, 'Velocity', 0, 127);
+knob(r, 'Delay', 0, 127);
+r = srow(rows);
+knob(r, 'Attack', 0, 127);
+knob(r, 'Decay', 64, 127);
+knob(r, 'Sustain', 64, 127);
+knob(r, 'Release', 40, 127);
+
+// ═══════════════════════════════════════════════════════
+// ROW 2: LFOs | OSCILLATORS + MIXER | FILTER | AMPLIFIER
+// ═══════════════════════════════════════════════════════
+
+// LOW FREQUENCY OSCILLATORS — tabbed
+s = section(row2, 'Low Frequency Oscillators');
+s.innerHTML = '';
+const lfoLabel = document.createElement('div'); lfoLabel.className = 'section-label'; lfoLabel.textContent = 'Low Frequency Oscillators';
+s.appendChild(lfoLabel);
+const lfoContent = srows(s);
+
+const lfoShapes = ['Triangle', 'Sawtooth', 'Rev Saw', 'Square', 'Random'];
+const lfoState = [
+  { shape: 0, freq: 64, keysync: 0, dest: 0, amount: 0, clksync: 0 },
+  { shape: 0, freq: 64, keysync: 0, dest: 0, amount: 0, clksync: 0 },
+  { shape: 0, freq: 64, keysync: 0, dest: 0, amount: 0, clksync: 0 },
+  { shape: 0, freq: 64, keysync: 0, dest: 0, amount: 0, clksync: 0 },
+];
+let activeLfo = 0;
+
+const tabRow2 = document.createElement('div');
+tabRow2.style.cssText = 'display:flex;gap:4px;margin-bottom:6px;';
+const lfoTabs2 = [];
+for (let i = 0; i < 4; i++) {
+  const tab = document.createElement('div');
+  tab.className = 'lfo-tab' + (i === 0 ? ' active' : '');
+  tab.textContent = i + 1;
+  tabRow2.appendChild(tab);
+  lfoTabs2.push(tab);
+  tab.onclick = () => switchLfo(i);
+}
+lfoContent.appendChild(tabRow2);
+
+const lfoCtrlRow = srow(lfoContent);
+const lfoShape = shapeSel(lfoCtrlRow, 0, lfoShapes);
+const lfoFreq = knob(lfoCtrlRow, 'Frequency', 64, 150);
+const lfoKeySync = btn(lfoCtrlRow, 'Key Sync', 0);
+vdiv(lfoCtrlRow);
+const lfoDest = knob(lfoCtrlRow, 'Destination', 0, 127);
+const lfoAmt = knob(lfoCtrlRow, 'Amount', 0, 127);
+const lfoClkSync = btn(lfoCtrlRow, 'Clk Sync', 0);
+
+function saveLfo() {
+  const st = lfoState[activeLfo];
+  st.shape = lfoShape.getValue();
+  st.freq = lfoFreq.getValue();
+  st.keysync = lfoKeySync.getValue();
+  st.dest = lfoDest.getValue();
+  st.amount = lfoAmt.getValue();
+  st.clksync = lfoClkSync.getValue();
+}
+
+function switchLfo(i) {
+  saveLfo();
+  activeLfo = i;
+  lfoTabs2.forEach((t, j) => t.className = 'lfo-tab' + (j === i ? ' active' : ''));
+  const st = lfoState[i];
+  lfoShape.setValue(st.shape);
+  lfoFreq.setValue(st.freq);
+  lfoKeySync.setValue(st.keysync);
+  lfoDest.setValue(st.dest);
+  lfoAmt.setValue(st.amount);
+  lfoClkSync.setValue(st.clksync);
+}
+
+// OSCILLATORS
+s = section(row2, 'Oscillators');
+const oscRows = srows(s);
+const oscShapes = ['Sawtooth', 'Saw+Tri', 'Triangle', 'Square'];
+
+r = srow(oscRows);
+knob(r, 'Osc 1 Freq', 24, 120);
+knob(r, 'Fine Tune', 50, 100);
+shapeSel(r, 0, oscShapes);
+knob(r, 'Shape Mod', 0, 127);
+vdiv(r);
+knob(r, 'Sub Octave', 0, 127);
+knob(r, 'Noise', 0, 127);
+
+r = srow(oscRows);
+r.style.minHeight = '36px';
+const sp1 = document.createElement('div'); sp1.style.width = '66px'; r.appendChild(sp1);
+btn(r, 'Sync', 0);
+const sp2 = document.createElement('div'); sp2.style.flex = '1'; r.appendChild(sp2);
+const layerWrap = document.createElement('div');
+layerWrap.style.cssText = 'display:flex;gap:4px;align-items:center;padding-top:8px;margin-left:auto;';
+[1, 2].forEach(n => {
+  const b = document.createElement('div');
+  b.className = 'btn-sm' + (n === 1 ? ' on' : '');
+  b.textContent = n;
+  layerWrap.appendChild(b);
+  b.onclick = () => {
+    layerWrap.querySelectorAll('.btn-sm').forEach(x => x.className = 'btn-sm');
+    b.className = 'btn-sm on';
+  };
+});
+r.appendChild(layerWrap);
+
+r = srow(oscRows);
+knob(r, 'Osc 2 Freq', 24, 120);
+knob(r, 'Fine Tune', 50, 100);
+shapeSel(r, 0, oscShapes);
+knob(r, 'Shape Mod', 0, 127);
+vdiv(r);
+knob(r, 'Osc Mix', 64, 127);
+knob(r, 'Osc Slop', 0, 127);
+
+// LOW-PASS FILTER
+s = section(row2, 'Low-Pass Filter');
+s.style.flex = '3';
+rows = srows(s);
+r = srow(rows);
+r.style.justifyContent = 'space-between';
+knob(r, 'Cutoff', 100, 164);
+knob(r, 'Resonance', 0, 127);
+knob(r, 'Env Amount', 64, 254);
+knob(r, 'Velocity', 0, 127);
+knob(r, 'Key Amount', 0, 127);
+knob(r, 'Audio Mod', 0, 127);
+r = srow(rows);
+r.style.justifyContent = 'space-between';
+btn(r, '4 Pole', 1);
+knob(r, 'Delay', 0, 127);
+knob(r, 'Attack', 0, 127);
+knob(r, 'Decay', 64, 127);
+knob(r, 'Sustain', 64, 127);
+knob(r, 'Release', 40, 127);
+
+// AMPLIFIER
+s = section(row2, 'Amplifier');
+s.style.flex = '2';
+rows = srows(s);
+r = srow(rows);
+r.style.justifyContent = 'space-between';
+knob(r, 'Pan Spread', 64, 127);
+knob(r, 'Env Amount', 100, 127);
+knob(r, 'Velocity', 0, 127);
+knob(r, 'Delay', 0, 127);
+r = srow(rows);
+r.style.justifyContent = 'space-between';
+knob(r, 'Attack', 0, 127);
+knob(r, 'Decay', 64, 127);
+knob(r, 'Sustain', 100, 127);
+knob(r, 'Release', 40, 127);
+
+</script>
+</body>
+</html>
