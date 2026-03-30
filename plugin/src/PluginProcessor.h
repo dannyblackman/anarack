@@ -35,11 +35,30 @@ public:
 
     // Public access for the editor
     NetworkTransport& getTransport() { return transport; }
+    std::atomic<int> midiInCount { 0 };
+
+    // MIDI Learn: map external controller CCs to synth CCs
+    std::atomic<int> learnTargetCC { -1 };       // synth CC waiting for learn (-1 = not learning)
+    std::atomic<int> lastLearnedFrom { -1 };     // last controller CC that was learned
+    std::atomic<int> lastLearnedTo { -1 };        // last synth CC it was mapped to
+    std::atomic<int> mappedSendCount { 0 };      // debug: how many mapped CCs sent
+
+    // Ring buffer for mapped CC values to push to UI (audio thread → message thread)
+    static constexpr int CC_RING_SIZE = 64;
+    struct CCEvent { uint8_t cc; uint8_t val; };
+    CCEvent ccRing[CC_RING_SIZE];
+    std::atomic<int> ccRingWrite { 0 };
+    std::atomic<int> ccRingRead { 0 };
+    int ccMap[128];                               // ccMap[controllerCC] = synthCC, -1 = unmapped
+    int ccValues[128];                            // current value per synth CC (for relative mode)
+    void startLearn(int synthCC) { learnTargetCC.store(synthCC); }
+    void clearLearn() { learnTargetCC.store(-1); }
+    void clearMapping(int controllerCC) { if (controllerCC >= 0 && controllerCC < 128) ccMap[controllerCC] = -1; }
     juce::String serverHost { "192.168.1.131" };
     juce::String wgEndpoint { "66.245.195.65" };
     juce::String wgServerPubkey { "uX4s7vVGT+B2tJl7+4plM3vO+LceS/LKe+8A8IPH934=" };
     int wgPort = 51820;
-    bool useWireGuard = false;
+    bool useWireGuard = true;
 
 private:
     static constexpr double SERVER_SAMPLE_RATE = 48000.0;

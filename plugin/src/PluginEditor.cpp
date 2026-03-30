@@ -20,6 +20,7 @@ AnarackEditor::AnarackEditor(AnarackProcessor& p)
             {
                 const uint8_t msg[3] = { 0xB0, (uint8_t)cc, (uint8_t)value };
                 processor.getTransport().sendMidi(msg, 3);
+                processor.ccValues[cc] = value; // keep in sync for relative controllers
             }
         })
         // Connect button
@@ -45,6 +46,16 @@ AnarackEditor::AnarackEditor(AnarackProcessor& p)
         .withEventListener("doDisconnect", [this](const juce::var&)
         {
             processor.getTransport().disconnect();
+        })
+        // MIDI Learn: JS sends synthCC to learn
+        .withEventListener("startLearn", [this](const juce::var& payload)
+        {
+            int synthCC = (int)payload.getProperty("cc", -1);
+            if (synthCC >= 0) processor.startLearn(synthCC);
+        })
+        .withEventListener("cancelLearn", [this](const juce::var&)
+        {
+            processor.clearLearn();
         })
         // Ping button
         .withEventListener("doPing", [this](const juce::var&)
@@ -117,7 +128,31 @@ void AnarackEditor::timerCallback()
         state->setProperty("mode", c ? juce::String(t.isWireGuard() ? "WireGuard" : "LAN") : juce::String());
         state->setProperty("rtt", c ? t.getEstimatedRtt() : 0);
         state->setProperty("bufferMs", c ? (float)t.getBufferLevel() / 48.0f : 0.0f);
+        state->setProperty("midiIn", processor.midiInCount.load(std::memory_order_relaxed));
+        state->setProperty("mappedSends", processor.mappedSendCount.load(std::memory_order_relaxed));
+        state->setProperty("learning", processor.learnTargetCC.load() >= 0);
+        int learnFrom = processor.lastLearnedFrom.exchange(-1);
+        int learnTo = processor.lastLearnedTo.exchange(-1);
+        if (learnFrom >= 0 && learnTo >= 0)
+        {
+            state->setProperty("learnedFrom", learnFrom);
+            state->setProperty("learnedTo", learnTo);
+        }
         webView->emitEventIfBrowserIsVisible("connectionStatus", juce::var(state.get()));
+
+        // Drain mapped CC ring buffer and push to JS for knob updates
+        int r = processor.ccRingRead.load(std::memory_order_relaxed);
+        int w = processor.ccRingWrite.load(std::memory_order_acquire);
+        while (r < w)
+        {
+            auto& ev = processor.ccRing[r % AnarackProcessor::CC_RING_SIZE];
+            auto ccObj = juce::DynamicObject::Ptr(new juce::DynamicObject());
+            ccObj->setProperty("cc", (int)ev.cc);
+            ccObj->setProperty("value", (int)ev.val);
+            webView->emitEventIfBrowserIsVisible("paramUpdate", juce::var(ccObj.get()));
+            r++;
+        }
+        processor.ccRingRead.store(r, std::memory_order_relaxed);
     }
 }
 

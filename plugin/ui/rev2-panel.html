@@ -289,25 +289,24 @@
   }
   .footer-toggle:hover { color: rgba(255,255,255,0.4); }
 
-  /* Log — fixed bottom-right */
+  /* Log — fixed bottom-right, opens upward */
   #log-wrapper {
     position: fixed; bottom: 12px; right: 12px;
-    z-index: 100; display: flex; flex-direction: column; align-items: flex-end;
+    z-index: 200; display: flex; flex-direction: column-reverse; align-items: flex-end; gap: 4px;
   }
   #log {
-    display: none; width: 320px;
-    height: 120px; background: rgba(0,0,0,0.9);
-    border: 1px solid rgba(255,255,255,0.1);
+    display: none; width: 400px;
+    height: 160px; background: rgba(0,0,0,0.95);
+    border: 1px solid rgba(255,255,255,0.15);
     border-radius: 6px; padding: 8px 10px;
-    margin-bottom: 4px;
-    font-family: 'Inter', monospace; font-size: 9px; font-weight: 400;
-    color: rgba(255,255,255,0.2);
+    font-family: 'Inter', monospace; font-size: 10px; font-weight: 400;
+    color: rgba(255,255,255,0.7);
     overflow-y: auto; line-height: 1.6;
-    backdrop-filter: blur(8px);
+    backdrop-filter: blur(12px);
   }
   #log.visible { display: block; }
   #log div { opacity: 0.6; }
-  #log div:last-child { opacity: 1; color: rgba(255,255,255,0.4); }
+  #log div:last-child { opacity: 1; color: #fff; }
 </style>
 </head>
 <body>
@@ -327,6 +326,14 @@
     <div class="stat-group" id="buf-group" style="display:none">
       <span class="stat-val dim" id="buf-val">—</span>
       <span class="stat-unit">ms buf</span>
+    </div>
+    <div class="stat-group" id="midi-in-group" style="display:none">
+      <span class="stat-val dim" id="midi-in-val">0</span>
+      <span class="stat-unit">MIDI in</span>
+    </div>
+    <div class="stat-group" id="mapped-group" style="display:none">
+      <span class="stat-val dim" id="mapped-val">0</span>
+      <span class="stat-unit">mapped</span>
     </div>
     <div class="topbar-controls">
       <button class="conn-btn" id="connect-btn" onclick="toggleConnect()">Connect</button>
@@ -362,10 +369,12 @@
     </div>
   </div>
 
+
+</div>
+
+<div id="log-wrapper">
+  <span class="footer-toggle" onclick="document.getElementById('log').classList.toggle('visible')">Log</span>
   <div id="log"></div>
-  <div class="footer">
-    <span class="footer-toggle" onclick="document.getElementById('log').classList.toggle('visible')">Log</span>
-  </div>
 </div>
 
 <script>
@@ -463,11 +472,15 @@ function sendCC(cc, value) {
 const ccRegistry = {};
 function registerCC(cc, ctrl) { if (cc >= 0) ccRegistry[cc] = ctrl; }
 
-// Listen for param updates pushed from C++ (e.g. program change on the hardware)
+// Listen for param updates pushed from C++ (e.g. controller knobs, program change)
 if (_juce) {
   _juce.addEventListener("paramUpdate", (e) => {
     const ctrl = ccRegistry[e.cc];
-    if (ctrl) ctrl.setValue(e.value);
+    if (ctrl) {
+      // Scale from 0-127 CC range back to native range if needed
+      const nativeVal = ctrl._max > 127 ? Math.round(e.value * ctrl._max / 127) : e.value;
+      ctrl.setValue(nativeVal);
+    }
   });
 }
 
@@ -541,6 +554,25 @@ function updateConnectionStatus(state) {
     bufGroup.style.display = 'none';
   }
 
+  // MIDI Learn completion
+  if (state.learnedFrom !== undefined && state.learnedTo !== undefined) {
+    onLearnComplete(state.learnedFrom, state.learnedTo);
+  }
+
+  // MIDI input counter from DAW
+  const midiInGroup = document.getElementById('midi-in-group');
+  const midiInVal = document.getElementById('midi-in-val');
+  const mappedGroup = document.getElementById('mapped-group');
+  const mappedVal = document.getElementById('mapped-val');
+  if (_connected) {
+    midiInGroup.style.display = 'flex';
+    midiInVal.textContent = state.midiIn !== undefined ? state.midiIn : '—';
+    mappedGroup.style.display = 'flex';
+    mappedVal.textContent = state.mappedSends !== undefined ? state.mappedSends : '0';
+  } else {
+    midiInGroup.style.display = 'none';
+    mappedGroup.style.display = 'none';
+  }
 }
 
 // Listen for initial config (server host, WG state) from C++
@@ -555,6 +587,48 @@ if (_juce) {
   });
 }
 
+// ── MIDI Learn ──
+let learningCtrl = null;
+
+function startLearnMode(ctrl, cc, labelEl) {
+  if (learningCtrl === ctrl) {
+    // Toggle off
+    cancelLearn();
+    return;
+  }
+  if (learningCtrl) cancelLearn();
+  learningCtrl = ctrl;
+  labelEl.style.color = '#E8A849';
+  labelEl.dataset.origText = labelEl.textContent;
+  labelEl.textContent = '⏳ LEARN';
+  if (_juce) _juce.emitEvent("startLearn", { cc });
+  log('MIDI Learn: move a knob on your controller → ' + labelEl.dataset.origText);
+}
+
+function cancelLearn() {
+  if (!learningCtrl) return;
+  const el = learningCtrl._learnLabel;
+  if (el) { el.textContent = el.dataset.origText || el.textContent; el.style.color = ''; }
+  learningCtrl = null;
+  if (_juce) _juce.emitEvent("cancelLearn", {});
+}
+
+function onLearnComplete(fromCC, toCC) {
+  if (!learningCtrl) return;
+  const el = learningCtrl._learnLabel;
+  if (el) {
+    el.textContent = el.dataset.origText || el.textContent;
+    el.style.color = '#E8A849';
+  }
+  // Show mapping sublabel
+  if (learningCtrl._mapLabel) {
+    learningCtrl._mapLabel.textContent = 'CC' + fromCC;
+    learningCtrl._mapLabel.style.display = 'block';
+  }
+  log('Mapped CC' + fromCC + ' → ' + (el ? el.dataset.origText : 'CC' + toCC));
+  learningCtrl = null;
+}
+
 // ── Control Builders ──
 // opts.center: normalized center position for bipolar knobs (e.g. 0.5)
 // opts.cc: MIDI CC number for this control
@@ -564,14 +638,23 @@ function knob(parent, label, value, max, opts) {
   const d = document.createElement('div'); d.className = 'ctrl';
   const c = document.createElement('canvas'); drawKnob(c, value, max, center);
   const l = document.createElement('div'); l.className = 'ctrl-label'; l.textContent = label;
-  d.appendChild(c); d.appendChild(l); parent.appendChild(d);
+  const ml = document.createElement('div');
+  ml.style.cssText = 'font-size:7px;color:#E8A849;text-align:center;display:none;margin-top:1px;';
+  d.appendChild(c); d.appendChild(l); d.appendChild(ml); parent.appendChild(d);
   let dy0 = null, v0 = null;
   const ctrl = {
     el: d,
+    _max: max,
     getValue() { return value; },
     setValue(v) { value = v; drawKnob(c, value, max, center); }
   };
   registerCC(cc, ctrl);
+  ctrl._learnLabel = l;
+  ctrl._mapLabel = ml;
+  // Double-click to enter MIDI learn mode
+  if (cc >= 0) {
+    c.ondblclick = (e) => { e.preventDefault(); startLearnMode(ctrl, cc, l); };
+  }
   function emitCC() {
     // Scale to 0-127 if max > 127
     const cv = max > 127 ? Math.round(value * 127 / max) : value;

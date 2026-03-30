@@ -6,7 +6,8 @@ AnarackProcessor::AnarackProcessor()
                          .withOutput("Output", juce::AudioChannelSet::stereo(), true)),
       transport(audioRingBuffer)
 {
-    // (network sockets created in NetworkTransport::connect)
+    std::fill(std::begin(ccMap), std::end(ccMap), -1);
+    std::fill(std::begin(ccValues), std::end(ccValues), 0);
 }
 
 AnarackProcessor::~AnarackProcessor()
@@ -40,10 +41,68 @@ void AnarackProcessor::releaseResources()
 
 void AnarackProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midiMessages)
 {
-    // Forward MIDI from Logic to the server via UDP
+    // Forward MIDI from DAW to the server, with CC learn/mapping
     for (const auto metadata : midiMessages)
     {
         auto msg = metadata.getMessage();
+        midiInCount.fetch_add(1, std::memory_order_relaxed);
+
+        if (msg.isController())
+        {
+            int inCC = msg.getControllerNumber();
+            int val = msg.getControllerValue();
+
+            // MIDI Learn: if we're waiting for a controller CC, capture it
+            int target = learnTargetCC.load();
+            if (target >= 0)
+            {
+                // Remove any old mapping to this synth CC
+                for (int i = 0; i < 128; i++)
+                    if (ccMap[i] == target) ccMap[i] = -1;
+                ccMap[inCC] = target;
+                lastLearnedFrom.store(inCC);
+                lastLearnedTo.store(target);
+                learnTargetCC.store(-1);
+                // Don't send the learn trigger value — it's usually a relative tick
+                continue;
+            }
+
+            // Apply CC mapping if one exists
+            int synthCC = ccMap[inCC];
+            if (synthCC >= 0)
+            {
+                int absVal;
+                // Match browser client logic exactly:
+                // Values 57-71 (excluding 64) = relative offset from 64
+                // Values 0 or 127 = ignore (LaunchKey toggle noise)
+                // Everything else = absolute
+                if (val != 0 && val != 127 && val >= 57 && val <= 71 && val != 64)
+                {
+                    int offset = val - 64; // e.g. 65=+1, 63=-1
+                    absVal = juce::jlimit(0, 127, ccValues[synthCC] + offset);
+                }
+                else if (val == 0 || val == 127)
+                {
+                    continue; // drop toggle noise
+                }
+                else
+                {
+                    absVal = val; // absolute from normal controllers
+                }
+
+                ccValues[synthCC] = absVal;
+                const uint8_t mapped[3] = { 0xB0, (uint8_t)synthCC, (uint8_t)absVal };
+                transport.sendMidi(mapped, 3);
+                mappedSendCount.fetch_add(1, std::memory_order_relaxed);
+                // Push to ring buffer for UI update
+                int w = ccRingWrite.load(std::memory_order_relaxed);
+                ccRing[w % CC_RING_SIZE] = { (uint8_t)synthCC, (uint8_t)absVal };
+                ccRingWrite.store(w + 1, std::memory_order_release);
+                continue;
+            }
+        }
+
+        // Forward unmapped messages (notes, pitchbend, etc.) as-is
         transport.sendMidi(msg.getRawData(), msg.getRawDataSize());
     }
     midiMessages.clear();
