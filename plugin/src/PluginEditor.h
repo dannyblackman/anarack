@@ -13,6 +13,7 @@ struct SynthControl
     int max = 127;
     int value = 0;
     juce::StringArray values; // for selector/toggle
+    int layoutX = 0, layoutY = 0; // position within group
 };
 
 // Group of controls
@@ -20,6 +21,7 @@ struct SynthGroup
 {
     juce::String name;
     juce::OwnedArray<SynthControl> controls;
+    int layoutX = 0, layoutY = 0, layoutW = 0, layoutH = 0;
 };
 
 class SynthPanel : public juce::Component
@@ -34,6 +36,8 @@ public:
 
     std::function<void(int cc, int value)> onParamChange;
     void setParamValue(int cc, int value);
+
+    juce::Colour accentColour { 0xff6366f1 }; // default indigo, overridden per synth
 
 private:
     juce::OwnedArray<SynthGroup> groups;

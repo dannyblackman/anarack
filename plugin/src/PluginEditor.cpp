@@ -10,6 +10,15 @@ void SynthPanel::loadDefinition(const juce::String& jsonStr)
     auto root = juce::JSON::parse(jsonStr);
     if (!root.isObject()) return;
 
+    // Parse layout config
+    auto layoutConfig = root.getProperty("layout", {});
+    if (layoutConfig.isObject())
+    {
+        auto colorStr = layoutConfig.getProperty("accentColor", "").toString();
+        if (colorStr.isNotEmpty())
+            accentColour = juce::Colour::fromString("FF" + colorStr.trimCharactersAtStart("#"));
+    }
+
     auto enums = root.getProperty("enums", {});
     auto groupsArr = *root.getProperty("groups", {}).getArray();
 
@@ -17,6 +26,16 @@ void SynthPanel::loadDefinition(const juce::String& jsonStr)
     {
         auto* group = new SynthGroup();
         group->name = g.getProperty("name", "").toString();
+
+        // Parse group layout
+        auto gl = g.getProperty("layout", {});
+        if (gl.isObject())
+        {
+            group->layoutX = (int)gl.getProperty("x", 0);
+            group->layoutY = (int)gl.getProperty("y", 0);
+            group->layoutW = (int)gl.getProperty("w", 0);
+            group->layoutH = (int)gl.getProperty("h", 0);
+        }
 
         auto paramsArr = g.getProperty("parameters", {});
         if (!paramsArr.isArray()) continue;
@@ -45,6 +64,14 @@ void SynthPanel::loadDefinition(const juce::String& jsonStr)
             if (valuesArr.isArray())
                 for (auto& v : *valuesArr.getArray())
                     ctrl->values.add(v.toString());
+
+            // Parse control layout
+            auto cl = p.getProperty("layout", {});
+            if (cl.isObject())
+            {
+                ctrl->layoutX = (int)cl.getProperty("x", 0);
+                ctrl->layoutY = (int)cl.getProperty("y", 0);
+            }
 
             group->controls.add(ctrl);
         }
@@ -75,47 +102,72 @@ void SynthPanel::layoutGroups()
 {
     layout.clear();
 
-    int panelW = std::max(600, getWidth());
-    int x = 0, y = 0;
-    int rowHeight = 0;
+    // Read panel dimensions from definition
+    int panelW = 1400, panelH = 520;
+    // These will be set from the definition's layout field
 
-    // Filter out sequencer groups for display
+    int maxX = 0, maxY = 0;
+
     for (auto* group : groups)
     {
+        // Skip groups without layout or sequencer groups
         if (group->name.containsIgnoreCase("Poly Seq") ||
             group->name.containsIgnoreCase("Gated Seq"))
             continue;
 
-        int numCtrls = group->controls.size();
-        int groupW = numCtrls * CONTROL_W + GROUP_PAD_X * 2;
-        int groupH = GROUP_HEADER + CONTROL_H + GROUP_PAD_Y;
-
-        // Wrap to next row if needed
-        if (x + groupW > panelW && x > 0)
-        {
-            x = 0;
-            y += rowHeight + ROW_GAP;
-            rowHeight = 0;
-        }
-
         GroupLayout gl;
         gl.group = group;
-        gl.bounds = { x, y, groupW, groupH };
 
-        for (int ci = 0; ci < numCtrls; ci++)
+        // Use layout coordinates from definition if available
+        bool hasLayout = false;
+        // We store layout info in the group's raw data — check via controls
+        // For now, use stored layoutX/Y/W/H values
+        int gx = group->layoutX;
+        int gy = group->layoutY;
+        int gw = group->layoutW;
+        int gh = group->layoutH;
+
+        if (gw > 0 && gh > 0)
         {
-            ControlLayout cl;
-            cl.ctrl = group->controls[ci];
-            cl.bounds = { x + GROUP_PAD_X + ci * CONTROL_W, y + GROUP_HEADER, CONTROL_W, CONTROL_H };
-            gl.controls.push_back(cl);
+            hasLayout = true;
+            gl.bounds = { gx, gy, gw, gh };
+
+            for (int ci = 0; ci < group->controls.size(); ci++)
+            {
+                auto* ctrl = group->controls[ci];
+                ControlLayout cl;
+                cl.ctrl = ctrl;
+                cl.bounds = { gx + GROUP_PAD_X + ctrl->layoutX,
+                              gy + GROUP_HEADER + ctrl->layoutY,
+                              CONTROL_W, CONTROL_H };
+                gl.controls.push_back(cl);
+            }
+        }
+        else
+        {
+            // Fallback: auto-layout
+            int numCtrls = group->controls.size();
+            int groupW = numCtrls * CONTROL_W + GROUP_PAD_X * 2;
+            int groupH = GROUP_HEADER + CONTROL_H + GROUP_PAD_Y;
+            gl.bounds = { 0, maxY, groupW, groupH };
+
+            for (int ci = 0; ci < numCtrls; ci++)
+            {
+                ControlLayout cl;
+                cl.ctrl = group->controls[ci];
+                cl.bounds = { GROUP_PAD_X + ci * CONTROL_W, maxY + GROUP_HEADER, CONTROL_W, CONTROL_H };
+                gl.controls.push_back(cl);
+            }
+            maxY += groupH + ROW_GAP;
         }
 
+        maxX = std::max(maxX, gl.bounds.getRight());
+        maxY = std::max(maxY, gl.bounds.getBottom());
+
         layout.push_back(std::move(gl));
-        x += groupW + GROUP_PAD_X;
-        rowHeight = std::max(rowHeight, groupH);
     }
 
-    setSize(panelW, y + rowHeight + ROW_GAP);
+    setSize(std::max(maxX + 10, getWidth()), maxY + 10);
 }
 
 SynthControl* SynthPanel::getControlAt(juce::Point<float> pos)
@@ -137,8 +189,12 @@ void SynthPanel::paint(juce::Graphics& g)
         g.setColour(juce::Colour(0xff141414));
         g.fillRoundedRectangle(gl.bounds.toFloat(), 4);
 
+        // Group border (technical diagram style)
+        g.setColour(juce::Colour(0xff333333));
+        g.drawRoundedRectangle(gl.bounds.toFloat(), 2, 0.5f);
+
         // Group title
-        g.setColour(juce::Colour(0xff6366f1));
+        g.setColour(accentColour);
         g.setFont(juce::FontOptions(8.0f, juce::Font::bold));
         g.drawText(gl.group->name, gl.bounds.getX() + 4, gl.bounds.getY() + 1,
                    gl.bounds.getWidth() - 8, 14, juce::Justification::centredLeft);
@@ -176,7 +232,7 @@ void SynthPanel::drawKnob(juce::Graphics& g, juce::Rectangle<int> bounds, SynthC
     // Value arc
     juce::Path arc;
     arc.addCentredArc(cx, cy, r, r, 0, -startAng, -startAng + valAng, true);
-    g.setColour(juce::Colour(0xff6366f1));
+    g.setColour(accentColour);
     g.strokePath(arc, juce::PathStrokeType(2.5f));
 
     // Body
@@ -212,7 +268,7 @@ void SynthPanel::drawSelector(juce::Graphics& g, juce::Rectangle<int> bounds, Sy
     // Value
     juce::String valText = (ctrl->value >= 0 && ctrl->value < ctrl->values.size())
                              ? ctrl->values[ctrl->value] : juce::String(ctrl->value);
-    g.setColour(juce::Colour(0xff6366f1));
+    g.setColour(accentColour);
     g.setFont(juce::FontOptions(8.0f, juce::Font::bold));
     g.drawText(valText, bounds.getX(), bounds.getY() + 26, bounds.getWidth(), 12, juce::Justification::centred);
 
@@ -229,7 +285,7 @@ void SynthPanel::drawToggle(juce::Graphics& g, juce::Rectangle<int> bounds, Synt
 
     // Button
     auto btnBounds = juce::Rectangle<float>(cx - 16, bounds.getY() + 22.0f, 32, 16);
-    g.setColour(on ? juce::Colour(0xff6366f1) : juce::Colour(0xff333333));
+    g.setColour(on ? accentColour : juce::Colour(0xff333333));
     g.fillRoundedRectangle(btnBounds, 3);
 
     juce::String label = (ctrl->values.size() > 1) ? ctrl->values[on ? 1 : 0] : (on ? "ON" : "OFF");
