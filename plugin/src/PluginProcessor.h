@@ -92,6 +92,12 @@ private:
     int underrunCount = 0;
     int driftCounter = 0;
 
+    // Media clock recovery: measure server clock rate vs DAW clock rate
+    int64_t clockRecoveryDAWSamples = 0;      // total DAW samples consumed
+    int64_t clockRecoveryStartDAW = -1;       // DAW sample count at measurement start
+    int clockRecoveryStartFill = 0;           // buffer fill at measurement start
+    double recoveredRatio = 1.0;              // server_rate / daw_rate
+
     // Resampling: server sends 48kHz, host may run at 44.1kHz etc.
     juce::LagrangeInterpolator resampler;
     double resampleRatio = 1.0; // serverRate / hostRate
