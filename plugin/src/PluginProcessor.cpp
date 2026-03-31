@@ -197,8 +197,8 @@ void AnarackProcessor::handleIncomingMidiMessage(juce::MidiInput*, const juce::M
 
 void AnarackProcessor::prepareToPlay(double sampleRate, int samplesPerBlock)
 {
-    // Ring buffer: ~500ms at server sample rate (48kHz) — enough for high-latency connections
-    int bufferSize = (int)(SERVER_SAMPLE_RATE * 0.5);
+    // Ring buffer: 3s at server sample rate (48kHz) — enough for large fixed buffers
+    int bufferSize = (int)(SERVER_SAMPLE_RATE * 3.0);
     audioRingBuffer.resize(bufferSize);
 
     // Resampling ratio: how many input (48kHz) samples per output sample
@@ -348,49 +348,40 @@ void AnarackProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::Midi
         prebuffering = false;
     }
 
-    // Clock drift correction: nudge resample ratio to keep buffer near target
-    // Server and DAW clocks drift by a few PPM — without correction, buffer
-    // slowly fills/drains over minutes. The correction factor is very gentle
-    // so playback rate is essentially constant.
+    // Clock drift correction: keeps buffer near target fill level.
+    // Gentle near target (inaudible), aggressive when buffer is critically low/high.
     int buffered = audioRingBuffer.getNumReady();
     {
         double drift = (double)(buffered - targetBufferSamples) / (double)targetBufferSamples;
-        // Very gentle correction: 0.0002 = 0.02% max speed adjustment
-        // This is ~10x gentler than before — buffer level changes slowly
-        // over seconds, not per-block
-        double correction = drift * 0.0002;
-        resampleRatio = baseResampleRatio * (1.0 - correction);
+        double absDrift = std::abs(drift);
+        // Scale correction: gentle in the middle, strong at extremes
+        // Within 10% of target: 0.0003 (inaudible)
+        // 10-30% off: 0.001 (barely audible)
+        // >30% off: 0.003 (aggressive recovery)
+        double factor = absDrift < 0.1 ? 0.0003
+                      : absDrift < 0.3 ? 0.001
+                      :                  0.003;
+        resampleRatio = baseResampleRatio * (1.0 - drift * factor);
     }
 
-    int inputNeeded;
-    if (std::abs(baseResampleRatio - 1.0) < 0.001)
-        inputNeeded = numOutputSamples;
-    else
-        inputNeeded = (int)(numOutputSamples * resampleRatio + 2);
+    // Always use resampler — even at 48→48kHz the drift-corrected ratio
+    // consumes slightly more/less samples to keep buffer at target level
+    int inputNeeded = (int)(numOutputSamples * resampleRatio + 2);
 
     if (buffered < inputNeeded)
     {
         buffer.clear();
         prebuffering = true;
         if (fixedBufferMs.load() == 0)
-            updatePrebuffer(); // Only re-evaluate in adaptive mode
+            updatePrebuffer();
         return;
     }
 
-    if (std::abs(baseResampleRatio - 1.0) < 0.001)
-    {
-        audioRingBuffer.read(outL, numOutputSamples);
-    }
-    else
-    {
-        if (inputNeeded > (int)resampleInputBuf.size())
-            resampleInputBuf.resize((size_t)inputNeeded, 0.0f);
+    if (inputNeeded > (int)resampleInputBuf.size())
+        resampleInputBuf.resize((size_t)inputNeeded, 0.0f);
 
-        audioRingBuffer.read(resampleInputBuf.data(), inputNeeded);
-
-        // Resample: ratio = inputRate / outputRate
-        resampler.process(resampleRatio, resampleInputBuf.data(), outL, numOutputSamples);
-    }
+    audioRingBuffer.read(resampleInputBuf.data(), inputNeeded);
+    resampler.process(resampleRatio, resampleInputBuf.data(), outL, numOutputSamples);
 
     // Duplicate mono to right channel if stereo
     if (buffer.getNumChannels() > 1)
@@ -421,7 +412,7 @@ void AnarackProcessor::setStateInformation(const void* data, int sizeInBytes)
 
 void AnarackProcessor::setFixedBuffer(int ms)
 {
-    fixedBufferMs.store(juce::jlimit(0, 500, ms));
+    fixedBufferMs.store(juce::jlimit(0, 2000, ms));
     updatePrebuffer();
 }
 
@@ -449,7 +440,13 @@ void AnarackProcessor::updatePrebuffer()
 
     prebufferSamples = (int)(SERVER_SAMPLE_RATE * bufferMs / 1000.0);
     targetBufferSamples = prebufferSamples;
-    setLatencySamples(prebufferSamples);
+
+    // Total latency = buffer + network round-trip
+    // Buffer: audio sits in the ring buffer before playback
+    // RTT: MIDI takes RTT/2 to reach Rev2, audio takes RTT/2 to come back
+    int rtt = transport.getEstimatedRtt();
+    int totalLatencyMs = bufferMs + (rtt > 0 ? rtt : 0);
+    setLatencySamples((int)(SERVER_SAMPLE_RATE * totalLatencyMs / 1000.0));
 }
 
 juce::AudioProcessorEditor* AnarackProcessor::createEditor()
