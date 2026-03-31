@@ -282,27 +282,36 @@ void NetworkTransport::run()
             continue;
         }
 
-        // Detect packet format: header (12 bytes) + payload (256 bytes) = 268
-        // vs legacy: raw payload only (256 bytes)
-        bool hasHeader = (bytesRead == JitterBuffer::HEADER_SIZE + JitterBuffer::PACKET_SAMPLES * 2)
-                      || (bytesRead > JitterBuffer::HEADER_SIZE + 2 && bytesRead != JitterBuffer::PACKET_SAMPLES * 2);
+        // Detect packet format: exactly 268 bytes = header (12) + payload (256)
+        constexpr int HDR = JitterBuffer::HEADER_SIZE;
+        constexpr int PAYLOAD = JitterBuffer::PACKET_SAMPLES * 2;
+        bool hasHeader = (bytesRead == HDR + PAYLOAD);
 
         if (hasHeader && jitterBuffer.isConfigured())
         {
-            // New format: feed JitterBuffer
             jitterBuffer.writePacket(packetBuf, bytesRead);
-            packetsReceived.fetch_add(1, std::memory_order_relaxed);
         }
         else
         {
-            // Legacy format: feed AudioRingBuffer (backwards compatible)
-            int numSamples = bytesRead / 2;
-            auto* int16Data = reinterpret_cast<const int16_t*>(packetBuf);
-            for (int i = 0; i < numSamples; ++i)
-                convBuf[i] = (float)int16Data[i] / 32768.0f;
-            audioBuffer.write(convBuf, numSamples);
-            packetsReceived.fetch_add(1, std::memory_order_relaxed);
+            // Strip header if present, feed raw audio to legacy AudioRingBuffer
+            const uint8_t* audioData = packetBuf;
+            int audioBytes = bytesRead;
+            if (hasHeader)
+            {
+                audioData = packetBuf + HDR;
+                audioBytes = bytesRead - HDR;
+            }
+
+            int numSamples = audioBytes / 2;
+            if (numSamples > 0 && numSamples <= 512)
+            {
+                auto* int16Data = reinterpret_cast<const int16_t*>(audioData);
+                for (int i = 0; i < numSamples; ++i)
+                    convBuf[i] = (float)int16Data[i] / 32768.0f;
+                audioBuffer.write(convBuf, numSamples);
+            }
         }
+        packetsReceived.fetch_add(1, std::memory_order_relaxed);
     }
 }
 
@@ -345,8 +354,9 @@ void NetworkTransport::runWireGuard()
         // Audio packets from the server's audio port
         if (srcPort == (uint16_t)serverAudioPort || bytesRead >= 128)
         {
-            bool hasHeader = (bytesRead == JitterBuffer::HEADER_SIZE + JitterBuffer::PACKET_SAMPLES * 2)
-                          || (bytesRead > JitterBuffer::HEADER_SIZE + 2 && bytesRead != JitterBuffer::PACKET_SAMPLES * 2);
+            constexpr int HDR = JitterBuffer::HEADER_SIZE;
+            constexpr int PAYLOAD = JitterBuffer::PACKET_SAMPLES * 2;
+            bool hasHeader = (bytesRead == HDR + PAYLOAD);
 
             if (hasHeader && jitterBuffer.isConfigured())
             {
@@ -354,11 +364,17 @@ void NetworkTransport::runWireGuard()
             }
             else
             {
-                int numSamples = bytesRead / 2;
-                auto* int16Data = reinterpret_cast<const int16_t*>(packetBuf);
-                for (int i = 0; i < numSamples; ++i)
-                    convBuf[i] = (float)int16Data[i] / 32768.0f;
-                audioBuffer.write(convBuf, numSamples);
+                // Strip header if present
+                const uint8_t* audioData = hasHeader ? packetBuf + HDR : packetBuf;
+                int audioBytes = hasHeader ? bytesRead - HDR : bytesRead;
+                int numSamples = audioBytes / 2;
+                if (numSamples > 0 && numSamples <= 512)
+                {
+                    auto* int16Data = reinterpret_cast<const int16_t*>(audioData);
+                    for (int i = 0; i < numSamples; ++i)
+                        convBuf[i] = (float)int16Data[i] / 32768.0f;
+                    audioBuffer.write(convBuf, numSamples);
+                }
             }
         }
 

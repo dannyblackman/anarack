@@ -182,28 +182,8 @@ AnarackEditor::AnarackEditor(AnarackProcessor& p)
             else
                 t.connect(processor.serverHost);
 
-            // Configure JitterBuffer after connection
-            // Use fixed buffer if set, otherwise auto-calculate from RTT
-            juce::Timer::callAfterDelay(2000, [this]()
-            {
-                auto& t = processor.getTransport();
-                if (!t.isConnected()) return;
-
-                // Measure RTT
-                for (int i = 0; i < 5; i++)
-                {
-                    t.measureRtt();
-                    juce::Thread::sleep(200);
-                }
-
-                int rtt = t.getEstimatedRtt();
-                int fixed = processor.fixedBufferMs.load();
-                int bufferMs = fixed > 0 ? fixed : std::max(100, rtt * 2 + 50);
-                int bufferSamples = (int)(48000.0 * bufferMs / 1000.0);
-
-                processor.jitterBuffer.configure(bufferSamples, 48000.0);
-                processor.setLatencySamples(bufferSamples);
-            });
+            // JitterBuffer disabled for now — using legacy AudioRingBuffer
+            // TODO: enable once packet header format is verified stable
         }
     });
 

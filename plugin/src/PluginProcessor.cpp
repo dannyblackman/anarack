@@ -197,8 +197,8 @@ void AnarackProcessor::handleIncomingMidiMessage(juce::MidiInput*, const juce::M
 
 void AnarackProcessor::prepareToPlay(double sampleRate, int samplesPerBlock)
 {
-    // Ring buffer: 3s at server sample rate (48kHz) — enough for large fixed buffers
-    int bufferSize = (int)(SERVER_SAMPLE_RATE * 3.0);
+    // Ring buffer: 500ms at server sample rate (48kHz)
+    int bufferSize = (int)(SERVER_SAMPLE_RATE * 0.5);
     audioRingBuffer.resize(bufferSize);
 
     // Resampling ratio: how many input (48kHz) samples per output sample
