@@ -346,19 +346,19 @@ void AnarackProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::Midi
         }
         else
         {
-            // Clock drift correction: check every 512 blocks (~1.4s)
-            // Only correct when buffer drifts >33% from target
+            // Clock drift correction: check every 192 blocks (~0.5s)
+            // Correct when buffer drifts >15% from target
             driftCounter++;
             int extra = 0;
-            if (driftCounter >= 512)
+            if (driftCounter >= 192)
             {
                 driftCounter = 0;
                 int fill = jitterBuffer.getFillLevel();
                 int target = jitterBuffer.getFixedLatencySamples() / 2;
                 int drift = fill - target;
-                if (drift > target / 3)
+                if (drift > target / 6)
                     extra = 1;
-                else if (drift < -(target / 3))
+                else if (drift < -(target / 6))
                     extra = -1;
             }
 

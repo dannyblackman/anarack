@@ -173,9 +173,9 @@ AnarackEditor::AnarackEditor(AnarackProcessor& p)
         // Auto-connect if not already connected
         if (!processor.getTransport().isConnected())
         {
-            // Configure JitterBuffer BEFORE connecting (so it's ready for first packet)
+            // Configure JitterBuffer BEFORE connecting
             int fixed = processor.fixedBufferMs.load();
-            int bufferMs = fixed > 0 ? fixed : 200; // 200ms default
+            int bufferMs = fixed > 0 ? fixed : 300;
             int bufferSamples = (int)(48000.0 * bufferMs / 1000.0);
             processor.jitterBuffer.configure(bufferSamples, 48000.0);
             processor.setLatencySamples(bufferSamples);
