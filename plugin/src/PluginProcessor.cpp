@@ -346,52 +346,25 @@ void AnarackProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::Midi
         }
         else
         {
-            // Media clock recovery: continuously measure server vs DAW clock
-            // rate from buffer fill trend, then resample to match exactly.
-            clockRecoveryDAWSamples += numOutputSamples;
+            // Simple drift correction: read directly, correct ±1 sample
+            // every ~5.5s when buffer drifts >50% from target.
+            // The 300ms buffer absorbs drift between corrections.
+            jitterBuffer.read(outL, numOutputSamples);
 
-            // Bootstrap: record starting fill level after 1 second of data
-            if (clockRecoveryStartDAW < 0 && clockRecoveryDAWSamples > 48000)
+            driftCounter++;
+            if (driftCounter >= 2048)
             {
-                clockRecoveryStartDAW = clockRecoveryDAWSamples;
-                clockRecoveryStartFill = jitterBuffer.getFillLevel();
-            }
+                driftCounter = 0;
+                int fill = jitterBuffer.getFillLevel();
+                int target = jitterBuffer.getFixedLatencySamples() / 2;
+                int drift = fill - target;
 
-            // After 10 seconds, calculate the drift rate
-            int64_t elapsed = clockRecoveryDAWSamples - clockRecoveryStartDAW;
-            if (clockRecoveryStartDAW >= 0 && elapsed > 480000) // 10 seconds
-            {
-                int currentFill = jitterBuffer.getFillLevel();
-                int fillChange = currentFill - clockRecoveryStartFill;
-
-                // fillChange = how many more samples arrived than we consumed
-                // over 'elapsed' DAW samples. This tells us the clock ratio.
-                // Positive = server faster, negative = server slower
-                double driftRate = (double)fillChange / (double)elapsed;
-                recoveredRatio = 1.0 + driftRate;
-
-                // Clamp to sane range (±0.1% = ±100ppm, typical for cheap clocks)
-                recoveredRatio = juce::jlimit(0.999, 1.001, recoveredRatio);
-
-                // Reset for next measurement window
-                clockRecoveryStartDAW = clockRecoveryDAWSamples;
-                clockRecoveryStartFill = currentFill;
-            }
-
-            // Apply recovered ratio via resampling
-            if (std::abs(recoveredRatio - 1.0) < 0.000001)
-            {
-                // Ratio is essentially 1.0 — direct read, no resampling
-                jitterBuffer.read(outL, numOutputSamples);
-            }
-            else
-            {
-                int inputNeeded = (int)(numOutputSamples * recoveredRatio) + 1;
-                inputNeeded = juce::jmax(1, inputNeeded);
-                if (inputNeeded > (int)resampleInputBuf.size())
-                    resampleInputBuf.resize((size_t)inputNeeded, 0.0f);
-                jitterBuffer.read(resampleInputBuf.data(), inputNeeded);
-                resampler.process(recoveredRatio, resampleInputBuf.data(), outL, numOutputSamples);
+                if (drift > target / 2)
+                {
+                    float extra;
+                    jitterBuffer.read(&extra, 1);
+                    outL[numOutputSamples - 1] = outL[numOutputSamples - 1] * 0.5f + extra * 0.5f;
+                }
             }
         }
     }
