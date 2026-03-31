@@ -597,9 +597,23 @@ function updateConnectionStatus(state) {
 
   if (_connected && state.bufferMs >= 0) {
     bufGroup.style.display = 'flex';
-    bufVal.textContent = state.bufferMs.toFixed(0);
+    // Show actual / target if in fixed mode
+    if (state.bufferTarget > 0) {
+      bufVal.textContent = state.bufferMs.toFixed(0) + '/' + state.bufferTarget;
+    } else {
+      bufVal.textContent = state.bufferMs.toFixed(0);
+    }
   } else {
     bufGroup.style.display = 'none';
+  }
+
+  // Show total latency (reported to DAW for PDC)
+  if (_connected && state.totalLatency > 0) {
+    rttGroup.style.display = 'flex';
+    rttVal.textContent = state.rtt;
+    rttVal.className = 'stat-val';
+    // Append total latency info
+    document.getElementById('rtt-group').title = 'Total latency reported to DAW: ' + state.totalLatency + 'ms (buffer + RTT)';
   }
 
   // MIDI Learn completion

@@ -203,6 +203,9 @@ void AnarackEditor::timerCallback()
         state->setProperty("mode", c ? juce::String(t.isWireGuard() ? "WireGuard" : "LAN") : juce::String());
         state->setProperty("rtt", c ? t.getEstimatedRtt() : 0);
         state->setProperty("bufferMs", c ? (float)t.getBufferLevel() / 48.0f : 0.0f);
+        int fixedMs = processor.fixedBufferMs.load();
+        state->setProperty("bufferTarget", fixedMs > 0 ? fixedMs : -1);
+        state->setProperty("totalLatency", c ? (int)(processor.getLatencySamples() * 1000.0 / 48000.0) : 0);
         state->setProperty("midiIn", processor.midiInCount.load(std::memory_order_relaxed));
         state->setProperty("mappedSends", processor.mappedSendCount.load(std::memory_order_relaxed));
         state->setProperty("learning", processor.learnTargetCC.load() >= 0);
