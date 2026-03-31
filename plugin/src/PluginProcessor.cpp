@@ -346,24 +346,60 @@ void AnarackProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::Midi
         }
         else
         {
-            // Simple drift correction: read directly, correct ±1 sample
-            // every ~5.5s when buffer drifts >50% from target.
-            // The 300ms buffer absorbs drift between corrections.
-            jitterBuffer.read(outL, numOutputSamples);
-
+            // Drift correction: check every ~0.5s
+            // Read numOutputSamples ± 1 based on buffer fill
             driftCounter++;
-            if (driftCounter >= 2048)
+            int extra = 0;
+            if (driftCounter >= 192)
             {
                 driftCounter = 0;
                 int fill = jitterBuffer.getFillLevel();
                 int target = jitterBuffer.getFixedLatencySamples() / 2;
                 int drift = fill - target;
+                if (drift > target / 10)        extra = 1;  // overfull: consume more
+                else if (drift < -(target / 10)) extra = -1; // underfull: consume less
+            }
 
-                if (drift > target / 2)
+            int toRead = numOutputSamples + extra;
+            if (toRead < 1) toRead = 1;
+
+            if (toRead == numOutputSamples)
+            {
+                jitterBuffer.read(outL, numOutputSamples);
+            }
+            else if (toRead > numOutputSamples)
+            {
+                // Read 1 extra into temp, resample down to output size
+                if (toRead > (int)resampleInputBuf.size())
+                    resampleInputBuf.resize((size_t)toRead, 0.0f);
+                jitterBuffer.read(resampleInputBuf.data(), toRead);
+                // Linear interpolation to fit toRead samples into numOutputSamples
+                for (int i = 0; i < numOutputSamples; i++)
                 {
-                    float extra;
-                    jitterBuffer.read(&extra, 1);
-                    outL[numOutputSamples - 1] = outL[numOutputSamples - 1] * 0.5f + extra * 0.5f;
+                    float pos = (float)i * (float)toRead / (float)numOutputSamples;
+                    int idx = (int)pos;
+                    float frac = pos - (float)idx;
+                    if (idx + 1 < toRead)
+                        outL[i] = resampleInputBuf[(size_t)idx] * (1.0f - frac) + resampleInputBuf[(size_t)(idx + 1)] * frac;
+                    else
+                        outL[i] = resampleInputBuf[(size_t)idx];
+                }
+            }
+            else
+            {
+                // Read 1 fewer, stretch to fill output
+                if (toRead > (int)resampleInputBuf.size())
+                    resampleInputBuf.resize((size_t)toRead, 0.0f);
+                jitterBuffer.read(resampleInputBuf.data(), toRead);
+                for (int i = 0; i < numOutputSamples; i++)
+                {
+                    float pos = (float)i * (float)toRead / (float)numOutputSamples;
+                    int idx = (int)pos;
+                    float frac = pos - (float)idx;
+                    if (idx + 1 < toRead)
+                        outL[i] = resampleInputBuf[(size_t)idx] * (1.0f - frac) + resampleInputBuf[(size_t)(idx + 1)] * frac;
+                    else
+                        outL[i] = resampleInputBuf[(size_t)idx];
                 }
             }
         }
