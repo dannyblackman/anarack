@@ -346,41 +346,25 @@ void AnarackProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::Midi
         }
         else
         {
-            // Clock drift correction: check every 192 blocks (~0.5s)
-            // Correct when buffer drifts >15% from target
-            driftCounter++;
-            int extra = 0;
-            if (driftCounter >= 192)
-            {
-                driftCounter = 0;
-                int fill = jitterBuffer.getFillLevel();
-                int target = jitterBuffer.getFixedLatencySamples() / 2;
-                int drift = fill - target;
-                if (drift > target / 6)
-                    extra = 1;
-                else if (drift < -(target / 6))
-                    extra = -1;
-            }
+            // Clock drift correction via resampling — inaudible speed change
+            // Read slightly more or fewer samples from the jitter buffer and
+            // resample to the exact output size. No sample drops = no clicks.
+            int fill = jitterBuffer.getFillLevel();
+            int target = jitterBuffer.getFixedLatencySamples() / 2;
+            double drift = (double)(fill - target) / (double)juce::jmax(1, target);
 
-            int samplesToRead = numOutputSamples + extra;
-            if (samplesToRead < 1) samplesToRead = 1;
+            // Gentle correction: ±0.2% max speed change
+            double ratio = 1.0 + drift * 0.002;
+            ratio = juce::jlimit(0.998, 1.002, ratio);
 
-            // Read into temp buffer if size differs from output
-            if (extra == 0)
-            {
-                jitterBuffer.read(outL, numOutputSamples);
-            }
-            else
-            {
-                if (samplesToRead > (int)resampleInputBuf.size())
-                    resampleInputBuf.resize((size_t)samplesToRead, 0.0f);
-                jitterBuffer.read(resampleInputBuf.data(), samplesToRead);
-                // Copy to output (drop extra or duplicate last)
-                int copyCount = std::min(samplesToRead, numOutputSamples);
-                std::memcpy(outL, resampleInputBuf.data(), (size_t)copyCount * sizeof(float));
-                if (copyCount < numOutputSamples)
-                    outL[numOutputSamples - 1] = resampleInputBuf[(size_t)(copyCount - 1)];
-            }
+            int inputNeeded = (int)(numOutputSamples * ratio + 2);
+            if (inputNeeded < 1) inputNeeded = 1;
+
+            if (inputNeeded > (int)resampleInputBuf.size())
+                resampleInputBuf.resize((size_t)inputNeeded, 0.0f);
+
+            jitterBuffer.read(resampleInputBuf.data(), inputNeeded);
+            resampler.process(ratio, resampleInputBuf.data(), outL, numOutputSamples);
         }
     }
     else
