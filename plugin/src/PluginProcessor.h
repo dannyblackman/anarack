@@ -90,6 +90,7 @@ public:
 private:
     NetworkTransport transport;
     int underrunCount = 0;
+    int driftCounter = 0;
 
     // Resampling: server sends 48kHz, host may run at 44.1kHz etc.
     juce::LagrangeInterpolator resampler;
