@@ -36,6 +36,9 @@ AnarackEditor::AnarackEditor(AnarackProcessor& p)
                     processor.getTransport().sendMidi(msg, 3);
                 }
                 processor.ccValues[cc] = value;
+                // Sync DAW parameter so automation records correctly
+                if (auto* p = processor.paramByCC[cc])
+                    p->setValueNotifyingHost(p->convertTo0to1((float)value));
             }
         })
         // Connect button

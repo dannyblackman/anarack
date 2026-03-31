@@ -1,6 +1,79 @@
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
 
+// ── Rev2 parameter definitions for DAW automation ──
+const std::vector<AnarackProcessor::SynthParam>& AnarackProcessor::getSynthParams()
+{
+    static const std::vector<SynthParam> params = {
+        // Oscillator 1
+        { 20, "Osc1 Freq", 36, 120 },
+        { 21, "Osc1 Fine Tune", 50, 100 },
+        { 22, "Osc1 Shape", 1, 4 },
+        { 30, "Osc1 Pulse Width", 50, 99 },
+        { 23, "Osc1 Glide", 0, 127 },
+        // Oscillator 2
+        { 24, "Osc2 Freq", 36, 120 },
+        { 25, "Osc2 Fine Tune", 50, 100 },
+        { 26, "Osc2 Shape", 1, 4 },
+        { 31, "Osc2 Pulse Width", 50, 99 },
+        { 27, "Osc2 Glide", 0, 127 },
+        // Mixer
+        { 28, "Osc Mix", 0, 127 },
+        {  8, "Sub Octave", 0, 127 },
+        { 29, "Noise", 0, 127 },
+        {  9, "Osc Slop", 0, 127 },
+        // Filter
+        { 102, "Cutoff", 164, 164 },
+        { 103, "Resonance", 0, 127 },
+        { 104, "Filter Key Amt", 0, 127 },
+        { 105, "Filter Audio Mod", 0, 127 },
+        // Filter Envelope
+        { 106, "Filter Env Amt", 127, 254 },
+        { 107, "Filter Env Vel", 0, 127 },
+        { 108, "Filter Env Delay", 0, 127 },
+        { 109, "Filter Env Attack", 0, 127 },
+        { 110, "Filter Env Decay", 64, 127 },
+        { 111, "Filter Env Sustain", 64, 127 },
+        { 112, "Filter Env Release", 64, 127 },
+        // Amplifier
+        { 113, "VCA Level", 0, 127 },
+        {  37, "Volume", 127, 127 },
+        { 114, "Pan Spread", 0, 127 },
+        // Amp Envelope
+        { 115, "Amp Env Amt", 127, 127 },
+        { 116, "Amp Env Vel", 0, 127 },
+        { 117, "Amp Env Delay", 0, 127 },
+        { 118, "Amp Env Attack", 0, 127 },
+        { 119, "Amp Env Decay", 64, 127 },
+        {  75, "Amp Env Sustain", 64, 127 },
+        {  76, "Amp Env Release", 64, 127 },
+        // Aux Envelope (Env 3)
+        {  85, "Aux Env Dest", 0, 52 },
+        {  86, "Aux Env Amt", 127, 254 },
+        {  87, "Aux Env Vel", 0, 127 },
+        {  88, "Aux Env Delay", 0, 127 },
+        {  89, "Aux Env Attack", 0, 127 },
+        {  90, "Aux Env Decay", 64, 127 },
+        {  77, "Aux Env Sustain", 64, 127 },
+        {  78, "Aux Env Release", 64, 127 },
+        // Effects
+        {   3, "FX Type", 0, 13 },
+        {  16, "FX On/Off", 0, 1 },
+        {  17, "FX Mix", 64, 127 },
+        {  12, "FX Param 1", 64, 255 },
+        {  13, "FX Param 2", 64, 127 },
+        // Clock
+        {  14, "BPM", 120, 250 },
+        {  15, "Clock Divide", 6, 12 },
+        // Arp
+        {  34, "Arp Mode", 0, 4 },
+        {  33, "Arp On/Off", 0, 1 },
+        // Glide
+        {  65, "Glide On/Off", 0, 1 },
+    };
+    return params;
+}
+
 AnarackProcessor::AnarackProcessor()
     : AudioProcessor(BusesProperties()
                          .withOutput("Output", juce::AudioChannelSet::stereo(), true)),
@@ -9,6 +82,21 @@ AnarackProcessor::AnarackProcessor()
     std::fill(std::begin(ccMap), std::end(ccMap), -1);
     std::fill(std::begin(ccValues), std::end(ccValues), 0);
     std::fill(std::begin(lastRawVal), std::end(lastRawVal), -1);
+    std::fill(std::begin(paramByCC), std::end(paramByCC), nullptr);
+
+    // Register automatable parameters for each Rev2 CC
+    for (auto& sp : getSynthParams())
+    {
+        auto* p = new juce::AudioParameterFloat(
+            juce::ParameterID { "cc" + juce::String(sp.cc), 1 },
+            sp.name,
+            juce::NormalisableRange<float>(0.0f, (float)sp.maxVal, 1.0f),
+            (float)sp.defaultVal
+        );
+        addParameter(p);
+        if (sp.cc >= 0 && sp.cc < 128)
+            paramByCC[sp.cc] = p;
+    }
 }
 
 AnarackProcessor::~AnarackProcessor()
@@ -132,6 +220,25 @@ void AnarackProcessor::releaseResources()
 
 void AnarackProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midiMessages)
 {
+    // Send CCs for any DAW-automated parameters that changed
+    for (auto& sp : getSynthParams())
+    {
+        auto* p = paramByCC[sp.cc];
+        if (!p) continue;
+        int newVal = (int)p->get();
+        if (newVal != ccValues[sp.cc])
+        {
+            ccValues[sp.cc] = newVal;
+            int ccVal = sp.maxVal > 127 ? juce::roundToInt(newVal * 127.0f / sp.maxVal) : newVal;
+            const uint8_t msg[3] = { 0xB0, (uint8_t)sp.cc, (uint8_t)ccVal };
+            transport.sendMidi(msg, 3);
+            // Push to UI ring buffer
+            int w = ccRingWrite.load(std::memory_order_relaxed);
+            ccRing[w % CC_RING_SIZE] = { (uint8_t)sp.cc, (uint8_t)ccVal };
+            ccRingWrite.store(w + 1, std::memory_order_release);
+        }
+    }
+
     // Forward MIDI from DAW to the server, with CC learn/mapping
     for (const auto metadata : midiMessages)
     {
@@ -192,6 +299,9 @@ void AnarackProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::Midi
                 const uint8_t mapped[3] = { 0xB0, (uint8_t)synthCC, (uint8_t)absVal };
                 transport.sendMidi(mapped, 3);
                 mappedSendCount.fetch_add(1, std::memory_order_relaxed);
+                // Sync DAW parameter
+                if (auto* p = paramByCC[synthCC])
+                    p->setValueNotifyingHost(p->convertTo0to1((float)absVal));
                 // Push to ring buffer for UI update
                 int w = ccRingWrite.load(std::memory_order_relaxed);
                 ccRing[w % CC_RING_SIZE] = { (uint8_t)synthCC, (uint8_t)absVal };

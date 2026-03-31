@@ -63,6 +63,12 @@ public:
     void startLearn(int synthCC) { learnTargetCC.store(synthCC); }
     void clearLearn() { learnTargetCC.store(-1); }
     void clearMapping(int controllerCC) { if (controllerCC >= 0 && controllerCC < 128) ccMap[controllerCC] = -1; }
+
+    // DAW-automatable parameters (one per Rev2 CC parameter)
+    struct SynthParam { int cc; juce::String name; int defaultVal; int maxVal; };
+    static const std::vector<SynthParam>& getSynthParams();
+    juce::AudioParameterFloat* paramByCC[128] {};  // quick lookup by CC number
+
     juce::String serverHost { "192.168.1.131" };
     juce::String wgEndpoint { "66.245.195.65" };
     juce::String wgServerPubkey { "uX4s7vVGT+B2tJl7+4plM3vO+LceS/LKe+8A8IPH934=" };
