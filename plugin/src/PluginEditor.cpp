@@ -57,7 +57,10 @@ AnarackEditor::AnarackEditor(AnarackProcessor& p)
                 processor.ccValues[cc] = value;
                 // Sync DAW parameter so automation records correctly
                 if (auto* p = processor.paramByCC[cc])
+                {
                     p->setValueNotifyingHost(p->convertTo0to1((float)value));
+                    processor.lastAutomationVal[cc] = value; // prevent automation fighting back
+                }
             }
         })
         // Connect button
@@ -93,6 +96,12 @@ AnarackEditor::AnarackEditor(AnarackProcessor& p)
         .withEventListener("cancelLearn", [this](const juce::var&)
         {
             processor.clearLearn();
+        })
+        // Fixed buffer size
+        .withEventListener("setBuffer", [this](const juce::var& payload)
+        {
+            int ms = (int)payload.getProperty("ms", 0);
+            processor.setFixedBuffer(ms);
         })
         // Encoder sensitivity
         .withEventListener("setSensitivity", [this](const juce::var& payload)

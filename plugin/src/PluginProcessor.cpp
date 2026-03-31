@@ -83,6 +83,7 @@ AnarackProcessor::AnarackProcessor()
     std::fill(std::begin(ccValues), std::end(ccValues), 0);
     std::fill(std::begin(lastRawVal), std::end(lastRawVal), -1);
     std::fill(std::begin(paramByCC), std::end(paramByCC), nullptr);
+    std::fill(std::begin(lastAutomationVal), std::end(lastAutomationVal), -1);
 
     // Register automatable parameters for each Rev2 CC
     for (auto& sp : getSynthParams())
@@ -220,14 +221,16 @@ void AnarackProcessor::releaseResources()
 
 void AnarackProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midiMessages)
 {
-    // Send CCs for any DAW-automated parameters that changed
+    // Send CCs for DAW-automated parameters — only when the DAW changes them,
+    // not when the UI or controller changes ccValues
     for (auto& sp : getSynthParams())
     {
         auto* p = paramByCC[sp.cc];
         if (!p) continue;
         int newVal = (int)p->get();
-        if (newVal != ccValues[sp.cc])
+        if (newVal != lastAutomationVal[sp.cc])
         {
+            lastAutomationVal[sp.cc] = newVal;
             ccValues[sp.cc] = newVal;
             int ccVal = sp.maxVal > 127 ? juce::roundToInt(newVal * 127.0f / sp.maxVal) : newVal;
             const uint8_t msg[3] = { 0xB0, (uint8_t)sp.cc, (uint8_t)ccVal };
@@ -411,17 +414,33 @@ void AnarackProcessor::setStateInformation(const void* data, int sizeInBytes)
         serverHost = state.getProperty("serverHost", "anarack.local").toString();
 }
 
+void AnarackProcessor::setFixedBuffer(int ms)
+{
+    fixedBufferMs.store(juce::jlimit(0, 500, ms));
+    updatePrebuffer();
+}
+
 void AnarackProcessor::updatePrebuffer()
 {
-    // Scale pre-buffer with RTT: low latency = small buffer, high latency = larger buffer
-    int rtt = transport.getEstimatedRtt();
+    int fixed = fixedBufferMs.load();
     int bufferMs;
-    if (rtt <= 0)
-        bufferMs = 20;          // No RTT data yet — conservative default
-    else if (rtt < 20)
-        bufferMs = 15;          // LAN / nearby VPS — keep it tight
+
+    if (fixed > 0)
+    {
+        // Fixed mode: user-set buffer, no adaptation
+        bufferMs = fixed;
+    }
     else
-        bufferMs = rtt * 2;     // Internet — buffer at 2x RTT to absorb jitter
+    {
+        // Adaptive mode: scale with RTT
+        int rtt = transport.getEstimatedRtt();
+        if (rtt <= 0)
+            bufferMs = 20;
+        else if (rtt < 20)
+            bufferMs = 15;
+        else
+            bufferMs = rtt * 2;
+    }
 
     prebufferSamples = (int)(SERVER_SAMPLE_RATE * bufferMs / 1000.0);
     targetBufferSamples = prebufferSamples;

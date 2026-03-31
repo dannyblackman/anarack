@@ -358,6 +358,19 @@
           <span id="sensitivity-val" style="font-size:9px;color:rgba(255,255,255,0.4);min-width:16px;">3</span>
         </div>
         <div class="conn-group">
+          <span class="conn-label">Buffer</span>
+          <select class="conn-select" id="buffer-mode" style="min-width:140px" onchange="onBufferChange()">
+            <option value="0">Auto (adaptive)</option>
+            <option value="30">30ms (LAN)</option>
+            <option value="50">50ms</option>
+            <option value="80">80ms</option>
+            <option value="100">100ms</option>
+            <option value="150">150ms</option>
+            <option value="200">200ms</option>
+            <option value="300">300ms (safe)</option>
+          </select>
+        </div>
+        <div class="conn-group">
           <label style="display:flex;align-items:center;gap:4px;cursor:pointer;">
             <input type="checkbox" id="lan-mode" style="accent-color:#E8A849;">
             <span style="font-size:8px;color:rgba(255,255,255,0.3);text-transform:uppercase;letter-spacing:1px;">LAN mode (direct connection, no WireGuard)</span>
@@ -514,6 +527,12 @@ log('Ready');
 
 // ── Connection controls ──
 let _connected = false;
+
+function onBufferChange() {
+  const ms = parseInt(document.getElementById('buffer-mode').value);
+  if (_juce) _juce.emitEvent("setBuffer", { ms });
+  log(ms > 0 ? 'Fixed buffer: ' + ms + 'ms — set Logic track delay to -' + ms + 'ms to compensate' : 'Buffer: auto (adaptive)');
+}
 
 function onSensitivityChange() {
   const val = document.getElementById('sensitivity').value;
@@ -697,10 +716,11 @@ function knob(parent, label, value, max, opts) {
   if (cc >= 0) {
     c.ondblclick = (e) => { e.preventDefault(); startLearnMode(ctrl, cc, l); };
   }
+  ctrl._nrpn = nrpn; // can be updated dynamically (e.g. LFO tab switch)
   function emitCC() {
     const cv = max > 127 ? Math.round(value * 127 / max) : value;
     if (cc >= 0) sendCC(cc, cv);
-    else if (nrpn >= 0) sendNRPN(nrpn, cv);
+    else if (ctrl._nrpn >= 0) sendNRPN(ctrl._nrpn, cv);
   }
   c.onmousedown = e => { dy0 = e.clientY; v0 = value; e.preventDefault(); document.body.style.cursor = 'grabbing'; };
   window.addEventListener('mousemove', e => {
@@ -729,7 +749,8 @@ function btn(parent, label, value, text, opts) {
     setValue(v) { value = v; b.className = 'btn' + (value ? ' on' : ''); if (!text) b.textContent = value ? 'ON' : 'OFF'; }
   };
   registerCC(cc, ctrl);
-  b.onclick = () => { ctrl.setValue(value ? 0 : 1); if (cc >= 0) sendCC(cc, value); else if (nrpn >= 0) sendNRPN(nrpn, value); };
+  ctrl._nrpn = nrpn;
+  b.onclick = () => { ctrl.setValue(value ? 0 : 1); if (cc >= 0) sendCC(cc, value); else if (ctrl._nrpn >= 0) sendNRPN(ctrl._nrpn, value); };
   return ctrl;
 }
 
@@ -749,9 +770,9 @@ function shapeSel(parent, value, shapes, opts) {
   });
   parent.appendChild(d);
   function update() { optEls.forEach((o, i) => { o.className = 'shape-opt' + (i === value ? ' active' : ''); }); }
-  const ctrl = { el: d, _max: shapes.length - 1, getValue() { return value; }, setValue(v) { value = v; update(); } };
+  const ctrl = { el: d, _max: shapes.length - 1, _nrpn: nrpn, getValue() { return value; }, setValue(v) { value = v; update(); } };
   registerCC(cc, ctrl);
-  d.onclick = () => { value = (value + 1) % shapes.length; update(); if (cc >= 0) sendCC(cc, value); else if (nrpn >= 0) sendNRPN(nrpn, value); };
+  d.onclick = () => { value = (value + 1) % shapes.length; update(); if (cc >= 0) sendCC(cc, value); else if (ctrl._nrpn >= 0) sendNRPN(ctrl._nrpn, value); };
   return ctrl;
 }
 
@@ -1042,40 +1063,17 @@ const lfoBotRow = srow(lfoRight);
 const lfoAmt = knob(lfoBotRow, 'Amount', 0, 127);
 const lfoClkSync = btn(lfoBotRow, 'Clk Sync', 0);
 
-// Send current LFO control value via NRPN
-function sendLfoParam(param) {
-  const nrpns = lfoNRPNs[activeLfo];
-  if (param === 'shape') sendNRPN(nrpns.shape, lfoShape.getValue());
-  else if (param === 'freq') sendNRPN(nrpns.freq, lfoFreq.getValue());
-  else if (param === 'amt') sendNRPN(nrpns.amt, lfoAmt.getValue());
-  else if (param === 'dest') sendNRPN(nrpns.dest, lfoDest.getValue());
-  else if (param === 'keySync') sendNRPN(nrpns.keySync, lfoKeySync.getValue());
-  else if (param === 'clkSync') sendNRPN(nrpns.clkSync, lfoClkSync.getValue());
+// Update NRPN assignments on all LFO controls for the active LFO
+function updateLfoNRPNs() {
+  const n = lfoNRPNs[activeLfo];
+  lfoShape._nrpn = n.shape;
+  lfoFreq._nrpn = n.freq;
+  lfoAmt._nrpn = n.amt;
+  lfoDest._nrpn = n.dest;
+  lfoKeySync._nrpn = n.keySync;
+  lfoClkSync._nrpn = n.clkSync;
 }
-
-// Hook up change listeners for LFO controls
-// Override the onclick/drag handlers to also send NRPNs
-const _origLfoShapeClick = lfoShape.el.onclick;
-lfoShape.el.onclick = () => { _origLfoShapeClick(); sendLfoParam('shape'); };
-
-// For knobs, intercept value changes by wrapping setValue
-['freq','amt','dest'].forEach(param => {
-  const ctrl = param === 'freq' ? lfoFreq : param === 'amt' ? lfoAmt : lfoDest;
-  const canvas = ctrl.el.querySelector('canvas');
-  const origWheel = canvas.onwheel;
-  // The drag emitCC sends cc=-1 which is a no-op, so we piggyback on mousemove
-  // by adding a mutation observer on value changes... actually simpler: override onwheel and add mouseup
-  canvas.addEventListener('mouseup', () => sendLfoParam(param));
-  if (origWheel) {
-    canvas.onwheel = (e) => { origWheel(e); sendLfoParam(param); };
-  }
-});
-
-// Buttons
-const _origKeySyncClick = lfoKeySync.el.querySelector('.btn').onclick;
-lfoKeySync.el.querySelector('.btn').onclick = () => { _origKeySyncClick(); sendLfoParam('keySync'); };
-const _origClkSyncClick = lfoClkSync.el.querySelector('.btn').onclick;
-lfoClkSync.el.querySelector('.btn').onclick = () => { _origClkSyncClick(); sendLfoParam('clkSync'); };
+updateLfoNRPNs(); // set initial NRPNs for LFO 1
 
 function saveLfo() {
   const st = lfoState[activeLfo];
@@ -1091,6 +1089,7 @@ function switchLfo(i) {
   saveLfo();
   activeLfo = i;
   lfoTabs2.forEach((t, j) => t.className = 'lfo-tab' + (j === i ? ' active' : ''));
+  updateLfoNRPNs(); // update NRPN assignments for the new LFO
   const st = lfoState[i];
   lfoShape.setValue(st.shape);
   lfoFreq.setValue(st.freq);
