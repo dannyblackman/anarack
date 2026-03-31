@@ -303,6 +303,10 @@ class AudioStreamer:
         self._seq = 0
         self._ts = 0
         self._blocksize = 128
+        # Packet duplication: ring of recent packets, resent after ~10ms delay
+        self._dup_delay = 4  # resend packet from N packets ago (~10ms at 2.67ms/pkt)
+        self._dup_ring = [None] * (self._dup_delay + 2)
+        self._dup_idx = 0
 
     def start(self):
         """Start the JACK audio capture client."""
@@ -396,18 +400,23 @@ class AudioStreamer:
                             dead_clients.add(ws)
                     self.clients -= dead_clients
 
-                # Send to UDP clients with 12-byte header
+                # Send to UDP clients with 12-byte header + packet duplication
                 if self.udp_clients:
                     hdr = struct.pack("<IIHh", self._seq, self._ts, 0, 0)
                     pkt = hdr + chunk
                     self._seq += 1
                     self._ts += self._blocksize
+
                     dead_udp = []
                     for addr, sock in self.udp_clients.items():
                         try:
                             sock.sendto(pkt, addr)
                         except OSError:
                             dead_udp.append(addr)
+
+                    # Packet duplication disabled — was causing stuttering
+                    # TODO: investigate if doubled packet rate causes WG congestion
+
                     for addr in dead_udp:
                         self.udp_clients.pop(addr, None)
 
