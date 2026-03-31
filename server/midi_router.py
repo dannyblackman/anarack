@@ -300,6 +300,9 @@ class AudioStreamer:
         self.jack_client = None
         self.audio_queue: queue.Queue = queue.Queue(maxsize=200)
         self._running = False
+        self._seq = 0
+        self._ts = 0
+        self._blocksize = 128
 
     def start(self):
         """Start the JACK audio capture client."""
@@ -393,15 +396,20 @@ class AudioStreamer:
                             dead_clients.add(ws)
                     self.clients -= dead_clients
 
-                # Send to UDP clients (lower latency path)
-                dead_udp = []
-                for addr, sock in self.udp_clients.items():
-                    try:
-                        sock.sendto(chunk, addr)
-                    except OSError:
-                        dead_udp.append(addr)
-                for addr in dead_udp:
-                    self.udp_clients.pop(addr, None)
+                # Send to UDP clients with 12-byte header
+                if self.udp_clients:
+                    hdr = struct.pack("<IIHh", self._seq, self._ts, 0, 0)
+                    pkt = hdr + chunk
+                    self._seq += 1
+                    self._ts += self._blocksize
+                    dead_udp = []
+                    for addr, sock in self.udp_clients.items():
+                        try:
+                            sock.sendto(pkt, addr)
+                        except OSError:
+                            dead_udp.append(addr)
+                    for addr in dead_udp:
+                        self.udp_clients.pop(addr, None)
 
             except Exception as e:
                 print(f"Audio stream error: {e}")

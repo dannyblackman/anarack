@@ -587,7 +587,7 @@ function updateConnectionStatus(state) {
   dot.className = 'status-dot' + (_connected ? ' live' : '');
   label.textContent = _connected ? 'Live' : 'Offline';
   pill.className = 'status-pill' + (_connected ? ' live' : '');
-  mode.textContent = state.mode || '';
+  mode.textContent = (state.mode || '') + (state.pktSize > 0 ? ' [' + state.pktSize + 'B]' : '');
 
   btn.textContent = _connected ? 'Disconnect' : 'Connect';
   btn.className = 'conn-btn' + (_connected ? ' disconnect' : '');

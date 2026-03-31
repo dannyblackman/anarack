@@ -43,6 +43,7 @@ public:
     int getPacketsReceived() const { return packetsReceived.load(); }
     int getBufferLevel() const { return audioBuffer.getNumReady(); }
     int getEstimatedRtt() const;
+    int getLastPacketSize() const { return lastPacketSize.load(); }
 
 private:
     void run() override; // Receive thread (raw UDP mode)
@@ -67,6 +68,7 @@ private:
 
     std::atomic<bool> connected { false };
     std::atomic<int> packetsReceived { 0 };
+    std::atomic<int> lastPacketSize { 0 };
 
     // Lock-free MIDI FIFO (audio thread writes, network thread reads)
     static constexpr int MIDI_FIFO_SIZE = 256;

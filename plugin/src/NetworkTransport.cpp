@@ -240,12 +240,21 @@ void NetworkTransport::run()
         if (bytesRead <= 0)
             continue;
 
-        int numSamples = bytesRead / 2;
-        auto* int16Data = reinterpret_cast<const int16_t*>(packetBuf);
+        // Strip 12-byte header if present (268 = 12 header + 256 audio)
+        const uint8_t* audioStart = packetBuf;
+        int audioBytes = bytesRead;
+        if (bytesRead == 268) {
+            audioStart = packetBuf + 12;
+            audioBytes = 256;
+        }
+
+        int numSamples = audioBytes / 2;
+        auto* int16Data = reinterpret_cast<const int16_t*>(audioStart);
         for (int i = 0; i < numSamples; ++i)
             convBuf[i] = (float)int16Data[i] / 32768.0f;
 
         audioBuffer.write(convBuf, numSamples);
+        lastPacketSize.store(bytesRead, std::memory_order_relaxed);
         packetsReceived.fetch_add(1, std::memory_order_relaxed);
     }
 }
@@ -275,14 +284,23 @@ void NetworkTransport::runWireGuard()
         // Audio packets come from the server's audio port
         if (srcPort == (uint16_t)serverAudioPort || bytesRead >= 128)
         {
-            int numSamples = bytesRead / 2;
-            auto* int16Data = reinterpret_cast<const int16_t*>(packetBuf);
+            // Strip 12-byte header if present
+            const uint8_t* audioStart = packetBuf;
+            int audioBytes = bytesRead;
+            if (bytesRead == 268) {
+                audioStart = packetBuf + 12;
+                audioBytes = 256;
+            }
+
+            int numSamples = audioBytes / 2;
+            auto* int16Data = reinterpret_cast<const int16_t*>(audioStart);
             for (int i = 0; i < numSamples; ++i)
                 convBuf[i] = (float)int16Data[i] / 32768.0f;
 
             audioBuffer.write(convBuf, numSamples);
         }
 
+        lastPacketSize.store(bytesRead, std::memory_order_relaxed);
         packetsReceived.fetch_add(1, std::memory_order_relaxed);
     }
 }

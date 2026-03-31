@@ -204,6 +204,7 @@ void AnarackEditor::timerCallback()
         auto state = juce::DynamicObject::Ptr(new juce::DynamicObject());
         state->setProperty("connected", c);
         state->setProperty("mode", c ? juce::String(t.isWireGuard() ? "WireGuard" : "LAN") : juce::String());
+        state->setProperty("pktSize", t.getLastPacketSize());
         state->setProperty("rtt", c ? t.getEstimatedRtt() : 0);
         state->setProperty("bufferMs", c ? (float)t.getBufferLevel() / 48.0f : 0.0f);
         int fixedMs = processor.fixedBufferMs.load();
