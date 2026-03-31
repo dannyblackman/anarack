@@ -173,6 +173,13 @@ AnarackEditor::AnarackEditor(AnarackProcessor& p)
         // Auto-connect if not already connected
         if (!processor.getTransport().isConnected())
         {
+            // Configure JitterBuffer BEFORE connecting (so it's ready for first packet)
+            int fixed = processor.fixedBufferMs.load();
+            int bufferMs = fixed > 0 ? fixed : 200; // 200ms default
+            int bufferSamples = (int)(48000.0 * bufferMs / 1000.0);
+            processor.jitterBuffer.configure(bufferSamples, 48000.0);
+            processor.setLatencySamples(bufferSamples);
+
             auto& t = processor.getTransport();
             if (processor.useWireGuard)
             {
@@ -181,9 +188,6 @@ AnarackEditor::AnarackEditor(AnarackProcessor& p)
             }
             else
                 t.connect(processor.serverHost);
-
-            // JitterBuffer disabled for now — using legacy AudioRingBuffer
-            // TODO: enable once packet header format is verified stable
         }
     });
 

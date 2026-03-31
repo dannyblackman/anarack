@@ -5,6 +5,7 @@
 #include <arpa/inet.h>
 #include <unistd.h>
 #include "AudioRingBuffer.h"
+#include "JitterBuffer.h"
 #include "WgTunnel.h"
 
 // Lock-free MIDI message slot for audio thread -> network thread communication.
@@ -21,7 +22,7 @@ struct MidiSlot
 class NetworkTransport : private juce::Thread
 {
 public:
-    NetworkTransport(AudioRingBuffer& audioBuffer);
+    NetworkTransport(AudioRingBuffer& audioBuffer, JitterBuffer& jitterBuffer);
     ~NetworkTransport() override;
 
     // Raw UDP connection (LAN)
@@ -52,6 +53,7 @@ private:
     void sendRegistration();
 
     AudioRingBuffer& audioBuffer;
+    JitterBuffer& jitterBuffer;
 
     // Connection mode
     bool useWireGuard = false;

@@ -3,6 +3,7 @@
 #include <juce_audio_basics/juce_audio_basics.h>
 #include <juce_audio_devices/juce_audio_devices.h>
 #include "AudioRingBuffer.h"
+#include "JitterBuffer.h"
 #include "NetworkTransport.h"
 
 class AnarackProcessor : public juce::AudioProcessor, private juce::MidiInputCallback
@@ -84,6 +85,9 @@ private:
     static constexpr double SERVER_SAMPLE_RATE = 48000.0;
 
     AudioRingBuffer audioRingBuffer;
+public:
+    JitterBuffer jitterBuffer;
+private:
     NetworkTransport transport;
     int underrunCount = 0;
 
