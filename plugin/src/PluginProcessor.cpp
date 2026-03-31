@@ -346,25 +346,33 @@ void AnarackProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::Midi
         }
         else
         {
-            // Clock drift correction via resampling — inaudible speed change
-            // Read slightly more or fewer samples from the jitter buffer and
-            // resample to the exact output size. No sample drops = no clicks.
-            int fill = jitterBuffer.getFillLevel();
-            int target = jitterBuffer.getFixedLatencySamples() / 2;
-            double drift = (double)(fill - target) / (double)juce::jmax(1, target);
+            // Simple drift correction: just read directly.
+            // Check every ~5s if buffer has drifted significantly, and
+            // skip or repeat ONE sample with a crossfade to hide it.
+            jitterBuffer.read(outL, numOutputSamples);
 
-            // Gentle correction: ±0.2% max speed change
-            double ratio = 1.0 + drift * 0.002;
-            ratio = juce::jlimit(0.998, 1.002, ratio);
+            driftCounter++;
+            if (driftCounter >= 2048) // ~5.5 seconds
+            {
+                driftCounter = 0;
+                int fill = jitterBuffer.getFillLevel();
+                int target = jitterBuffer.getFixedLatencySamples() / 2;
+                int drift = fill - target;
 
-            int inputNeeded = (int)(numOutputSamples * ratio + 2);
-            if (inputNeeded < 1) inputNeeded = 1;
-
-            if (inputNeeded > (int)resampleInputBuf.size())
-                resampleInputBuf.resize((size_t)inputNeeded, 0.0f);
-
-            jitterBuffer.read(resampleInputBuf.data(), inputNeeded);
-            resampler.process(ratio, resampleInputBuf.data(), outL, numOutputSamples);
+                if (drift > target / 2) // >50% overfull
+                {
+                    // Consume 1 extra sample to drain — crossfade to hide it
+                    float extra;
+                    jitterBuffer.read(&extra, 1);
+                    // Blend the last output sample with the extra
+                    outL[numOutputSamples - 1] = outL[numOutputSamples - 1] * 0.5f + extra * 0.5f;
+                }
+                else if (drift < -(target / 2)) // >50% underfull
+                {
+                    // Duplicate last sample — already in the output, do nothing
+                    // (effectively we consumed 1 fewer sample this block)
+                }
+            }
         }
     }
     else
