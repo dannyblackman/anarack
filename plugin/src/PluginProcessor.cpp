@@ -346,38 +346,32 @@ void AnarackProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::Midi
         }
         else
         {
-            // Clock drift correction: check fill level every 64 blocks (~170ms)
-            // and adjust read size by ±1 sample to keep buffer near 50% full
+            // Clock drift correction: check every 512 blocks (~1.4s)
+            // Only adjust if buffer has drifted >20% from target
             driftCounter++;
             int extra = 0;
-            if (driftCounter >= 64)
+            if (driftCounter >= 512)
             {
                 driftCounter = 0;
                 int fill = jitterBuffer.getFillLevel();
                 int target = jitterBuffer.getFixedLatencySamples() / 2;
                 int drift = fill - target;
-                // If >10% over target, consume 1 extra sample
-                if (drift > target / 5)
+                if (drift > target / 3)       // >33% over
                     extra = 1;
-                // If >10% under target, consume 1 fewer sample
-                else if (drift < -(target / 5))
+                else if (drift < -(target / 3)) // >33% under
                     extra = -1;
             }
 
-            int samplesToRead = numOutputSamples + extra;
-            if (samplesToRead < 1) samplesToRead = 1;
-
-            // Read into temp buffer if size differs from output
             if (extra == 0)
             {
                 jitterBuffer.read(outL, numOutputSamples);
             }
             else
             {
+                int samplesToRead = numOutputSamples + extra;
                 if (samplesToRead > (int)resampleInputBuf.size())
                     resampleInputBuf.resize((size_t)samplesToRead, 0.0f);
                 jitterBuffer.read(resampleInputBuf.data(), samplesToRead);
-                // Copy to output (drop extra or duplicate last)
                 int copyCount = std::min(samplesToRead, numOutputSamples);
                 std::memcpy(outL, resampleInputBuf.data(), (size_t)copyCount * sizeof(float));
                 if (copyCount < numOutputSamples)
