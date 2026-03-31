@@ -124,11 +124,11 @@ Order cheapest to most expensive — each unlock feels like progress, and the Mo
 | Tier | Pledge | Reward |
 |---|---|---|
 | Supporter | £10 | Name on the Anarack wall of fame + updates |
-| Early Bird Creator | £25 | 2 months Creator access at launch (normally £30) |
-| Early Bird Creator Pro | £60 | 2 months Creator Pro at launch (normally £78) |
-| Founding Creator | £120 | 1 year Creator (normally £150) |
-| Founding Creator Pro | £300 | 1 year Creator Pro (normally £390) |
-| Founding Professional | £500 | 6 months Professional (normally £894) |
+| Early Bird Creator | £40 | 2 months Creator access at launch (normally £50) |
+| Early Bird Creator Pro | £80 | 2 months Creator Pro at launch (normally £98) |
+| Founding Creator | £200 | 1 year Creator (normally £250) |
+| Founding Creator Pro | £400 | 1 year Creator Pro (normally £490) |
+| Founding Professional | £600 | 6 months Professional (normally £894) |
 | Lifetime Founding Member | £1,000 | Lifetime Creator Pro access (limited to 20 slots) |
 
 Lifetime tier is the big hook — 20 slots creates scarcity, and at £1,000 that's 20 × £1,000 = £20,000 which nearly funds the whole campaign alone. The ongoing cost of honouring lifetime access is minimal (they're just another user on the platform).
@@ -209,7 +209,7 @@ Pro-first launch strategy. Revenue is subscription-driven. The key metric is sub
 
 **Phase 2 (Months 7+): Open Creator + Creator Pro tiers.** Once proven with pros, widen the funnel. Queue pressure from new users naturally drives upgrades.
 
-| Month | Pro | Creator Pro | Creator | Sub Revenue | PAYG | Total Revenue | Overheads | Profit |
+| Month | Pro (£149) | Creator Pro (£49) | Creator (£25) | Sub Revenue | PAYG | Total Revenue | Overheads | Profit |
 |---|---|---|---|---|---|---|---|---|
 | 1 (beta) | 5 | — | — | £745 | £50 | £795 | £325 | £470 |
 | 2 | 10 | — | — | £1,490 | £100 | £1,590 | £375 | £1,215 |
@@ -217,35 +217,35 @@ Pro-first launch strategy. Revenue is subscription-driven. The key metric is sub
 | 4 | 20 | — | — | £2,980 | £300 | £3,280 | £475 | £2,805 |
 | 5 | 25 | — | — | £3,725 | £400 | £4,125 | £525 | £3,600 |
 | 6 | 28 | — | — | £4,172 | £500 | £4,672 | £575 | £4,097 |
-| 7 | 30 | 10 | 30 | £5,340 | £600 | £5,940 | £650 | £5,290 |
-| 8 | 32 | 25 | 60 | £6,643 | £700 | £7,343 | £725 | £6,618 |
-| 9 | 34 | 35 | 80 | £7,631 | £800 | £8,431 | £800 | £7,631 |
-| 10 | 35 | 45 | 100 | £8,490 | £900 | £9,390 | £875 | £8,515 |
-| 11 | 37 | 50 | 120 | £9,263 | £1,000 | £10,263 | £950 | £9,313 |
-| 12 | 40 | 55 | 140 | £10,205 | £1,100 | £11,305 | £1,050 | £10,255 |
+| 7 | 30 | 10 | 30 | £5,600 | £600 | £6,200 | £675 | £5,525 |
+| 8 | 32 | 25 | 60 | £7,493 | £700 | £8,193 | £750 | £7,443 |
+| 9 | 34 | 35 | 80 | £8,781 | £800 | £9,581 | £825 | £8,756 |
+| 10 | 35 | 45 | 100 | £9,870 | £900 | £10,770 | £900 | £9,870 |
+| 11 | 37 | 50 | 120 | £10,963 | £1,000 | £11,963 | £975 | £10,988 |
+| 12 | 40 | 55 | 140 | £12,155 | £1,100 | £13,255 | £1,075 | £12,180 |
 
 Overheads include fixed costs (~£250/month) + Paddle fees (~5.5%) + scaling variable costs (storage, marketing). Accounting already covered via Crunch (Studio Audience Ltd).
 
-**Year 1 total revenue: ~£69,000**
-**Year 1 total overheads: ~£7,750**
-**Year 1 profit (after overheads): ~£61,000**
-**Year 1 profit (after startup investment): ~£54,000-58,000**
+**Year 1 total revenue: ~£82,000**
+**Year 1 total overheads: ~£8,400**
+**Year 1 profit (after overheads): ~£73,500**
+**Year 1 profit (after startup investment): ~£67,000-71,000**
 
 ### Path to £10k MRR
 
 With the pro-first approach + upgrade ladder:
-- 35 Professional (£149) + 50 Creator Pro (£39) + 100 Creator (£15)
-- = £5,215 + £1,950 + £1,500 = £8,665/month subscriptions
-- Plus PAYG + bolt-ons: ~£1,400/month
-- **Total: ~£10,000/month — reachable by month 10-11**
+- 35 Professional (£149) + 45 Creator Pro (£49) + 100 Creator (£25)
+- = £5,215 + £2,205 + £2,500 = £9,920/month subscriptions
+- Plus PAYG + bolt-ons: ~£900/month
+- **Total: ~£10,800/month — reachable by month 9-10**
 
-The upgrade ladder accelerates this: as Creator subscribers hit queues during peak, some upgrade to Creator Pro (£39), which nearly triples their contribution.
+The upgrade ladder accelerates this: as Creator subscribers hit queues during peak, some upgrade to Creator Pro (£49), which nearly doubles their contribution. The higher Creator base price (£25 vs the old £15) means fewer subscribers needed to hit the same revenue targets.
 
 ### Why Low Utilisation Is a Feature
 
 We *want* subscribers who don't use all their hours:
-- A Creator pays £15/month for 4 hours. If they use 1.5 hours, we made £15 for 1.5 hours of synth time
-- A Creator Pro pays £39/month for 8 hours. Most months they'll use 3-4. That's £10-13 effective hourly rate — but we keep the subscription.
+- A Creator pays £25/month for 5 hours. If they use 2 hours, we made £25 for 2 hours of synth time — £12.50 effective hourly rate.
+- A Creator Pro pays £49/month for 10 hours. Most months they'll use 4-5. That's £10-12 effective hourly rate — but we keep the subscription.
 - A Professional pays £149/month for 30 hours. Most months they'll use 8-12. That's £12-19 effective hourly rate.
 - Their projects depend on Anarack (project recall), so they all keep paying
 - Synth capacity stays available — we never hit a wall where everyone's trying to use their hours at once

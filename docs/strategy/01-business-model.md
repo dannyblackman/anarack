@@ -12,27 +12,27 @@ Three tiers. Each one solves a specific pain point that makes the user upgrade t
 
 | Tier | Monthly | Annual (2 months free) | Hours | Queue | Target |
 |---|---|---|---|---|---|
-| **Creator** | £15/month | £150/year | 4 hours | Standard | Trying it out, casual use |
-| **Creator Pro** | £39/month | £390/year | 8 hours | Priority | Serious bedroom producers, regular users |
+| **Creator** | £25/month | £250/year | 5 hours | Standard | Trying it out, casual use |
+| **Creator Pro** | £49/month | £490/year | 10 hours | Priority | Serious bedroom producers, regular users |
 | **Professional** | £149/month | £1,490/year | 30 hours | Instant (never queues) | Working engineers, studios |
 
-**Hours rollover:** Unused hours roll over month to month, capped at 6 months' allowance (Creator: max 24 hours banked, Creator Pro: max 48, Professional: max 180). This is a deliberate retention lever — like Splice credits, banked hours create a sunk cost that discourages cancellation. "I've got 12 hours saved up, I can't cancel now."
+**Hours rollover:** Unused hours roll over month to month, capped at 6 months' allowance (Creator: max 30 hours banked, Creator Pro: max 60, Professional: max 180). This is a deliberate retention lever — like Splice credits, banked hours create a sunk cost that discourages cancellation. "I've got 12 hours saved up, I can't cancel now."
 
 ### The Upgrade Ladder
 
 Queue priority is the upgrade trigger. Each tier solves a pain the previous one creates:
 
-**Free browser demo → Creator (£15/month)**
+**Free browser demo → Creator (£25/month)**
 - Hear a real Moog in 10 seconds, zero install. Get hooked.
-- £15 is low enough to try without thinking. "Less than a Splice subscription for real hardware."
-- 4 hours is enough to use it on a couple of tracks and get locked in via project recall.
+- £25 is competitive with plugin subscriptions but for real hardware. "Less than a night out for access to synths you can't afford to buy."
+- 5 hours is enough to use it on a couple of tracks and get locked in via project recall.
 
-**Creator → Creator Pro (£39/month)**
+**Creator → Creator Pro (£49/month)**
 - Two triggers that stack:
   1. **Queue frustration** — after a few sessions, creators hit queues during peak. "Creator Pro gets top priority in the queue." They'll jump ahead of standard Creators, so waits are shorter — but we're not kicking anyone off a session, so there may still be short waits at the busiest times.
   2. **Flagship limits** — they get 30 minutes/month on flagships, enough to fall in love with the Moog One but not enough to use it seriously. "Upgrade to Creator Pro for unlimited flagship sessions."
 - Both triggers hit at the point where the user is already hooked — they've heard what the Moog One sounds like on their track, and 30 minutes isn't enough.
-- £39 is still impulse-affordable. 8 hours + top queue priority + unlimited flagship access is a huge step up.
+- £49 is still impulse-affordable — less than double the Creator price for double the hours + top queue priority + unlimited flagship access. Feels like unlocking the full version.
 
 **Creator Pro → Professional (£149/month)**
 - For users who are billing clients or working on releases. Waiting is never acceptable.
@@ -72,7 +72,7 @@ The plugin shows queue position and estimated wait in real time. It also shows: 
 
 All synths are available on all subscription tiers — but flagships have usage limits on the Creator tier that drive upgrades.
 
-| Category | Synths | Creator (£15) | Creator Pro (£39) | Professional (£149) |
+| Category | Synths | Creator (£25) | Creator Pro (£49) | Professional (£149) |
 |---|---|---|---|---|
 | **Filler** | Minilogue, MiniBrute, Minitaur | Yes | Yes | Yes |
 | **Headliner** | Rev2, Subsequent 37, OB-6, Prophet 5, Prophet 10, Juno-106, Summit, Hydrasynth | Yes | Yes | Yes |
@@ -81,7 +81,7 @@ All synths are available on all subscription tiers — but flagships have usage 
 **Why this works:**
 - Creators get to *try* flagships — 30 minutes is enough to hear a Moog One on their track and fall in love. The upgrade trigger is "I want more of this" not "I can't have this." That's a much stronger emotional driver.
 - Locking out flagship access entirely feels punitive and breeds resentment. Limited access creates aspiration.
-- Creator Pro at £39/month removes the flagship cap — full access, no restrictions. At that price point, gating the best gear would feel stingy.
+- Creator Pro at £49/month removes the flagship cap — full access, no restrictions. At that price point, gating the best gear would feel stingy.
 - Professional tier (£149) differentiates on **capacity and priority**, not synth access: 30 hours vs 8, instant access via reserved pool, multi-synth sessions, 96kHz. These matter to working engineers; the synth catalogue is the same.
 - Flagships see less contention from Creators (30 mins/month means minimal load), so capacity management stays simple without duplicating £6k+ synths.
 - Each flagship added to the rack is a marketing event that drives Creator → Creator Pro upgrades: "The Moog One has arrived at Anarack. All tiers can try it."
@@ -234,7 +234,7 @@ Conservative estimate — if 1-2% of active subscribers buy a synth per year thr
 
 ### Bolt-Ons
 
-- **Extra hours** — £12/hour (Creator/Creator Pro), £10/hour (Professional). Added to rollover balance (still subject to 6-month cap).
+- **Extra hours** — £15/hour (Creator/Creator Pro), £12/hour (Professional). Added to rollover balance (still subject to 6-month cap).
 - **Multi-synth session** — +£5/hour for Creator tiers (free on Professional)
 
 ### Peak Time Management
@@ -273,7 +273,7 @@ The plugin still loads (it's installed locally). It shows all the project data �
 
 The producer sees: "Subscribe to reconnect and hear this track."
 
-This creates the UA-style lock-in: cancelling means your projects lose their Anarack tracks. Most producers won't risk that for £10-20/month.
+This creates the UA-style lock-in: cancelling means your projects lose their Anarack tracks. Most producers won't risk that for £25-49/month.
 
 ### Making It Stickier
 
@@ -316,11 +316,11 @@ YouTubers, TikTok musicians who want to demo "real synth" sounds. Short sessions
 | Studio hire | £50-100/hour | Must be physically present |
 | Soft synth plugins | £10-30/month | Not the real thing |
 | Sample packs | £10-50 one-off | Static, can't tweak |
-| **Anarack** | **£19-149/month** | **Latency (~40ms), not for live performance** |
+| **Anarack** | **£25-149/month** | **Latency (~40ms), not for live performance** |
 
 ## Key Metrics
 
-- **Subscriber count** — primary metric. Target: 200+ subscribers for £10k MRR (blended ~£20/month average)
+- **Subscriber count** — primary metric. Target: 150-200 subscribers for £10k MRR (blended ~£55/month average)
 - **Utilisation rate** — target 20-30% across the rack. Low is fine — we want subscribers who pay but don't use all their hours
 - **Monthly churn** — target <5%. Project recall should make this very low
 - **Activation rate** — % of free demo users who subscribe within 7 days
