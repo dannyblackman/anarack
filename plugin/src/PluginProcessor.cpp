@@ -347,7 +347,7 @@ void AnarackProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::Midi
         else
         {
             // Clock drift correction: check every 512 blocks (~1.4s)
-            // Only adjust if buffer has drifted >20% from target
+            // Only correct when buffer drifts >33% from target
             driftCounter++;
             int extra = 0;
             if (driftCounter >= 512)
@@ -356,22 +356,26 @@ void AnarackProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::Midi
                 int fill = jitterBuffer.getFillLevel();
                 int target = jitterBuffer.getFixedLatencySamples() / 2;
                 int drift = fill - target;
-                if (drift > target / 3)       // >33% over
+                if (drift > target / 3)
                     extra = 1;
-                else if (drift < -(target / 3)) // >33% under
+                else if (drift < -(target / 3))
                     extra = -1;
             }
 
+            int samplesToRead = numOutputSamples + extra;
+            if (samplesToRead < 1) samplesToRead = 1;
+
+            // Read into temp buffer if size differs from output
             if (extra == 0)
             {
                 jitterBuffer.read(outL, numOutputSamples);
             }
             else
             {
-                int samplesToRead = numOutputSamples + extra;
                 if (samplesToRead > (int)resampleInputBuf.size())
                     resampleInputBuf.resize((size_t)samplesToRead, 0.0f);
                 jitterBuffer.read(resampleInputBuf.data(), samplesToRead);
+                // Copy to output (drop extra or duplicate last)
                 int copyCount = std::min(samplesToRead, numOutputSamples);
                 std::memcpy(outL, resampleInputBuf.data(), (size_t)copyCount * sizeof(float));
                 if (copyCount < numOutputSamples)

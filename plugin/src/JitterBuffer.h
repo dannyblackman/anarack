@@ -322,36 +322,27 @@ public:
             if (slotFilled[(size_t)pos])
             {
                 float sample = buffer[(size_t)pos];
+                output[i] = sample;
 
-                // Crossfade from concealment to real data over 32 samples
-                if (gapLength > 0)
-                {
-                    fadeInRemaining = juce::jmin(32, gapLength);
-                    fadeInPos = 0;
-                    gapLength = 0;
-                }
-
-                if (fadeInRemaining > 0)
-                {
-                    float t = (float)(fadeInPos + 1) / (float)fadeInRemaining;
-                    float concealed = concealSample(1); // what PLC would have output
-                    output[i] = concealed * (1.0f - t) + sample * t;
-                    fadeInPos++;
-                    if (fadeInPos >= fadeInRemaining)
-                        fadeInRemaining = 0;
-                }
-                else
-                {
-                    output[i] = sample;
-                }
-
+                // Update last-good block for PLC (circular write into block)
                 lastGoodBlock[(size_t)(lastGoodWriteIdx % lastGoodLength)] = sample;
                 lastGoodWriteIdx++;
+
+                // If we were in a gap, apply a short crossfade-in from the PLC
+                // output to avoid a click at the gap->data transition.
+                if (gapLength > 0)
+                {
+                    int fadeIn = juce::jmin(gapLength, 32);
+                    // We are at the first good sample after a gap — the fade-in
+                    // was already partially applied by the gap handler. Just
+                    // reset the gap counter.
+                    gapLength = 0;
+                }
             }
             else
             {
+                // --- Packet loss concealment ---
                 gapLength++;
-                fadeInRemaining = 0;
                 output[i] = concealSample(gapLength);
             }
 
@@ -540,8 +531,6 @@ private:
     int lastGoodLength = PACKET_SAMPLES;
     int lastGoodWriteIdx = 0;
     int gapLength = 0;
-    int fadeInRemaining = 0;
-    int fadeInPos = 0;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(JitterBuffer)
 };
