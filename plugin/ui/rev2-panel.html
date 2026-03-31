@@ -472,9 +472,14 @@ function drawKnob(canvas, value, max, center) {
 // ── JUCE Bridge ──
 // Sends CC changes to the plugin backend (no-op when running in a regular browser)
 const _juce = window.__JUCE__ && window.__JUCE__.backend;
+function sendNRPN(nrpn, value) {
+  if (nrpn < 0) return;
+  const v = Math.max(0, Math.min(127, value));
+  if (_juce) _juce.emitEvent("nrpnChange", { nrpn, value: v });
+}
+
 function sendCC(cc, value) {
   if (cc < 0) return;
-  // Clamp to MIDI range
   const v = Math.max(0, Math.min(127, value));
   if (_juce) _juce.emitEvent("ccChange", { cc, value: v });
 }
@@ -684,6 +689,7 @@ function knob(parent, label, value, max, opts) {
     getValue() { return value; },
     setValue(v) { value = v; drawKnob(c, value, max, center); }
   };
+  const nrpn = (opts && opts.nrpn !== undefined) ? opts.nrpn : -1;
   registerCC(cc, ctrl);
   ctrl._learnLabel = l;
   ctrl._mapLabel = ml;
@@ -692,9 +698,9 @@ function knob(parent, label, value, max, opts) {
     c.ondblclick = (e) => { e.preventDefault(); startLearnMode(ctrl, cc, l); };
   }
   function emitCC() {
-    // Scale to 0-127 if max > 127
     const cv = max > 127 ? Math.round(value * 127 / max) : value;
-    sendCC(cc, cv);
+    if (cc >= 0) sendCC(cc, cv);
+    else if (nrpn >= 0) sendNRPN(nrpn, cv);
   }
   c.onmousedown = e => { dy0 = e.clientY; v0 = value; e.preventDefault(); document.body.style.cursor = 'grabbing'; };
   window.addEventListener('mousemove', e => {
@@ -710,6 +716,7 @@ function knob(parent, label, value, max, opts) {
 
 function btn(parent, label, value, text, opts) {
   const cc = (opts && opts.cc !== undefined) ? opts.cc : -1;
+  const nrpn = (opts && opts.nrpn !== undefined) ? opts.nrpn : -1;
   const d = document.createElement('div'); d.className = 'ctrl-btn';
   const b = document.createElement('div');
   b.className = 'btn' + (value ? ' on' : '');
@@ -722,13 +729,15 @@ function btn(parent, label, value, text, opts) {
     setValue(v) { value = v; b.className = 'btn' + (value ? ' on' : ''); if (!text) b.textContent = value ? 'ON' : 'OFF'; }
   };
   registerCC(cc, ctrl);
-  b.onclick = () => { ctrl.setValue(value ? 0 : 1); sendCC(cc, value); };
+  b.onclick = () => { ctrl.setValue(value ? 0 : 1); if (cc >= 0) sendCC(cc, value); else if (nrpn >= 0) sendNRPN(nrpn, value); };
   return ctrl;
 }
 
-function shapeSel(parent, value, shapes) {
+function shapeSel(parent, value, shapes, opts) {
+  const cc = (opts && opts.cc !== undefined) ? opts.cc : -1;
+  const nrpn = (opts && opts.nrpn !== undefined) ? opts.nrpn : -1;
   const d = document.createElement('div'); d.className = 'shape-sel';
-  const opts = [];
+  const optEls = [];
   shapes.forEach((name, i) => {
     const opt = document.createElement('div');
     opt.className = 'shape-opt' + (i === value ? ' active' : '');
@@ -736,12 +745,14 @@ function shapeSel(parent, value, shapes) {
     const txt = document.createTextNode(name);
     opt.appendChild(led); opt.appendChild(txt);
     d.appendChild(opt);
-    opts.push(opt);
+    optEls.push(opt);
   });
   parent.appendChild(d);
-  function update() { opts.forEach((o, i) => { o.className = 'shape-opt' + (i === value ? ' active' : ''); }); }
-  d.onclick = () => { value = (value + 1) % shapes.length; update(); };
-  return { el: d, getValue() { return value; }, setValue(v) { value = v; update(); } };
+  function update() { optEls.forEach((o, i) => { o.className = 'shape-opt' + (i === value ? ' active' : ''); }); }
+  const ctrl = { el: d, _max: shapes.length - 1, getValue() { return value; }, setValue(v) { value = v; update(); } };
+  registerCC(cc, ctrl);
+  d.onclick = () => { value = (value + 1) % shapes.length; update(); if (cc >= 0) sendCC(cc, value); else if (nrpn >= 0) sendNRPN(nrpn, value); };
+  return ctrl;
 }
 
 function vdiv(parent) {
@@ -845,7 +856,7 @@ btn(r, 'On/Off', 0, null, {cc: 33});        // arpOnOff
 s = section(row1, 'Sequencer');
 rows = srows(s);
 r = srow(rows);
-btn(r, 'Gated', 0);
+btn(r, 'Gated', 0, null, {cc: 19});  // seqType: 0=Gated, 1=Poly
 btn(r, 'Poly', 0);
 knob(r, 'Mode', 0, 4);
 knob(r, 'Track', 0, 5);
@@ -1006,6 +1017,14 @@ lfoLeft.appendChild(tabCol);
 // Shape LEDs on top, Destination knob below
 const shapeWrap = document.createElement('div');
 shapeWrap.style.cssText = 'display:flex;flex-direction:column;align-items:center;justify-content:space-between;';
+// LFO NRPN map: [freq, shape, amount, dest, clkSync, keySync] per LFO
+const lfoNRPNs = [
+  { freq: 37, shape: 38, amt: 39, dest: 40, clkSync: 41, keySync: 105 },
+  { freq: 42, shape: 43, amt: 44, dest: 45, clkSync: 46, keySync: 106 },
+  { freq: 47, shape: 48, amt: 49, dest: 50, clkSync: 51, keySync: 107 },
+  { freq: 52, shape: 53, amt: 54, dest: 55, clkSync: 56, keySync: 108 },
+];
+
 const lfoShape = shapeSel(shapeWrap, 0, lfoShapes);
 const lfoDestRow = document.createElement('div');
 lfoDestRow.style.cssText = 'display:flex;align-items:flex-start;min-height:68px;';
@@ -1013,7 +1032,6 @@ const lfoDest = knob(lfoDestRow, 'Destination', 0, 52);
 shapeWrap.appendChild(lfoDestRow);
 lfoLeft.appendChild(shapeWrap);
 
-// Right: 2-row grid matching real panel
 const lfoRight = srows(lfoLayout);
 
 const lfoTopRow = srow(lfoRight);
@@ -1023,6 +1041,41 @@ const lfoKeySync = btn(lfoTopRow, 'Key Sync', 0);
 const lfoBotRow = srow(lfoRight);
 const lfoAmt = knob(lfoBotRow, 'Amount', 0, 127);
 const lfoClkSync = btn(lfoBotRow, 'Clk Sync', 0);
+
+// Send current LFO control value via NRPN
+function sendLfoParam(param) {
+  const nrpns = lfoNRPNs[activeLfo];
+  if (param === 'shape') sendNRPN(nrpns.shape, lfoShape.getValue());
+  else if (param === 'freq') sendNRPN(nrpns.freq, lfoFreq.getValue());
+  else if (param === 'amt') sendNRPN(nrpns.amt, lfoAmt.getValue());
+  else if (param === 'dest') sendNRPN(nrpns.dest, lfoDest.getValue());
+  else if (param === 'keySync') sendNRPN(nrpns.keySync, lfoKeySync.getValue());
+  else if (param === 'clkSync') sendNRPN(nrpns.clkSync, lfoClkSync.getValue());
+}
+
+// Hook up change listeners for LFO controls
+// Override the onclick/drag handlers to also send NRPNs
+const _origLfoShapeClick = lfoShape.el.onclick;
+lfoShape.el.onclick = () => { _origLfoShapeClick(); sendLfoParam('shape'); };
+
+// For knobs, intercept value changes by wrapping setValue
+['freq','amt','dest'].forEach(param => {
+  const ctrl = param === 'freq' ? lfoFreq : param === 'amt' ? lfoAmt : lfoDest;
+  const canvas = ctrl.el.querySelector('canvas');
+  const origWheel = canvas.onwheel;
+  // The drag emitCC sends cc=-1 which is a no-op, so we piggyback on mousemove
+  // by adding a mutation observer on value changes... actually simpler: override onwheel and add mouseup
+  canvas.addEventListener('mouseup', () => sendLfoParam(param));
+  if (origWheel) {
+    canvas.onwheel = (e) => { origWheel(e); sendLfoParam(param); };
+  }
+});
+
+// Buttons
+const _origKeySyncClick = lfoKeySync.el.querySelector('.btn').onclick;
+lfoKeySync.el.querySelector('.btn').onclick = () => { _origKeySyncClick(); sendLfoParam('keySync'); };
+const _origClkSyncClick = lfoClkSync.el.querySelector('.btn').onclick;
+lfoClkSync.el.querySelector('.btn').onclick = () => { _origClkSyncClick(); sendLfoParam('clkSync'); };
 
 function saveLfo() {
   const st = lfoState[activeLfo];
@@ -1057,7 +1110,7 @@ r = srow(oscRows);
 r.style.justifyContent = 'space-between';
 knob(r, 'Osc 1 Freq', 36, 120, {cc: 20});              // osc1Freq max=120 def=36
 knob(r, 'Fine Tune', 50, 100, {cc: 21, center: 0.5});   // osc1FineTune center=50
-shapeSel(r, 1, oscShapes);                                // osc1Shape (CC 22 via shapeSel)
+shapeSel(r, 1, oscShapes, {cc: 22});                      // osc1Shape CC 22
 knob(r, 'Shape Mod', 50, 99, {cc: 30, center: 0.5});    // osc1PulseWidth max=99 def=50
 vdiv(r);
 knob(r, 'Sub Octave', 0, 127, {cc: 8});                 // subOsc
@@ -1067,14 +1120,14 @@ knob(r, 'Noise', 0, 127, {cc: 29});                     // noiseLevel
 oscRows.style.position = 'relative';
 const syncWrap = document.createElement('div');
 syncWrap.style.cssText = 'position:absolute;left:78px;top:53%;transform:translate(-50%,-50%);z-index:1;';
-btn(syncWrap, 'Sync', 0);
+btn(syncWrap, 'Sync', 0, null, {nrpn: 10});
 oscRows.appendChild(syncWrap);
 
 r = srow(oscRows);
 r.style.justifyContent = 'space-between';
 knob(r, 'Osc 2 Freq', 36, 120, {cc: 24});              // osc2Freq max=120 def=36
 knob(r, 'Fine Tune', 50, 100, {cc: 25, center: 0.5});   // osc2FineTune
-shapeSel(r, 1, oscShapes);                                // osc2Shape (CC 26)
+shapeSel(r, 1, oscShapes, {cc: 26});                      // osc2Shape CC 26
 knob(r, 'Shape Mod', 50, 99, {cc: 31, center: 0.5});    // osc2PulseWidth max=99 def=50
 vdiv(r);
 knob(r, 'Osc Mix', 0, 127, {cc: 28});                   // oscMix (0=osc1, 127=osc2)
@@ -1094,7 +1147,7 @@ knob(r, 'Key Amount', 0, 127, {cc: 104});                // filterKeyAmt
 knob(r, 'Audio Mod', 0, 127, {cc: 105});                 // filterAudioMod
 r = srow(rows);
 r.style.justifyContent = 'space-between';
-btn(r, '4 Pole', 1);
+btn(r, '4 Pole', 1, null, {nrpn: 19});
 knob(r, 'Delay', 0, 127, {cc: 108});                     // filterEnvDelay
 knob(r, 'Attack', 0, 127, {cc: 109});                    // filterEnvAttack
 knob(r, 'Decay', 64, 127, {cc: 110});                    // filterEnvDecay

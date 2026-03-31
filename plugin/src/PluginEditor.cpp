@@ -11,6 +11,25 @@ AnarackEditor::AnarackEditor(AnarackProcessor& p)
     // ── WebView with event wiring ──
     auto options = juce::WebBrowserComponent::Options{}
         .withNativeIntegrationEnabled()
+        // NRPN changes (LFOs, filter poles, sync etc.)
+        .withEventListener("nrpnChange", [this](const juce::var& payload)
+        {
+            int nrpn = (int)payload.getProperty("nrpn", -1);
+            int value = (int)payload.getProperty("value", 0);
+            if (nrpn >= 0 && nrpn < 16384 && value >= 0 && value <= 127)
+            {
+                auto& t = processor.getTransport();
+                // NRPN = 4 CC messages: CC99 (MSB), CC98 (LSB), CC6 (value MSB), CC38 (value LSB)
+                const uint8_t nrpnMsb[3] = { 0xB0, 99, (uint8_t)(nrpn >> 7) };
+                const uint8_t nrpnLsb[3] = { 0xB0, 98, (uint8_t)(nrpn & 0x7F) };
+                const uint8_t dataMsb[3] = { 0xB0, 6, (uint8_t)value };
+                const uint8_t dataLsb[3] = { 0xB0, 38, 0 };
+                t.sendMidi(nrpnMsb, 3);
+                t.sendMidi(nrpnLsb, 3);
+                t.sendMidi(dataMsb, 3);
+                t.sendMidi(dataLsb, 3);
+            }
+        })
         // CC changes from knobs/buttons
         .withEventListener("ccChange", [this](const juce::var& payload)
         {
