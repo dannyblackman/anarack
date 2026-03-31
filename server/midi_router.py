@@ -414,8 +414,17 @@ class AudioStreamer:
                         except OSError:
                             dead_udp.append(addr)
 
-                    # Packet duplication disabled — was causing stuttering
-                    # TODO: investigate if doubled packet rate causes WG congestion
+                    # Store for delayed duplication
+                    self._dup_ring[self._dup_idx % len(self._dup_ring)] = pkt
+                    self._dup_idx += 1
+
+                    # Fire-and-forget: send duplicate from N packets ago
+                    old_idx = (self._dup_idx - self._dup_delay - 1) % len(self._dup_ring)
+                    old_pkt = self._dup_ring[old_idx]
+                    if old_pkt is not None:
+                        loop = asyncio.get_event_loop()
+                        for addr, sock in list(self.udp_clients.items()):
+                            loop.call_later(0.005, sock.sendto, old_pkt, addr)
 
                     for addr in dead_udp:
                         self.udp_clients.pop(addr, None)
