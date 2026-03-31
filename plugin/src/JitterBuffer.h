@@ -67,6 +67,7 @@ public:
         writeBase.store(0, std::memory_order_relaxed);
         expectedSeq.store(0, std::memory_order_relaxed);
         samplesWritten.store(0, std::memory_order_relaxed);
+        totalSamplesRead.store(0, std::memory_order_relaxed);
 
         firstPacket.store(true, std::memory_order_relaxed);
         prebuffering.store(true, std::memory_order_relaxed);
@@ -355,6 +356,7 @@ public:
         int newRp = (rp + numSamples) % bufferSize;
         readPos.store(newRp, std::memory_order_release);
         writeBase.fetch_add((uint32_t)numSamples, std::memory_order_release);
+        totalSamplesRead.fetch_add(numSamples, std::memory_order_relaxed);
     }
 
     // -------------------------------------------------------------------------
@@ -364,7 +366,10 @@ public:
     // Approximate fill level in samples.
     int getFillLevel() const
     {
-        return countFilledApprox();
+        // Exact fill: total samples written minus total samples read
+        int written = samplesWritten.load(std::memory_order_relaxed);
+        int read = totalSamplesRead.load(std::memory_order_relaxed);
+        return juce::jmax(0, written - read);
     }
 
     // Fill level as a fraction (0.0 - 1.0).
@@ -395,6 +400,7 @@ public:
         writeBase.store(0, std::memory_order_relaxed);
         expectedSeq.store(0, std::memory_order_relaxed);
         samplesWritten.store(0, std::memory_order_relaxed);
+        totalSamplesRead.store(0, std::memory_order_relaxed);
 
         packetsLost.store(0, std::memory_order_relaxed);
         packetsRecovered.store(0, std::memory_order_relaxed);
@@ -513,6 +519,7 @@ private:
     // Sequence tracking.
     std::atomic<uint32_t> expectedSeq { 0 };
     std::atomic<int> samplesWritten { 0 };
+    std::atomic<int> totalSamplesRead { 0 };
 
     // State flags — all atomic for cross-thread safety.
     std::atomic<bool> configured { false };
