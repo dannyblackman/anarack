@@ -1,0 +1,16 @@
+[Unit]
+Description=Anarack Studio (JACK + MIDI/Audio Server)
+After=sound.target network.target wg-quick@wg0.service
+
+[Service]
+Type=simple
+User=pi
+Group=audio
+ExecStart=/home/pi/anarack/scripts/start-all.sh
+Restart=always
+RestartSec=5
+LimitRTPRIO=95
+LimitMEMLOCK=infinity
+
+[Install]
+WantedBy=multi-user.target
