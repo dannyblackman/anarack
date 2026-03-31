@@ -290,16 +290,64 @@ class MidiRouter:
 
 
 class AudioStreamer:
-    """Captures audio from JACK and makes it available to WebSocket and UDP clients."""
+    """Captures audio from JACK and streams to WebSocket and UDP clients.
+
+    Production features:
+    - 12-byte packet headers (sequence, timestamp, flags, CRC-16)
+    - Packet duplication: every packet sent twice with ~10ms delay
+    - Continuous streaming: silence packets when no audio, so jitter buffer stays filled
+    - RTT ping/pong support for connection-time latency measurement
+    """
+
+    # Header format: sequence(u32) + timestamp(u32) + flags(u16) + checksum(u16) = 12 bytes
+    HEADER_FMT = "<IIHh"  # little-endian: uint32, uint32, uint16, int16(crc)
+    HEADER_SIZE = struct.calcsize("<IIHh")  # 12 bytes
+    FLAG_SILENCE = 0x02
+    FLAG_SESSION_START = 0x04
+    DUPLICATION_DELAY_PACKETS = 4  # ~10ms at 128 samples/packet @ 48kHz
 
     def __init__(self, capture_port: str = "system:capture_1"):
         self.capture_port = capture_port
         self.clients: set = set()  # WebSocket clients
         self.udp_clients: dict = {}  # {addr: socket} for UDP audio clients
-        self.udp_socket = None  # Shared UDP socket for sending audio
+        self.udp_socket = None
         self.jack_client = None
         self.audio_queue: queue.Queue = queue.Queue(maxsize=200)
         self._running = False
+        self._sequence = 0
+        self._timestamp = 0
+        self._blocksize = 128
+        # Ring buffer for packet duplication
+        self._dup_ring: list = []
+        self._dup_ring_size = self.DUPLICATION_DELAY_PACKETS + 2
+        self._dup_write = 0
+
+    @staticmethod
+    def _crc16(data: bytes) -> int:
+        """Simple CRC-16/CCITT."""
+        crc = 0xFFFF
+        for b in data:
+            crc ^= b << 8
+            for _ in range(8):
+                if crc & 0x8000:
+                    crc = (crc << 1) ^ 0x1021
+                else:
+                    crc <<= 1
+                crc &= 0xFFFF
+        return crc
+
+    def _make_packet(self, audio_bytes: bytes, flags: int = 0) -> bytes:
+        """Build a packet with header + audio payload."""
+        seq = self._sequence
+        ts = self._timestamp
+        self._sequence += 1
+        self._timestamp += self._blocksize
+
+        # Build header without checksum, then compute CRC over header+payload
+        header_no_crc = struct.pack("<IIH", seq, ts, flags)
+        crc = self._crc16(header_no_crc + audio_bytes)
+        header = struct.pack(self.HEADER_FMT, seq, ts, flags, crc)
+        return header + audio_bytes
 
     def start(self):
         """Start the JACK audio capture client."""
@@ -313,31 +361,31 @@ class AudioStreamer:
             self.jack_client = jack.Client("anarack_audio")
             self.jack_client.inports.register("input_1")
 
-            # Pre-allocate conversion buffer to avoid allocation in RT callback
-            blocksize = self.jack_client.blocksize
-            self._int16_buf = np.zeros(blocksize, dtype=np.int16)
+            self._blocksize = self.jack_client.blocksize
+            self._int16_buf = np.zeros(self._blocksize, dtype=np.int16)
             self._scale = np.float32(32767.0)
+            self._silence = b'\x00' * (self._blocksize * 2)  # int16 silence
+
+            # Init duplication ring
+            self._dup_ring = [None] * self._dup_ring_size
+            self._dup_write = 0
 
             @self.jack_client.set_process_callback
             def process(frames):
-                # Get audio data from JACK port (float32) — minimal work in RT callback
                 audio_data = self.jack_client.inports[0].get_array()
-                # Fast in-place conversion: float32 → int16
                 np.multiply(audio_data, self._scale, out=self._int16_buf, casting='unsafe')
                 try:
                     self.audio_queue.put_nowait(self._int16_buf.tobytes())
                 except queue.Full:
-                    pass  # Drop if consumers are too slow
+                    pass
 
             self.jack_client.activate()
 
-            # Connect to the Scarlett capture port
             try:
                 self.jack_client.connect(self.capture_port, "anarack_audio:input_1")
                 print(f"Audio capture connected: {self.capture_port} → anarack_audio:input_1")
             except jack.JackError as e:
                 print(f"WARNING: Could not auto-connect audio: {e}")
-                print(f"  Manually connect with: jack_connect {self.capture_port} anarack_audio:input_1")
 
             self._running = True
             print(f"Audio streaming active (JACK @ {self.jack_client.samplerate}Hz, "
@@ -348,7 +396,6 @@ class AudioStreamer:
             self.jack_client = None
 
     def stop(self):
-        """Stop the JACK client."""
         self._running = False
         if self.jack_client:
             self.jack_client.deactivate()
@@ -361,7 +408,6 @@ class AudioStreamer:
         self.clients.discard(ws)
 
     def add_udp_client(self, addr, sock):
-        """Register a UDP client to receive audio."""
         self.udp_clients[addr] = sock
         print(f"UDP audio client added: {addr}")
 
@@ -369,39 +415,75 @@ class AudioStreamer:
         self.udp_clients.pop(addr, None)
         print(f"UDP audio client removed: {addr}")
 
+    def _send_to_udp(self, packet: bytes):
+        """Send a packet to all UDP clients."""
+        dead = []
+        for addr, sock in self.udp_clients.items():
+            try:
+                sock.sendto(packet, addr)
+            except OSError:
+                dead.append(addr)
+        for addr in dead:
+            self.udp_clients.pop(addr, None)
+
     async def stream_to_clients(self):
-        """Continuously send audio data to all connected WebSocket clients."""
+        """Continuously send audio data with headers and packet duplication."""
+        silence_counter = 0
+
         while self._running:
             try:
-                # Poll the queue rapidly instead of blocking in executor
+                chunk = None
                 try:
                     chunk = self.audio_queue.get_nowait()
                 except queue.Empty:
-                    await asyncio.sleep(0.001)  # 1ms poll — fast enough for audio
+                    pass
+
+                has_clients = bool(self.clients or self.udp_clients)
+                if not has_clients:
+                    if chunk is None:
+                        await asyncio.sleep(0.001)
                     continue
 
-                if not self.clients and not self.udp_clients:
-                    continue
+                # If no audio from JACK, send silence to keep stream alive
+                if chunk is None:
+                    silence_counter += 1
+                    if silence_counter < 3:
+                        await asyncio.sleep(0.001)
+                        continue
+                    # Send silence packet every ~3ms to keep jitter buffer fed
+                    silence_counter = 0
+                    chunk = self._silence
+                    flags = self.FLAG_SILENCE
+                else:
+                    flags = 0
 
-                # Send to WebSocket clients
+                # Build packet with header
+                packet = self._make_packet(chunk, flags)
+
+                # Send to WebSocket clients (raw bytes, no header — legacy format)
                 if self.clients:
-                    dead_clients = set()
+                    dead = set()
                     for ws in self.clients:
                         try:
-                            await ws.send(chunk)
+                            await ws.send(chunk)  # WebSocket still gets raw audio
                         except websockets.ConnectionClosed:
-                            dead_clients.add(ws)
-                    self.clients -= dead_clients
+                            dead.add(ws)
+                    self.clients -= dead
 
-                # Send to UDP clients (lower latency path)
-                dead_udp = []
-                for addr, sock in self.udp_clients.items():
-                    try:
-                        sock.sendto(chunk, addr)
-                    except OSError:
-                        dead_udp.append(addr)
-                for addr in dead_udp:
-                    self.udp_clients.pop(addr, None)
+                # Send to UDP clients (with header)
+                self._send_to_udp(packet)
+
+                # Packet duplication: store in ring, resend delayed copy
+                dup_idx = self._dup_write % self._dup_ring_size
+                # Send the delayed duplicate (from N packets ago)
+                read_idx = (self._dup_write - self.DUPLICATION_DELAY_PACKETS) % self._dup_ring_size
+                old_packet = self._dup_ring[read_idx]
+                if old_packet is not None:
+                    self._send_to_udp(old_packet)
+
+                # Store current packet for future duplication
+                self._dup_ring[dup_idx] = packet
+                self._dup_write += 1
 
             except Exception as e:
                 print(f"Audio stream error: {e}")
@@ -417,7 +499,19 @@ async def udp_server(router: MidiRouter, host: str, port: int, audio_port: int =
     audio_sock = _socket.socket(_socket.AF_INET, _socket.SOCK_DGRAM)
 
     class MidiUDPProtocol(asyncio.DatagramProtocol):
+        def __init__(self):
+            self._transport = None
+
+        def connection_made(self, transport):
+            self._transport = transport
+
         def datagram_received(self, data, addr):
+            # RTT ping: 0xFD byte → echo back immediately for latency measurement
+            if len(data) >= 1 and data[0] == 0xFD:
+                if self._transport:
+                    self._transport.sendto(data, addr)
+                return
+
             router.send_from_udp(data)
             # Auto-register this client for audio return
             if audio_streamer and (addr[0], audio_port) not in audio_streamer.udp_clients:
