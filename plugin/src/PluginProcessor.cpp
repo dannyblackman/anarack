@@ -77,7 +77,7 @@ const std::vector<AnarackProcessor::SynthParam>& AnarackProcessor::getSynthParam
 AnarackProcessor::AnarackProcessor()
     : AudioProcessor(BusesProperties()
                          .withOutput("Output", juce::AudioChannelSet::stereo(), true)),
-      transport(audioRingBuffer, jitterBuffer)
+      transport(audioRingBuffer)
 {
     std::fill(std::begin(ccMap), std::end(ccMap), -1);
     std::fill(std::begin(ccValues), std::end(ccValues), 0);
@@ -333,82 +333,55 @@ void AnarackProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::Midi
     }
     midiMessages.clear();
 
-    // Read audio from network buffer
+    // Read audio from the network ring buffer, resampling from 48kHz to host rate
     auto numOutputSamples = buffer.getNumSamples();
     auto* outL = buffer.getWritePointer(0);
 
-    if (jitterBuffer.isConfigured())
+    // Pre-buffer: output silence until we have enough audio buffered
+    if (prebuffering)
     {
-        // ── New path: JitterBuffer with fixed latency ──
-        // The jitter buffer handles prebuffering, gap concealment, and reordering.
-        // It always outputs audio (silence-padded if needed), so no underrun logic needed.
-        if (jitterBuffer.isPrebuffering())
+        if (audioRingBuffer.getNumReady() < prebufferSamples)
         {
             buffer.clear();
+            return;
         }
-        else if (std::abs(baseResampleRatio - 1.0) < 0.001)
-        {
-            // Same sample rate: direct read
-            jitterBuffer.read(outL, numOutputSamples);
-        }
-        else
-        {
-            // Different sample rate: read into temp buffer, resample
-            int inputNeeded = (int)(numOutputSamples * resampleRatio + 2);
-            if (inputNeeded > (int)resampleInputBuf.size())
-                resampleInputBuf.resize((size_t)inputNeeded, 0.0f);
-            jitterBuffer.read(resampleInputBuf.data(), inputNeeded);
-            resampler.process(resampleRatio, resampleInputBuf.data(), outL, numOutputSamples);
-        }
+        prebuffering = false;
+    }
+
+    // Adaptive resample ratio: nudge slightly to keep buffer at target fill level
+    // This prevents slow drift between server and host clocks
+    int buffered = audioRingBuffer.getNumReady();
+    if (std::abs(baseResampleRatio - 1.0) > 0.001)
+    {
+        double drift = (double)(buffered - targetBufferSamples) / (double)targetBufferSamples;
+        resampleRatio = baseResampleRatio * (1.0 - drift * 0.002);
+    }
+
+    int inputNeeded;
+    if (std::abs(baseResampleRatio - 1.0) < 0.001)
+        inputNeeded = numOutputSamples;
+    else
+        inputNeeded = (int)(numOutputSamples * resampleRatio + 2);
+
+    if (buffered < inputNeeded)
+    {
+        buffer.clear();
+        prebuffering = true;
+        if (fixedBufferMs.load() == 0)
+            updatePrebuffer();
+        return;
+    }
+
+    if (std::abs(baseResampleRatio - 1.0) < 0.001)
+    {
+        audioRingBuffer.read(outL, numOutputSamples);
     }
     else
     {
-        // ── Legacy path: AudioRingBuffer (when server doesn't send headers) ──
-        if (prebuffering)
-        {
-            if (audioRingBuffer.getNumReady() < prebufferSamples)
-            {
-                buffer.clear();
-                if (buffer.getNumChannels() > 1)
-                    buffer.copyFrom(1, 0, buffer, 0, 0, numOutputSamples);
-                return;
-            }
-            prebuffering = false;
-        }
-
-        int buffered = audioRingBuffer.getNumReady();
-        if (std::abs(baseResampleRatio - 1.0) > 0.001)
-        {
-            double drift = (double)(buffered - targetBufferSamples) / (double)targetBufferSamples;
-            resampleRatio = baseResampleRatio * (1.0 - drift * 0.002);
-        }
-
-        int inputNeeded;
-        if (std::abs(baseResampleRatio - 1.0) < 0.001)
-            inputNeeded = numOutputSamples;
-        else
-            inputNeeded = (int)(numOutputSamples * resampleRatio + 2);
-
-        if (buffered < inputNeeded)
-        {
-            buffer.clear();
-            prebuffering = true;
-            if (fixedBufferMs.load() == 0)
-                updatePrebuffer();
-            if (buffer.getNumChannels() > 1)
-                buffer.copyFrom(1, 0, buffer, 0, 0, numOutputSamples);
-            return;
-        }
-
-        if (std::abs(baseResampleRatio - 1.0) < 0.001)
-            audioRingBuffer.read(outL, numOutputSamples);
-        else
-        {
-            if (inputNeeded > (int)resampleInputBuf.size())
-                resampleInputBuf.resize((size_t)inputNeeded, 0.0f);
-            audioRingBuffer.read(resampleInputBuf.data(), inputNeeded);
-            resampler.process(resampleRatio, resampleInputBuf.data(), outL, numOutputSamples);
-        }
+        if (inputNeeded > (int)resampleInputBuf.size())
+            resampleInputBuf.resize((size_t)inputNeeded, 0.0f);
+        audioRingBuffer.read(resampleInputBuf.data(), inputNeeded);
+        resampler.process(resampleRatio, resampleInputBuf.data(), outL, numOutputSamples);
     }
 
     // Duplicate mono to right channel if stereo

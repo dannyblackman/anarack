@@ -3,8 +3,8 @@
 #include <netdb.h>
 #include <arpa/inet.h>
 
-NetworkTransport::NetworkTransport(AudioRingBuffer& ringBuf, JitterBuffer& jitBuf)
-    : Thread("AnarackAudioRecv"), audioBuffer(ringBuf), jitterBuffer(jitBuf)
+NetworkTransport::NetworkTransport(AudioRingBuffer& ringBuf)
+    : Thread("AnarackAudioRecv"), audioBuffer(ringBuf)
 {
 }
 
@@ -208,37 +208,9 @@ void NetworkTransport::sendPendingMidi()
 
 int NetworkTransport::getEstimatedRtt() const
 {
-    // Prefer measured RTT (from ping/pong), fall back to WireGuard stats
-    int measured = measuredRtt.load();
-    if (measured > 0) return measured;
-    if (wgTunnel) return wgTunnel->getStats().estimated_rtt;
+    if (wgTunnel)
+        return wgTunnel->getStats().estimated_rtt;
     return -1;
-}
-
-int NetworkTransport::getBufferLevel() const
-{
-    if (jitterBuffer.isConfigured())
-        return jitterBuffer.getFillLevel();
-    return audioBuffer.getNumReady();
-}
-
-int NetworkTransport::getPacketsLost() const
-{
-    return jitterBuffer.getPacketsLost();
-}
-
-void NetworkTransport::measureRtt()
-{
-    // Send RTT ping: 0xFD + uint64 timestamp
-    uint8_t ping[9];
-    ping[0] = 0xFD;
-    auto now = (uint64_t)juce::Time::getMillisecondCounterHiRes();
-    std::memcpy(ping + 1, &now, 8);
-
-    if (useWireGuard && wgTunnel)
-        wgTunnel->send(ping, 9, (uint16_t)serverMidiPort);
-    else if (rawSendFd >= 0)
-        sendto(rawSendFd, ping, 9, 0, (struct sockaddr*)&serverAddr, sizeof(serverAddr));
 }
 
 // --- Audio receive: raw UDP mode ---
@@ -268,49 +240,12 @@ void NetworkTransport::run()
         if (bytesRead <= 0)
             continue;
 
-        // RTT pong: 0xFD byte echoed back from server
-        if (bytesRead >= 1 && packetBuf[0] == 0xFD)
-        {
-            if (bytesRead >= 9) // 0xFD + uint64 timestamp
-            {
-                uint64_t sendTime;
-                std::memcpy(&sendTime, packetBuf + 1, 8);
-                auto now = (uint64_t)juce::Time::getMillisecondCounterHiRes();
-                measuredRtt.store((int)(now - sendTime));
-                rttReady.store(true);
-            }
-            continue;
-        }
+        int numSamples = bytesRead / 2;
+        auto* int16Data = reinterpret_cast<const int16_t*>(packetBuf);
+        for (int i = 0; i < numSamples; ++i)
+            convBuf[i] = (float)int16Data[i] / 32768.0f;
 
-        // Detect packet format: exactly 268 bytes = header (12) + payload (256)
-        constexpr int HDR = JitterBuffer::HEADER_SIZE;
-        constexpr int PAYLOAD = JitterBuffer::PACKET_SAMPLES * 2;
-        bool hasHeader = (bytesRead == HDR + PAYLOAD);
-
-        if (hasHeader && jitterBuffer.isConfigured())
-        {
-            jitterBuffer.writePacket(packetBuf, bytesRead);
-        }
-        else
-        {
-            // Strip header if present, feed raw audio to legacy AudioRingBuffer
-            const uint8_t* audioData = packetBuf;
-            int audioBytes = bytesRead;
-            if (hasHeader)
-            {
-                audioData = packetBuf + HDR;
-                audioBytes = bytesRead - HDR;
-            }
-
-            int numSamples = audioBytes / 2;
-            if (numSamples > 0 && numSamples <= 512)
-            {
-                auto* int16Data = reinterpret_cast<const int16_t*>(audioData);
-                for (int i = 0; i < numSamples; ++i)
-                    convBuf[i] = (float)int16Data[i] / 32768.0f;
-                audioBuffer.write(convBuf, numSamples);
-            }
-        }
+        audioBuffer.write(convBuf, numSamples);
         packetsReceived.fetch_add(1, std::memory_order_relaxed);
     }
 }
@@ -337,45 +272,15 @@ void NetworkTransport::runWireGuard()
             continue;
         }
 
-        // RTT pong
-        if (bytesRead >= 1 && packetBuf[0] == 0xFD)
-        {
-            if (bytesRead >= 9)
-            {
-                uint64_t sendTime;
-                std::memcpy(&sendTime, packetBuf + 1, 8);
-                auto now = (uint64_t)juce::Time::getMillisecondCounterHiRes();
-                measuredRtt.store((int)(now - sendTime));
-                rttReady.store(true);
-            }
-            continue;
-        }
-
-        // Audio packets from the server's audio port
+        // Audio packets come from the server's audio port
         if (srcPort == (uint16_t)serverAudioPort || bytesRead >= 128)
         {
-            constexpr int HDR = JitterBuffer::HEADER_SIZE;
-            constexpr int PAYLOAD = JitterBuffer::PACKET_SAMPLES * 2;
-            bool hasHeader = (bytesRead == HDR + PAYLOAD);
+            int numSamples = bytesRead / 2;
+            auto* int16Data = reinterpret_cast<const int16_t*>(packetBuf);
+            for (int i = 0; i < numSamples; ++i)
+                convBuf[i] = (float)int16Data[i] / 32768.0f;
 
-            if (hasHeader && jitterBuffer.isConfigured())
-            {
-                jitterBuffer.writePacket(packetBuf, bytesRead);
-            }
-            else
-            {
-                // Strip header if present
-                const uint8_t* audioData = hasHeader ? packetBuf + HDR : packetBuf;
-                int audioBytes = hasHeader ? bytesRead - HDR : bytesRead;
-                int numSamples = audioBytes / 2;
-                if (numSamples > 0 && numSamples <= 512)
-                {
-                    auto* int16Data = reinterpret_cast<const int16_t*>(audioData);
-                    for (int i = 0; i < numSamples; ++i)
-                        convBuf[i] = (float)int16Data[i] / 32768.0f;
-                    audioBuffer.write(convBuf, numSamples);
-                }
-            }
+            audioBuffer.write(convBuf, numSamples);
         }
 
         packetsReceived.fetch_add(1, std::memory_order_relaxed);
