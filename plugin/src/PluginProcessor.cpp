@@ -348,14 +348,18 @@ void AnarackProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::Midi
         prebuffering = false;
     }
 
-    // Adaptive resample ratio: nudge slightly to keep buffer at target fill level
-    // This prevents slow drift between server and host clocks
+    // Clock drift correction: nudge resample ratio to keep buffer near target
+    // Server and DAW clocks drift by a few PPM — without correction, buffer
+    // slowly fills/drains over minutes. The correction factor is very gentle
+    // so playback rate is essentially constant.
     int buffered = audioRingBuffer.getNumReady();
-    if (std::abs(baseResampleRatio - 1.0) > 0.001)
     {
         double drift = (double)(buffered - targetBufferSamples) / (double)targetBufferSamples;
-        // Gently adjust: if buffer is fuller than target, consume slightly faster
-        resampleRatio = baseResampleRatio * (1.0 - drift * 0.002);
+        // Very gentle correction: 0.0002 = 0.02% max speed adjustment
+        // This is ~10x gentler than before — buffer level changes slowly
+        // over seconds, not per-block
+        double correction = drift * 0.0002;
+        resampleRatio = baseResampleRatio * (1.0 - correction);
     }
 
     int inputNeeded;
@@ -368,7 +372,8 @@ void AnarackProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::Midi
     {
         buffer.clear();
         prebuffering = true;
-        updatePrebuffer(); // Re-evaluate based on current RTT
+        if (fixedBufferMs.load() == 0)
+            updatePrebuffer(); // Only re-evaluate in adaptive mode
         return;
     }
 
