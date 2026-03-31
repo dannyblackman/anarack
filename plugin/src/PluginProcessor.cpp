@@ -444,12 +444,7 @@ void AnarackProcessor::updatePrebuffer()
 
     prebufferSamples = (int)(SERVER_SAMPLE_RATE * bufferMs / 1000.0);
     targetBufferSamples = prebufferSamples;
-
-    // Total latency = buffer + network RTT (MIDI out + audio back)
-    int rtt = transport.getEstimatedRtt();
-    int totalMs = bufferMs + (rtt > 0 ? rtt : 0);
-    int totalSamples = (int)(SERVER_SAMPLE_RATE * totalMs / 1000.0);
-    setLatencySamples(totalSamples);
+    setLatencySamples(prebufferSamples);
 }
 
 juce::AudioProcessorEditor* AnarackProcessor::createEditor()
