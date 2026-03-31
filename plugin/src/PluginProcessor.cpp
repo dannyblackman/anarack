@@ -348,25 +348,20 @@ void AnarackProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::Midi
         prebuffering = false;
     }
 
-    // Clock drift correction: keeps buffer near target fill level.
-    // Gentle near target (inaudible), aggressive when buffer is critically low/high.
+    // Adaptive resample ratio: nudge slightly to keep buffer at target fill level
+    // This prevents slow drift between server and host clocks
     int buffered = audioRingBuffer.getNumReady();
+    if (std::abs(baseResampleRatio - 1.0) > 0.001)
     {
         double drift = (double)(buffered - targetBufferSamples) / (double)targetBufferSamples;
-        double absDrift = std::abs(drift);
-        // Scale correction: gentle in the middle, strong at extremes
-        // Within 10% of target: 0.0003 (inaudible)
-        // 10-30% off: 0.001 (barely audible)
-        // >30% off: 0.003 (aggressive recovery)
-        double factor = absDrift < 0.1 ? 0.0003
-                      : absDrift < 0.3 ? 0.001
-                      :                  0.003;
-        resampleRatio = baseResampleRatio * (1.0 - drift * factor);
+        resampleRatio = baseResampleRatio * (1.0 - drift * 0.002);
     }
 
-    // Always use resampler — even at 48→48kHz the drift-corrected ratio
-    // consumes slightly more/less samples to keep buffer at target level
-    int inputNeeded = (int)(numOutputSamples * resampleRatio + 2);
+    int inputNeeded;
+    if (std::abs(baseResampleRatio - 1.0) < 0.001)
+        inputNeeded = numOutputSamples;
+    else
+        inputNeeded = (int)(numOutputSamples * resampleRatio + 2);
 
     if (buffered < inputNeeded)
     {
@@ -377,11 +372,17 @@ void AnarackProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::Midi
         return;
     }
 
-    if (inputNeeded > (int)resampleInputBuf.size())
-        resampleInputBuf.resize((size_t)inputNeeded, 0.0f);
-
-    audioRingBuffer.read(resampleInputBuf.data(), inputNeeded);
-    resampler.process(resampleRatio, resampleInputBuf.data(), outL, numOutputSamples);
+    if (std::abs(baseResampleRatio - 1.0) < 0.001)
+    {
+        audioRingBuffer.read(outL, numOutputSamples);
+    }
+    else
+    {
+        if (inputNeeded > (int)resampleInputBuf.size())
+            resampleInputBuf.resize((size_t)inputNeeded, 0.0f);
+        audioRingBuffer.read(resampleInputBuf.data(), inputNeeded);
+        resampler.process(resampleRatio, resampleInputBuf.data(), outL, numOutputSamples);
+    }
 
     // Duplicate mono to right channel if stereo
     if (buffer.getNumChannels() > 1)
