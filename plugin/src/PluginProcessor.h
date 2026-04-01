@@ -96,7 +96,7 @@ private:
     double driftAccumulator = 0.0;            // fractional sample drift accumulated
     bool asrcInitialised = false;
     int asrcBlockCount = 0;                   // blocks since last correction
-    static constexpr int CROSSFADE_LEN = 8;   // samples for crossfade blend
+    static constexpr int CROSSFADE_LEN = 32;  // samples for crossfade blend (~0.67ms @ 48kHz)
     float crossfadeBuf[CROSSFADE_LEN] {};     // temp buffer for crossfade overlap
 
     // Resampling: server sends 48kHz, host may run at 44.1kHz etc.
