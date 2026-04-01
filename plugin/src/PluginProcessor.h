@@ -90,7 +90,11 @@ public:
 private:
     NetworkTransport transport;
     int underrunCount = 0;
-    int driftCounter = 0;
+
+    // ASRC state
+    double smoothedFillError = 0.0;
+    bool asrcInitialised = false;
+    int asrcCarryCount = 0;
 
     // Media clock recovery: measure server clock rate vs DAW clock rate
     int64_t clockRecoveryDAWSamples = 0;      // total DAW samples consumed

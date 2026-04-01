@@ -346,62 +346,55 @@ void AnarackProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::Midi
         }
         else
         {
-            // Drift correction: check every ~0.5s
-            // Read numOutputSamples ± 1 based on buffer fill
-            driftCounter++;
-            int extra = 0;
-            if (driftCounter >= 192)
+            // ASRC: continuous drift correction via resampling
+            int currentFill = jitterBuffer.getFillLevel();
+            int targetFill = jitterBuffer.getFixedLatencySamples() / 2;
+
+            if (!asrcInitialised)
             {
-                driftCounter = 0;
-                int fill = jitterBuffer.getFillLevel();
-                int target = jitterBuffer.getFixedLatencySamples() / 2;
-                int drift = fill - target;
-                if (drift > target / 10)        extra = 1;  // overfull: consume more
-                else if (drift < -(target / 10)) extra = -1; // underfull: consume less
+                smoothedFillError = 0.0;
+                asrcInitialised = true;
+                asrcCarryCount = 0;
+                resampler.reset();
             }
 
-            int toRead = numOutputSamples + extra;
-            if (toRead < 1) toRead = 1;
+            // Low-pass filter the fill error (500ms time constant)
+            double fillError = (double)(currentFill - targetFill) / (double)juce::jmax(1, targetFill);
+            smoothedFillError = smoothedFillError * 0.995 + fillError * 0.005;
 
-            if (toRead == numOutputSamples)
+            // Corrected ratio: overfull → consume slightly faster (ratio > 1)
+            double correctedRatio = baseResampleRatio * (1.0 + smoothedFillError * 0.01);
+            correctedRatio = juce::jlimit(baseResampleRatio * 0.9995,
+                                          baseResampleRatio * 1.0005,
+                                          correctedRatio);
+
+            // Build input buffer: carry + new samples from jitter buffer
+            int newSamplesNeeded = numOutputSamples; // read same amount as output
+            int totalInput = asrcCarryCount + newSamplesNeeded;
+            if (totalInput + 8 > (int)resampleInputBuf.size())
+                resampleInputBuf.resize((size_t)(totalInput + 8), 0.0f);
+
+            // Shift carry samples to start of buffer (if any)
+            // (they're already there from last iteration)
+
+            // Read new samples after carry
+            jitterBuffer.read(resampleInputBuf.data() + asrcCarryCount, newSamplesNeeded);
+
+            // Resample
+            int consumed = resampler.process(correctedRatio,
+                                             resampleInputBuf.data(),
+                                             outL,
+                                             numOutputSamples);
+
+            // Move unconsumed samples to start of buffer for next iteration
+            int leftover = totalInput - consumed;
+            if (leftover > 0 && leftover < totalInput)
             {
-                jitterBuffer.read(outL, numOutputSamples);
+                std::memmove(resampleInputBuf.data(),
+                             resampleInputBuf.data() + consumed,
+                             (size_t)leftover * sizeof(float));
             }
-            else if (toRead > numOutputSamples)
-            {
-                // Read 1 extra into temp, resample down to output size
-                if (toRead > (int)resampleInputBuf.size())
-                    resampleInputBuf.resize((size_t)toRead, 0.0f);
-                jitterBuffer.read(resampleInputBuf.data(), toRead);
-                // Linear interpolation to fit toRead samples into numOutputSamples
-                for (int i = 0; i < numOutputSamples; i++)
-                {
-                    float pos = (float)i * (float)toRead / (float)numOutputSamples;
-                    int idx = (int)pos;
-                    float frac = pos - (float)idx;
-                    if (idx + 1 < toRead)
-                        outL[i] = resampleInputBuf[(size_t)idx] * (1.0f - frac) + resampleInputBuf[(size_t)(idx + 1)] * frac;
-                    else
-                        outL[i] = resampleInputBuf[(size_t)idx];
-                }
-            }
-            else
-            {
-                // Read 1 fewer, stretch to fill output
-                if (toRead > (int)resampleInputBuf.size())
-                    resampleInputBuf.resize((size_t)toRead, 0.0f);
-                jitterBuffer.read(resampleInputBuf.data(), toRead);
-                for (int i = 0; i < numOutputSamples; i++)
-                {
-                    float pos = (float)i * (float)toRead / (float)numOutputSamples;
-                    int idx = (int)pos;
-                    float frac = pos - (float)idx;
-                    if (idx + 1 < toRead)
-                        outL[i] = resampleInputBuf[(size_t)idx] * (1.0f - frac) + resampleInputBuf[(size_t)(idx + 1)] * frac;
-                    else
-                        outL[i] = resampleInputBuf[(size_t)idx];
-                }
-            }
+            asrcCarryCount = juce::jmax(0, leftover);
         }
     }
     else
