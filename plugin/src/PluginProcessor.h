@@ -45,6 +45,12 @@ public:
     std::atomic<int> lastLearnedTo { -1 };        // last synth CC it was mapped to
     std::atomic<int> mappedSendCount { 0 };      // debug: how many mapped CCs sent
 
+    // ASRC/PLC diagnostics
+    std::atomic<int> asrcDropCount { 0 };        // ASRC: samples dropped (buffer overfull)
+    std::atomic<int> asrcDupCount { 0 };         // ASRC: samples duplicated (buffer underfull)
+    std::atomic<int> plcConcealCount { 0 };      // PLC: unfilled slots concealed
+    std::atomic<int> lastBlockSize { 0 };        // actual numOutputSamples from processBlock
+
     // Ring buffer for mapped CC values to push to UI (audio thread → message thread)
     static constexpr int CC_RING_SIZE = 64;
     struct CCEvent { uint8_t cc; uint8_t val; };

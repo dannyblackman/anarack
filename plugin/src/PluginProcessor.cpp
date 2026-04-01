@@ -213,6 +213,11 @@ void AnarackProcessor::prepareToPlay(double sampleRate, int samplesPerBlock)
     // Pre-allocate buffer for resampler input (worst case: full block at highest ratio)
     int maxInputSamples = (int)(samplesPerBlock * resampleRatio + 16);
     resampleInputBuf.resize((size_t)maxInputSamples, 0.0f);
+
+    DBG("prepareToPlay: sampleRate=" + juce::String(sampleRate)
+        + " samplesPerBlock=" + juce::String(samplesPerBlock)
+        + " baseResampleRatio=" + juce::String(baseResampleRatio));
+
 }
 
 void AnarackProcessor::releaseResources()
@@ -336,6 +341,7 @@ void AnarackProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::Midi
 
     // Read audio from network buffer
     auto numOutputSamples = buffer.getNumSamples();
+    lastBlockSize.store(numOutputSamples, std::memory_order_relaxed);
     auto* outL = buffer.getWritePointer(0);
 
     if (jitterBuffer.isConfigured())
@@ -384,24 +390,33 @@ void AnarackProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::Midi
             bool doDropSample = false;
             bool doDupSample = false;
 
-            // When drift exceeds ±1 sample, apply correction
-            if (driftAccumulator >= 1.0)
+            // When drift exceeds ±1 sample, apply correction —
+            // but only if the buffer actually needs it (prevents over-correction)
+            if (driftAccumulator >= 1.0 && currentFill > targetFill)
             {
                 // Buffer is overfull — consume one extra sample (drop)
                 doDropSample = true;
                 driftAccumulator -= 1.0;
                 samplesToRead = numOutputSamples + 1;
+                asrcDropCount.fetch_add(1, std::memory_order_relaxed);
             }
-            else if (driftAccumulator <= -1.0)
+            else if (driftAccumulator <= -1.0 && currentFill < targetFill)
             {
                 // Buffer is underfull — consume one fewer sample (duplicate)
                 doDupSample = true;
                 driftAccumulator += 1.0;
                 samplesToRead = numOutputSamples - 1;
+                asrcDupCount.fetch_add(1, std::memory_order_relaxed);
+            }
+            else if ((driftAccumulator >= 1.0 && currentFill <= targetFill) ||
+                     (driftAccumulator <= -1.0 && currentFill >= targetFill))
+            {
+                // Accumulator says correct, but buffer disagrees — reset
+                driftAccumulator = 0.0;
             }
 
             // Clamp drift accumulator to prevent runaway
-            driftAccumulator = juce::jlimit(-4.0, 4.0, driftAccumulator);
+            driftAccumulator = juce::jlimit(-2.0, 2.0, driftAccumulator);
 
             // Ensure we have a temp buffer large enough
             if (samplesToRead + CROSSFADE_LEN > (int)resampleInputBuf.size())

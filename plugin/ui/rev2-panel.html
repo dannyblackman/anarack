@@ -622,6 +622,27 @@ function updateConnectionStatus(state) {
     document.getElementById('rtt-group').title = 'Total latency reported to DAW: ' + state.totalLatency + 'ms (buffer + RTT)';
   }
 
+  // ASRC/PLC diagnostics — log every 5 seconds
+  if (_connected && state.asrcDrops !== undefined) {
+    if (!window._lastDiagTime || Date.now() - window._lastDiagTime > 5000) {
+      window._lastDiagTime = Date.now();
+      const plc = state.plcSamples || 0;
+      const lost = state.pktLost || 0;
+      const drops = state.asrcDrops || 0;
+      const dups = state.asrcDups || 0;
+      if (drops + dups + plc > (window._lastDiagTotal || 0)) {
+        const buf = state.bufferMs ? state.bufferMs.toFixed(0) : '?';
+        let msg = 'ASRC: ' + drops + 'd ' + dups + 'u | PLC: ' + plc + ' | Buf: ' + buf + 'ms | Lost: ' + lost;
+        if (state.blockSize && !window._loggedBlockSize) {
+          msg += ' | Block: ' + state.blockSize;
+          window._loggedBlockSize = true;
+        }
+        log(msg);
+        window._lastDiagTotal = drops + dups + plc;
+      }
+    }
+  }
+
   // MIDI Learn completion
   if (state.learnedFrom !== undefined && state.learnedTo !== undefined) {
     onLearnComplete(state.learnedFrom, state.learnedTo);

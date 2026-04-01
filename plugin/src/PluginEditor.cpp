@@ -210,13 +210,21 @@ void AnarackEditor::timerCallback()
         state->setProperty("mode", c ? juce::String(t.isWireGuard() ? "WireGuard" : "LAN") : juce::String());
         state->setProperty("pktSize", t.getLastPacketSize());
         state->setProperty("rtt", c ? t.getEstimatedRtt() : 0);
-        state->setProperty("bufferMs", c ? (float)t.getBufferLevel() / 48.0f : 0.0f);
+        int fillSamples = processor.jitterBuffer.isConfigured()
+                        ? processor.jitterBuffer.getFillLevel()
+                        : t.getBufferLevel();
+        state->setProperty("bufferMs", c ? (float)fillSamples / 48.0f : 0.0f);
         int fixedMs = processor.fixedBufferMs.load();
         state->setProperty("bufferTarget", fixedMs > 0 ? fixedMs : -1);
         state->setProperty("totalLatency", c ? (int)(processor.getLatencySamples() * 1000.0 / 48000.0) : 0);
         state->setProperty("midiIn", processor.midiInCount.load(std::memory_order_relaxed));
         state->setProperty("mappedSends", processor.mappedSendCount.load(std::memory_order_relaxed));
         state->setProperty("learning", processor.learnTargetCC.load() >= 0);
+        state->setProperty("blockSize", processor.lastBlockSize.load(std::memory_order_relaxed));
+        state->setProperty("asrcDrops", processor.asrcDropCount.load(std::memory_order_relaxed));
+        state->setProperty("asrcDups", processor.asrcDupCount.load(std::memory_order_relaxed));
+        state->setProperty("plcSamples", processor.jitterBuffer.getPlcSamples());
+        state->setProperty("pktLost", processor.jitterBuffer.getPacketsLost());
         int learnFrom = processor.lastLearnedFrom.exchange(-1);
         int learnTo = processor.lastLearnedTo.exchange(-1);
         if (learnFrom >= 0 && learnTo >= 0)

@@ -77,6 +77,7 @@ public:
         packetsRecovered.store(0, std::memory_order_relaxed);
         packetsDuplicate.store(0, std::memory_order_relaxed);
         packetsReceived.store(0, std::memory_order_relaxed);
+        plcSamples.store(0, std::memory_order_relaxed);
 
         lastGoodBlock.assign(PACKET_SAMPLES, 0.0f);
         lastGoodLength = PACKET_SAMPLES;
@@ -176,7 +177,7 @@ public:
 
         // --- Place samples into ring buffer ---
         int rp = readPos.load(std::memory_order_acquire);
-        bool anyNew = false;
+        int newSamplesPlaced = 0;
 
         for (int i = 0; i < numSamples; ++i)
         {
@@ -188,22 +189,22 @@ public:
 
             buffer[(size_t)pos] = static_cast<float>(int16Data[i]) / 32768.0f;
             slotFilled[(size_t)pos] = 1;
-            anyNew = true;
+            newSamplesPlaced++;
         }
 
-        if (!anyNew && seqDelta < 0)
+        if (newSamplesPlaced == 0 && seqDelta < 0)
         {
             // Every sample was already present — this is a true duplicate.
             packetsDuplicate.fetch_add(1, std::memory_order_relaxed);
         }
-        else if (seqDelta < 0 && anyNew)
+        else if (seqDelta < 0 && newSamplesPlaced > 0)
         {
             // Late arrival that filled in missing samples — recovered.
             packetsRecovered.fetch_add(1, std::memory_order_relaxed);
         }
 
         packetsReceived.fetch_add(1, std::memory_order_relaxed);
-        samplesWritten.fetch_add(numSamples, std::memory_order_relaxed);
+        samplesWritten.fetch_add(newSamplesPlaced, std::memory_order_relaxed);
 
         // --- Check prebuffer threshold ---
         if (prebuffering.load(std::memory_order_acquire))
@@ -267,7 +268,7 @@ public:
             expectedSeq.store(seq + 1, std::memory_order_release);
 
         int rp = readPos.load(std::memory_order_acquire);
-        bool anyNew = false;
+        int newSamplesPlaced = 0;
 
         for (int i = 0; i < numSamples; ++i)
         {
@@ -279,16 +280,16 @@ public:
 
             buffer[(size_t)pos] = static_cast<float>(samples[i]) / 32768.0f;
             slotFilled[(size_t)pos] = 1;
-            anyNew = true;
+            newSamplesPlaced++;
         }
 
-        if (!anyNew && seqDelta < 0)
+        if (newSamplesPlaced == 0 && seqDelta < 0)
             packetsDuplicate.fetch_add(1, std::memory_order_relaxed);
-        else if (seqDelta < 0 && anyNew)
+        else if (seqDelta < 0 && newSamplesPlaced > 0)
             packetsRecovered.fetch_add(1, std::memory_order_relaxed);
 
         packetsReceived.fetch_add(1, std::memory_order_relaxed);
-        samplesWritten.fetch_add(numSamples, std::memory_order_relaxed);
+        samplesWritten.fetch_add(newSamplesPlaced, std::memory_order_relaxed);
 
         if (prebuffering.load(std::memory_order_acquire))
         {
@@ -344,6 +345,7 @@ public:
             {
                 // --- Packet loss concealment ---
                 gapLength++;
+                plcSamples.fetch_add(1, std::memory_order_relaxed);
                 output[i] = concealSample(gapLength);
             }
 
@@ -383,6 +385,7 @@ public:
     int getPacketsRecovered() const { return packetsRecovered.load(std::memory_order_relaxed); }
     int getPacketsReceived() const { return packetsReceived.load(std::memory_order_relaxed); }
     int getPacketsDuplicate() const { return packetsDuplicate.load(std::memory_order_relaxed); }
+    int getPlcSamples() const { return plcSamples.load(std::memory_order_relaxed); }
 
     // -------------------------------------------------------------------------
     // Reset — call on disconnect. Only safe when no concurrent read/write.
@@ -532,6 +535,7 @@ private:
     std::atomic<int> packetsRecovered { 0 };
     std::atomic<int> packetsDuplicate { 0 };
     std::atomic<int> packetsReceived { 0 };
+    std::atomic<int> plcSamples { 0 };         // total concealed samples
 
     // PLC state — only accessed from the audio thread (read()).
     std::vector<float> lastGoodBlock;
