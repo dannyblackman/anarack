@@ -428,81 +428,33 @@ void AnarackProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::Midi
             if (doDropSample)
             {
                 // We read numOutputSamples+1 samples, need to output numOutputSamples.
-                // Find a zero-crossing near the midpoint for the most transparent splice.
-                int mid = numOutputSamples / 2;
-                int bestZC = mid;
-                float bestAbs = std::abs(resampleInputBuf[mid]);
-                int searchRange = juce::jmin(mid - CROSSFADE_LEN, numOutputSamples - mid - CROSSFADE_LEN - 1);
-                for (int j = 1; j <= searchRange; ++j)
+                // Linear interpolation: map N output samples across N+1 input samples.
+                // Each output sample is gently stretched — no splice point, no click.
+                double step = (double)(samplesToRead - 1) / (double)(numOutputSamples - 1);
+                for (int i = 0; i < numOutputSamples; ++i)
                 {
-                    float a1 = std::abs(resampleInputBuf[mid - j]);
-                    float a2 = std::abs(resampleInputBuf[mid + j]);
-                    if (a1 < bestAbs) { bestAbs = a1; bestZC = mid - j; }
-                    if (a2 < bestAbs) { bestAbs = a2; bestZC = mid + j; }
-                    if (bestAbs < 0.001f) break; // close enough to zero
-                }
-                mid = bestZC;
-
-                // Copy first half directly
-                std::memcpy(outL, resampleInputBuf.data(), (size_t)mid * sizeof(float));
-                // Crossfade: blend samples [mid..mid+CF] with [mid+1..mid+1+CF]
-                for (int i = 0; i < CROSSFADE_LEN && (mid + i) < numOutputSamples; ++i)
-                {
-                    float t = (float)(i + 1) / (float)(CROSSFADE_LEN + 1);
-                    outL[mid + i] = resampleInputBuf[mid + i] * (1.0f - t)
-                                  + resampleInputBuf[mid + i + 1] * t;
-                }
-                // Copy remainder (shifted by 1)
-                int afterCF = mid + CROSSFADE_LEN;
-                if (afterCF < numOutputSamples)
-                {
-                    std::memcpy(outL + afterCF,
-                                resampleInputBuf.data() + afterCF + 1,
-                                (size_t)(numOutputSamples - afterCF) * sizeof(float));
+                    double srcPos = i * step;
+                    int idx = (int)srcPos;
+                    float frac = (float)(srcPos - idx);
+                    int idx1 = juce::jmin(idx + 1, samplesToRead - 1);
+                    outL[i] = resampleInputBuf[idx] * (1.0f - frac)
+                            + resampleInputBuf[idx1] * frac;
                 }
             }
             else if (doDupSample)
             {
                 // We read numOutputSamples-1 samples, need to output numOutputSamples.
-                // Find a zero-crossing near the midpoint for the most transparent splice.
-                int mid = numOutputSamples / 2;
+                // Linear interpolation: stretch N-1 input samples across N output samples.
                 int readSamples = numOutputSamples - 1;
-                int bestZC = mid;
-                float bestAbs = std::abs(resampleInputBuf[juce::jmin(mid, readSamples - 1)]);
-                int searchRange = juce::jmin(mid - CROSSFADE_LEN, readSamples - mid - CROSSFADE_LEN);
-                for (int j = 1; j <= searchRange; ++j)
+                double step = (double)(readSamples - 1) / (double)(numOutputSamples - 1);
+                for (int i = 0; i < numOutputSamples; ++i)
                 {
-                    int lo = juce::jmin(mid - j, readSamples - 1);
-                    int hi = juce::jmin(mid + j, readSamples - 1);
-                    float a1 = std::abs(resampleInputBuf[lo]);
-                    float a2 = std::abs(resampleInputBuf[hi]);
-                    if (a1 < bestAbs) { bestAbs = a1; bestZC = mid - j; }
-                    if (a2 < bestAbs) { bestAbs = a2; bestZC = mid + j; }
-                    if (bestAbs < 0.001f) break;
-                }
-                mid = bestZC;
-
-                // Copy first half directly
-                std::memcpy(outL, resampleInputBuf.data(), (size_t)mid * sizeof(float));
-                // Crossfade: blend to create the extra sample
-                for (int i = 0; i < CROSSFADE_LEN && (mid + i) < numOutputSamples; ++i)
-                {
-                    float t = (float)(i + 1) / (float)(CROSSFADE_LEN + 1);
-                    int srcIdx = juce::jmin(mid + i, readSamples - 1);
-                    int srcIdxM1 = juce::jmax(0, srcIdx - 1);
-                    outL[mid + i] = resampleInputBuf[srcIdxM1] * (1.0f - t)
-                                  + resampleInputBuf[srcIdx] * t;
-                }
-                // Copy remainder (shifted back by 1)
-                int afterCF = mid + CROSSFADE_LEN;
-                if (afterCF < numOutputSamples)
-                {
-                    int srcStart = afterCF - 1;
-                    int count = juce::jmin(numOutputSamples - afterCF, readSamples - srcStart);
-                    if (count > 0)
-                        std::memcpy(outL + afterCF,
-                                    resampleInputBuf.data() + srcStart,
-                                    (size_t)count * sizeof(float));
+                    double srcPos = i * step;
+                    int idx = (int)srcPos;
+                    float frac = (float)(srcPos - idx);
+                    int idx1 = juce::jmin(idx + 1, readSamples - 1);
+                    outL[i] = resampleInputBuf[idx] * (1.0f - frac)
+                            + resampleInputBuf[idx1] * frac;
                 }
             }
             else
