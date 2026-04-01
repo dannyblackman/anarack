@@ -152,6 +152,11 @@ class MidiRouter:
         """Parse and forward a UDP MIDI packet."""
         if len(data) >= 2:
             self.send(list(data[:3] if len(data) >= 3 else data))
+            # On program change, request edit buffer so all params update
+            if (data[0] & 0xF0) == 0xC0 and self._loop:
+                self._loop.call_soon_threadsafe(
+                    self._loop.call_later, 0.15, self.request_edit_buffer
+                )
 
     def send_from_websocket(self, payload: str):
         """Parse and forward a WebSocket MIDI message."""
