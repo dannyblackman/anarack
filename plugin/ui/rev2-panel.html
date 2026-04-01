@@ -319,7 +319,7 @@
       <span class="status-label" id="status-label">Offline</span>
     </div>
     <span class="conn-mode" id="conn-mode"></span>
-    <span class="stat-unit">v0.1.2</span>
+    <span class="stat-unit">v0.1.3</span>
     <div class="stat-group" id="rtt-group" style="display:none">
       <span class="stat-val" id="rtt-val">—</span>
       <span class="stat-unit">ms RTT</span>
@@ -627,6 +627,11 @@ function updateConnectionStatus(state) {
     onLearnComplete(state.learnedFrom, state.learnedTo);
   }
 
+  // Patch name update
+  if (state.patchName) {
+    document.getElementById('patch-name').textContent = state.patchName;
+  }
+
   // MIDI input counter from DAW
   const midiInGroup = document.getElementById('midi-in-group');
   const midiInVal = document.getElementById('midi-in-val');
@@ -660,6 +665,20 @@ if (_juce) {
       // Auto-select LaunchKey if found
       const lk = e.midiInputs.find(n => n.toLowerCase().includes('launchkey'));
       if (lk) { sel.value = lk; onMidiInputChange(); }
+    }
+    // Restore saved MIDI learn mappings — show labels
+    if (e.midiMappings && e.midiMappings.length > 0) {
+      e.midiMappings.forEach(m => {
+        const ctrl = ccRegistry[m.to];
+        if (ctrl) {
+          if (ctrl._learnLabel) ctrl._learnLabel.style.color = '#E8A849';
+          if (ctrl._mapLabel) {
+            ctrl._mapLabel.textContent = 'CC' + m.from;
+            ctrl._mapLabel.style.display = 'block';
+          }
+        }
+      });
+      log('Restored ' + e.midiMappings.length + ' MIDI learn mapping(s)');
     }
   });
   _juce.addEventListener("logMessage", (e) => {
@@ -931,7 +950,7 @@ const screenHeader = document.createElement('div'); screenHeader.className = 'pa
 const screenLoc = document.createElement('div'); screenLoc.className = 'patch-loc'; screenLoc.textContent = 'U1 P1';
 const screenBpm = document.createElement('div'); screenBpm.className = 'patch-bpm'; screenBpm.textContent = '120';
 screenHeader.appendChild(screenLoc); screenHeader.appendChild(screenBpm);
-const screenName = document.createElement('div'); screenName.className = 'patch-name'; screenName.textContent = 'REV 2 Massive Pad';
+const screenName = document.createElement('div'); screenName.className = 'patch-name'; screenName.id = 'patch-name'; screenName.textContent = '...';
 const screenParam = document.createElement('div'); screenParam.className = 'patch-param';
 const screenPName = document.createElement('div'); screenPName.className = 'patch-param-name'; screenPName.textContent = 'Sub Level';
 const screenPVal = document.createElement('div'); screenPVal.className = 'patch-param-val'; screenPVal.textContent = '62';

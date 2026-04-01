@@ -240,14 +240,32 @@ void NetworkTransport::run()
         if (bytesRead <= 0)
             continue;
 
-        if (bytesRead == 268 && jitterBuffer.isConfigured())
+        // JSON message from server (patch name etc.)
+        if (bytesRead > 2 && packetBuf[0] == '{')
         {
-            // Header packet → JitterBuffer (timestamp-indexed placement)
+            auto json = juce::String::fromUTF8((const char*)packetBuf, bytesRead);
+            auto parsed = juce::JSON::parse(json);
+            if (parsed.isObject())
+            {
+                auto type = parsed.getProperty("type", "").toString();
+                if (type == "patchName" && onPatchName)
+                    onPatchName(parsed.getProperty("name", "").toString());
+            }
+            continue;
+        }
+
+        // 3-byte MIDI CC from Rev2 (synth parameter update)
+        if (bytesRead == 3 && (packetBuf[0] & 0xF0) == 0xB0)
+        {
+            if (onSynthCC)
+                onSynthCC(packetBuf[1], packetBuf[2]);
+        }
+        else if (bytesRead == 268 && jitterBuffer.isConfigured())
+        {
             jitterBuffer.writePacket(packetBuf, bytesRead);
         }
         else
         {
-            // Strip header if present, feed AudioRingBuffer
             const uint8_t* audioStart = packetBuf;
             int audioBytes = bytesRead;
             if (bytesRead == 268) {
@@ -285,6 +303,28 @@ void NetworkTransport::runWireGuard()
         {
             // No data ready — brief sleep to avoid busy spinning
             std::this_thread::sleep_for(std::chrono::microseconds(500));
+            continue;
+        }
+
+        // JSON message from server (patch name etc.)
+        if (bytesRead > 2 && packetBuf[0] == '{')
+        {
+            auto json = juce::String::fromUTF8((const char*)packetBuf, bytesRead);
+            auto parsed = juce::JSON::parse(json);
+            if (parsed.isObject())
+            {
+                auto type = parsed.getProperty("type", "").toString();
+                if (type == "patchName" && onPatchName)
+                    onPatchName(parsed.getProperty("name", "").toString());
+            }
+            continue;
+        }
+
+        // 3-byte MIDI CC from Rev2 (synth parameter update)
+        if (bytesRead == 3 && (packetBuf[0] & 0xF0) == 0xB0)
+        {
+            if (onSynthCC)
+                onSynthCC(packetBuf[1], packetBuf[2]);
             continue;
         }
 

@@ -46,6 +46,11 @@ public:
     int getEstimatedRtt() const;
     int getLastPacketSize() const { return lastPacketSize.load(); }
 
+    // Callback for incoming CC from the Rev2 (synth → plugin → UI)
+    std::function<void(int cc, int value)> onSynthCC;
+    // Callback for patch name from server
+    std::function<void(const juce::String&)> onPatchName;
+
 private:
     void run() override; // Receive thread (raw UDP mode)
     void runWireGuard();  // Receive loop (WireGuard mode)

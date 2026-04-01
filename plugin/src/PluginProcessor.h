@@ -38,6 +38,7 @@ public:
     // Public access for the editor
     NetworkTransport& getTransport() { return transport; }
     std::atomic<int> midiInCount { 0 };
+    juce::String currentPatchName;
 
     // MIDI Learn: map external controller CCs to synth CCs
     std::atomic<int> learnTargetCC { -1 };       // synth CC waiting for learn (-1 = not learning)

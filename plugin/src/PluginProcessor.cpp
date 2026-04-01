@@ -98,6 +98,30 @@ AnarackProcessor::AnarackProcessor()
         if (sp.cc >= 0 && sp.cc < 128)
             paramByCC[sp.cc] = p;
     }
+
+    // When the Rev2 sends a CC (knob turned on hardware, program change),
+    // push it to the UI ring buffer so the WebView knobs update
+    // When the server sends a patch name (after program change / SysEx dump)
+    transport.onPatchName = [this](const juce::String& name)
+    {
+        currentPatchName = name;
+    };
+
+    // When the Rev2 sends a CC (knob turned on hardware, program change)
+    transport.onSynthCC = [this](int cc, int value)
+    {
+        ccValues[cc] = value;
+        // Update DAW parameter
+        if (auto* p = paramByCC[cc])
+        {
+            p->setValueNotifyingHost(p->convertTo0to1((float)value));
+            lastAutomationVal[cc] = value;
+        }
+        // Push to UI ring
+        int w = ccRingWrite.load(std::memory_order_relaxed);
+        ccRing[w % CC_RING_SIZE] = { (uint8_t)cc, (uint8_t)value };
+        ccRingWrite.store(w + 1, std::memory_order_release);
+    };
 }
 
 AnarackProcessor::~AnarackProcessor()
@@ -470,6 +494,23 @@ void AnarackProcessor::getStateInformation(juce::MemoryBlock& destData)
 {
     juce::ValueTree state("AnarackState");
     state.setProperty("serverHost", serverHost, nullptr);
+    state.setProperty("fixedBufferMs", fixedBufferMs.load(), nullptr);
+    state.setProperty("encoderSensitivity", encoderSensitivity.load(), nullptr);
+
+    // Save MIDI learn mappings
+    juce::ValueTree mappings("MidiLearn");
+    for (int i = 0; i < 128; i++)
+    {
+        if (ccMap[i] >= 0)
+        {
+            juce::ValueTree m("Map");
+            m.setProperty("from", i, nullptr);
+            m.setProperty("to", ccMap[i], nullptr);
+            mappings.addChild(m, -1, nullptr);
+        }
+    }
+    state.addChild(mappings, -1, nullptr);
+
     juce::MemoryOutputStream stream(destData, false);
     state.writeToStream(stream);
 }
@@ -477,8 +518,26 @@ void AnarackProcessor::getStateInformation(juce::MemoryBlock& destData)
 void AnarackProcessor::setStateInformation(const void* data, int sizeInBytes)
 {
     auto state = juce::ValueTree::readFromData(data, (size_t)sizeInBytes);
-    if (state.hasType("AnarackState"))
-        serverHost = state.getProperty("serverHost", "anarack.local").toString();
+    if (!state.hasType("AnarackState")) return;
+
+    serverHost = state.getProperty("serverHost", "192.168.1.131").toString();
+    fixedBufferMs.store((int)state.getProperty("fixedBufferMs", 300));
+    encoderSensitivity.store((int)state.getProperty("encoderSensitivity", 3));
+
+    // Restore MIDI learn mappings
+    auto mappings = state.getChildWithName("MidiLearn");
+    if (mappings.isValid())
+    {
+        std::fill(std::begin(ccMap), std::end(ccMap), -1);
+        for (int i = 0; i < mappings.getNumChildren(); i++)
+        {
+            auto m = mappings.getChild(i);
+            int from = (int)m.getProperty("from", -1);
+            int to = (int)m.getProperty("to", -1);
+            if (from >= 0 && from < 128 && to >= 0 && to < 128)
+                ccMap[from] = to;
+        }
+    }
 }
 
 void AnarackProcessor::setFixedBuffer(int ms)

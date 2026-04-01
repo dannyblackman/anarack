@@ -167,6 +167,21 @@ AnarackEditor::AnarackEditor(AnarackProcessor& p)
             for (auto& name : processor.getAvailableMidiInputs())
                 devs.add(name);
             obj->setProperty("midiInputs", devs);
+
+            // Send saved MIDI learn mappings
+            juce::Array<juce::var> mappings;
+            for (int i = 0; i < 128; i++)
+            {
+                if (processor.ccMap[i] >= 0)
+                {
+                    auto m = juce::DynamicObject::Ptr(new juce::DynamicObject());
+                    m->setProperty("from", i);
+                    m->setProperty("to", processor.ccMap[i]);
+                    mappings.add(juce::var(m.get()));
+                }
+            }
+            obj->setProperty("midiMappings", mappings);
+
             webView->emitEventIfBrowserIsVisible("initConfig", juce::var(obj.get()));
         }
 
@@ -215,6 +230,8 @@ void AnarackEditor::timerCallback()
         state->setProperty("bufferTarget", fixedMs > 0 ? fixedMs : -1);
         state->setProperty("totalLatency", c ? (int)(processor.getLatencySamples() * 1000.0 / 48000.0) : 0);
         state->setProperty("midiIn", processor.midiInCount.load(std::memory_order_relaxed));
+        if (processor.currentPatchName.isNotEmpty())
+            state->setProperty("patchName", processor.currentPatchName);
         state->setProperty("mappedSends", processor.mappedSendCount.load(std::memory_order_relaxed));
         state->setProperty("learning", processor.learnTargetCC.load() >= 0);
         int learnFrom = processor.lastLearnedFrom.exchange(-1);
