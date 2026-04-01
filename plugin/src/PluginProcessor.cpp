@@ -397,13 +397,22 @@ void AnarackProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::Midi
                                           correctedRatio);
 
             // Read from jitter buffer and resample
-            int inputNeeded = (int)(numOutputSamples * correctedRatio + 2);
-            if (inputNeeded < 1) inputNeeded = 1;
-            if (inputNeeded > (int)resampleInputBuf.size())
-                resampleInputBuf.resize((size_t)inputNeeded, 0.0f);
+            // When ratio is very close to 1.0, read exact samples to avoid drain
+            if (std::abs(correctedRatio - 1.0) < 0.001)
+            {
+                // Direct read — no resampling needed at <0.1% correction
+                jitterBuffer.read(outL, numOutputSamples);
+            }
+            else
+            {
+                int inputNeeded = (int)(numOutputSamples * correctedRatio) + 1;
+                if (inputNeeded < 1) inputNeeded = 1;
+                if (inputNeeded > (int)resampleInputBuf.size())
+                    resampleInputBuf.resize((size_t)inputNeeded, 0.0f);
 
-            jitterBuffer.read(resampleInputBuf.data(), inputNeeded);
-            resampler.process(correctedRatio, resampleInputBuf.data(), outL, numOutputSamples);
+                jitterBuffer.read(resampleInputBuf.data(), inputNeeded);
+                resampler.process(correctedRatio, resampleInputBuf.data(), outL, numOutputSamples);
+            }
         }
     }
     else
