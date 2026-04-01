@@ -6,7 +6,6 @@
 #include <unistd.h>
 #include "AudioRingBuffer.h"
 #include "JitterBuffer.h"
-#include "JitterEstimator.h"
 #include "WgTunnel.h"
 
 // Lock-free MIDI message slot for audio thread -> network thread communication.
@@ -47,11 +46,6 @@ public:
     int getEstimatedRtt() const;
     int getLastPacketSize() const { return lastPacketSize.load(); }
 
-    // Callback for incoming CC from the Rev2 (synth → plugin → UI)
-    std::function<void(int cc, int value)> onSynthCC;
-    // Callback for patch name from server
-    std::function<void(const juce::String&)> onPatchName;
-
 private:
     void run() override; // Receive thread (raw UDP mode)
     void runWireGuard();  // Receive loop (WireGuard mode)
@@ -60,19 +54,6 @@ private:
 
     AudioRingBuffer& audioBuffer;
     JitterBuffer& jitterBuffer;
-public:
-    JitterEstimator jitterEstimator;
-private:
-
-    // FEC recovery
-    static constexpr int FEC_RING_SIZE = 16;
-    struct FecEntry { uint32_t seq; uint32_t timestamp; std::vector<uint8_t> payload; bool valid; };
-    FecEntry dataRing[FEC_RING_SIZE];   // recent data packets
-    FecEntry fecRing[FEC_RING_SIZE / 2]; // recent FEC packets
-    int dataRingIdx = 0;
-    int fecRingIdx = 0;
-    void processPacketWithFec(const uint8_t* data, int size);
-    void tryFecRecovery(const FecEntry& fec);
 
     // Connection mode
     bool useWireGuard = false;

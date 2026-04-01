@@ -38,8 +38,6 @@ public:
     // Public access for the editor
     NetworkTransport& getTransport() { return transport; }
     std::atomic<int> midiInCount { 0 };
-    juce::String currentPatchName;
-    std::atomic<bool> patchNameUpdated { false };
 
     // MIDI Learn: map external controller CCs to synth CCs
     std::atomic<int> learnTargetCC { -1 };       // synth CC waiting for learn (-1 = not learning)
@@ -92,10 +90,7 @@ public:
 private:
     NetworkTransport transport;
     int underrunCount = 0;
-
-    // ASRC state
-    double smoothedFillError = 0.0;
-    bool asrcInitialised = false;
+    int driftCounter = 0;
 
     // Media clock recovery: measure server clock rate vs DAW clock rate
     int64_t clockRecoveryDAWSamples = 0;      // total DAW samples consumed

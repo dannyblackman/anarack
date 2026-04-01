@@ -34,12 +34,8 @@ class JitterBuffer
 public:
     static constexpr int PACKET_SAMPLES     = 128;
     static constexpr int HEADER_SIZE        = 12;
-    static constexpr int BYTES_PER_SAMPLE   = 3;   // 24-bit packed
-    static constexpr int PAYLOAD_BYTES      = PACKET_SAMPLES * BYTES_PER_SAMPLE;  // 384
-    static constexpr int PACKET_BYTES       = HEADER_SIZE + PAYLOAD_BYTES;        // 396
-    // Legacy 16-bit support
-    static constexpr int LEGACY_PAYLOAD     = PACKET_SAMPLES * 2;  // 256
-    static constexpr int LEGACY_PACKET      = HEADER_SIZE + LEGACY_PAYLOAD;  // 268
+    static constexpr int PAYLOAD_BYTES      = PACKET_SAMPLES * (int)sizeof(int16_t);   // 256
+    static constexpr int PACKET_BYTES       = HEADER_SIZE + PAYLOAD_BYTES;              // 268
 
     // Packet flag bits
     static constexpr uint16_t kFlagFEC          = 0x0001;
@@ -75,7 +71,7 @@ public:
 
         firstPacket.store(true, std::memory_order_relaxed);
         prebuffering.store(true, std::memory_order_relaxed);
-        prebufferTarget = fixedSizeSamples * 3 / 4; // 75% fill before playing
+        prebufferTarget = fixedSizeSamples / 2;
 
         packetsLost.store(0, std::memory_order_relaxed);
         packetsRecovered.store(0, std::memory_order_relaxed);
@@ -118,35 +114,11 @@ public:
         std::memcpy(&checksum, rawPacket + 10, 2);
 
         int payloadBytes = rawSize - HEADER_SIZE;
-
-        // Detect 24-bit (3 bytes/sample) vs 16-bit (2 bytes/sample)
-        bool is24bit = (payloadBytes == PACKET_SAMPLES * 3);
-        bool is16bit = (payloadBytes == PACKET_SAMPLES * 2);
-        if (!is24bit && !is16bit)
-            return;
-        int numSamples = is24bit ? payloadBytes / 3 : payloadBytes / 2;
+        int numSamples = payloadBytes / (int)sizeof(int16_t);
         if (numSamples <= 0 || numSamples > PACKET_SAMPLES * 2)
             return;
 
-        // Convert to float (temp buffer on stack)
-        float tempSamples[PACKET_SAMPLES * 2];
-        const uint8_t* payload = rawPacket + HEADER_SIZE;
-        if (is24bit)
-        {
-            for (int s = 0; s < numSamples; s++)
-            {
-                // Unpack 3 bytes little-endian → int32 (sign-extend)
-                int32_t val = (int32_t)(payload[s*3] | (payload[s*3+1] << 8) | (payload[s*3+2] << 16));
-                if (val & 0x800000) val |= 0xFF000000; // sign extend
-                tempSamples[s] = (float)val / 8388608.0f;
-            }
-        }
-        else
-        {
-            const int16_t* int16Data = reinterpret_cast<const int16_t*>(payload);
-            for (int s = 0; s < numSamples; s++)
-                tempSamples[s] = (float)int16Data[s] / 32768.0f;
-        }
+        const int16_t* int16Data = reinterpret_cast<const int16_t*>(rawPacket + HEADER_SIZE);
 
         // --- First packet: bootstrap the buffer position ---
         if (firstPacket.load(std::memory_order_acquire))
@@ -214,7 +186,7 @@ public:
             if (slotFilled[(size_t)pos])
                 continue; // already have this sample (duplicate packet)
 
-            buffer[(size_t)pos] = tempSamples[i];
+            buffer[(size_t)pos] = static_cast<float>(int16Data[i]) / 32768.0f;
             slotFilled[(size_t)pos] = 1;
             anyNew = true;
         }
@@ -351,24 +323,28 @@ public:
             if (slotFilled[(size_t)pos])
             {
                 float sample = buffer[(size_t)pos];
-                lastGoodSample = sample;
                 output[i] = sample;
-                gapLength = 0;
+
+                // Update last-good block for PLC (circular write into block)
+                lastGoodBlock[(size_t)(lastGoodWriteIdx % lastGoodLength)] = sample;
+                lastGoodWriteIdx++;
+
+                // If we were in a gap, apply a short crossfade-in from the PLC
+                // output to avoid a click at the gap->data transition.
+                if (gapLength > 0)
+                {
+                    int fadeIn = juce::jmin(gapLength, 32);
+                    // We are at the first good sample after a gap — the fade-in
+                    // was already partially applied by the gap handler. Just
+                    // reset the gap counter.
+                    gapLength = 0;
+                }
             }
             else
             {
-                // Simple sample-hold: repeat the last good sample.
-                // This is inaudible for short gaps (1-2 samples) and
-                // fades gently for longer gaps.
+                // --- Packet loss concealment ---
                 gapLength++;
-                if (gapLength <= PACKET_SAMPLES * 2)
-                    output[i] = lastGoodSample;
-                else
-                {
-                    // Fade to silence over ~5ms
-                    float fade = juce::jmax(0.0f, 1.0f - (float)(gapLength - PACKET_SAMPLES * 2) / 240.0f);
-                    output[i] = lastGoodSample * fade;
-                }
+                output[i] = concealSample(gapLength);
             }
 
             // Clear the slot for reuse.
@@ -562,7 +538,6 @@ private:
     int lastGoodLength = PACKET_SAMPLES;
     int lastGoodWriteIdx = 0;
     int gapLength = 0;
-    float lastGoodSample = 0.0f;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(JitterBuffer)
 };

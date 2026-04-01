@@ -98,31 +98,6 @@ AnarackProcessor::AnarackProcessor()
         if (sp.cc >= 0 && sp.cc < 128)
             paramByCC[sp.cc] = p;
     }
-
-    // When the Rev2 sends a CC (knob turned on hardware, program change),
-    // push it to the UI ring buffer so the WebView knobs update
-    // When the server sends a patch name (after program change / SysEx dump)
-    transport.onPatchName = [this](const juce::String& name)
-    {
-        currentPatchName = name;
-        patchNameUpdated.store(true);
-    };
-
-    // When the Rev2 sends a CC (knob turned on hardware, program change)
-    transport.onSynthCC = [this](int cc, int value)
-    {
-        ccValues[cc] = value;
-        // Update DAW parameter
-        if (auto* p = paramByCC[cc])
-        {
-            p->setValueNotifyingHost(p->convertTo0to1((float)value));
-            lastAutomationVal[cc] = value;
-        }
-        // Push to UI ring
-        int w = ccRingWrite.load(std::memory_order_relaxed);
-        ccRing[w % CC_RING_SIZE] = { (uint8_t)cc, (uint8_t)value };
-        ccRingWrite.store(w + 1, std::memory_order_release);
-    };
 }
 
 AnarackProcessor::~AnarackProcessor()
@@ -364,54 +339,68 @@ void AnarackProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::Midi
 
     if (jitterBuffer.isConfigured())
     {
-        // ── JitterBuffer + ASRC path ──
+        // ── JitterBuffer path: fixed latency, loss concealment ──
         if (jitterBuffer.isPrebuffering())
         {
             buffer.clear();
-            asrcInitialised = false; // reset ASRC on re-prebuffer
         }
         else
         {
-            // ASRC: continuously resample based on buffer fill level
-            int currentFill = jitterBuffer.getFillLevel();
-            // Use adaptive target from jitter estimator, or 50% of buffer as fallback
-            int adaptiveTarget = transport.jitterEstimator.getTargetBufferSamples();
-            int targetFill = adaptiveTarget > 0 ? adaptiveTarget : jitterBuffer.getFixedLatencySamples() / 2;
-
-            if (!asrcInitialised)
+            // Drift correction: check every ~0.5s
+            // Read numOutputSamples ± 1 based on buffer fill
+            driftCounter++;
+            int extra = 0;
+            if (driftCounter >= 192)
             {
-                // Seed the filter after prebuffer completes
-                smoothedFillError = 0.0;
-                asrcInitialised = true;
+                driftCounter = 0;
+                int fill = jitterBuffer.getFillLevel();
+                int target = jitterBuffer.getFixedLatencySamples() / 2;
+                int drift = fill - target;
+                if (drift > target / 10)        extra = 1;  // overfull: consume more
+                else if (drift < -(target / 10)) extra = -1; // underfull: consume less
             }
 
-            // Compute fill error and smooth it (500ms time constant)
-            double fillError = (double)(currentFill - targetFill) / (double)juce::jmax(1, targetFill);
-            smoothedFillError = smoothedFillError * 0.995 + fillError * 0.005;
+            int toRead = numOutputSamples + extra;
+            if (toRead < 1) toRead = 1;
 
-            // Drift-corrected ratio: if overfull, consume faster (ratio > base)
-            double correctedRatio = baseResampleRatio * (1.0 + smoothedFillError * 0.01);
-            // Clamp to ±500ppm from base
-            correctedRatio = juce::jlimit(baseResampleRatio * 0.9995,
-                                          baseResampleRatio * 1.0005,
-                                          correctedRatio);
-
-            // Read from jitter buffer and resample
-            // When ratio is very close to 1.0, read exact samples to avoid drain
-            if (std::abs(correctedRatio - 1.0) < 0.001)
+            if (toRead == numOutputSamples)
             {
-                // Direct read — no resampling needed at <0.1% correction
                 jitterBuffer.read(outL, numOutputSamples);
+            }
+            else if (toRead > numOutputSamples)
+            {
+                // Read 1 extra into temp, resample down to output size
+                if (toRead > (int)resampleInputBuf.size())
+                    resampleInputBuf.resize((size_t)toRead, 0.0f);
+                jitterBuffer.read(resampleInputBuf.data(), toRead);
+                // Linear interpolation to fit toRead samples into numOutputSamples
+                for (int i = 0; i < numOutputSamples; i++)
+                {
+                    float pos = (float)i * (float)toRead / (float)numOutputSamples;
+                    int idx = (int)pos;
+                    float frac = pos - (float)idx;
+                    if (idx + 1 < toRead)
+                        outL[i] = resampleInputBuf[(size_t)idx] * (1.0f - frac) + resampleInputBuf[(size_t)(idx + 1)] * frac;
+                    else
+                        outL[i] = resampleInputBuf[(size_t)idx];
+                }
             }
             else
             {
-                int inputNeeded = (int)(numOutputSamples * correctedRatio) + 1;
-                if (inputNeeded < 1) inputNeeded = 1;
-                if (inputNeeded > (int)resampleInputBuf.size())
-                    resampleInputBuf.resize((size_t)inputNeeded, 0.0f);
-
-                jitterBuffer.read(resampleInputBuf.data(), inputNeeded);
-                resampler.process(correctedRatio, resampleInputBuf.data(), outL, numOutputSamples);
+                // Read 1 fewer, stretch to fill output
+                if (toRead > (int)resampleInputBuf.size())
+                    resampleInputBuf.resize((size_t)toRead, 0.0f);
+                jitterBuffer.read(resampleInputBuf.data(), toRead);
+                for (int i = 0; i < numOutputSamples; i++)
+                {
+                    float pos = (float)i * (float)toRead / (float)numOutputSamples;
+                    int idx = (int)pos;
+                    float frac = pos - (float)idx;
+                    if (idx + 1 < toRead)
+                        outL[i] = resampleInputBuf[(size_t)idx] * (1.0f - frac) + resampleInputBuf[(size_t)(idx + 1)] * frac;
+                    else
+                        outL[i] = resampleInputBuf[(size_t)idx];
+                }
             }
         }
     }
@@ -481,23 +470,6 @@ void AnarackProcessor::getStateInformation(juce::MemoryBlock& destData)
 {
     juce::ValueTree state("AnarackState");
     state.setProperty("serverHost", serverHost, nullptr);
-    state.setProperty("fixedBufferMs", fixedBufferMs.load(), nullptr);
-    state.setProperty("encoderSensitivity", encoderSensitivity.load(), nullptr);
-
-    // Save MIDI learn mappings
-    juce::ValueTree mappings("MidiLearn");
-    for (int i = 0; i < 128; i++)
-    {
-        if (ccMap[i] >= 0)
-        {
-            juce::ValueTree m("Map");
-            m.setProperty("from", i, nullptr);
-            m.setProperty("to", ccMap[i], nullptr);
-            mappings.addChild(m, -1, nullptr);
-        }
-    }
-    state.addChild(mappings, -1, nullptr);
-
     juce::MemoryOutputStream stream(destData, false);
     state.writeToStream(stream);
 }
@@ -505,26 +477,8 @@ void AnarackProcessor::getStateInformation(juce::MemoryBlock& destData)
 void AnarackProcessor::setStateInformation(const void* data, int sizeInBytes)
 {
     auto state = juce::ValueTree::readFromData(data, (size_t)sizeInBytes);
-    if (!state.hasType("AnarackState")) return;
-
-    serverHost = state.getProperty("serverHost", "192.168.1.131").toString();
-    fixedBufferMs.store((int)state.getProperty("fixedBufferMs", 300));
-    encoderSensitivity.store((int)state.getProperty("encoderSensitivity", 3));
-
-    // Restore MIDI learn mappings
-    auto mappings = state.getChildWithName("MidiLearn");
-    if (mappings.isValid())
-    {
-        std::fill(std::begin(ccMap), std::end(ccMap), -1);
-        for (int i = 0; i < mappings.getNumChildren(); i++)
-        {
-            auto m = mappings.getChild(i);
-            int from = (int)m.getProperty("from", -1);
-            int to = (int)m.getProperty("to", -1);
-            if (from >= 0 && from < 128 && to >= 0 && to < 128)
-                ccMap[from] = to;
-        }
-    }
+    if (state.hasType("AnarackState"))
+        serverHost = state.getProperty("serverHost", "anarack.local").toString();
 }
 
 void AnarackProcessor::setFixedBuffer(int ms)

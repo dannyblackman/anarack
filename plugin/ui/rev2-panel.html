@@ -319,7 +319,7 @@
       <span class="status-label" id="status-label">Offline</span>
     </div>
     <span class="conn-mode" id="conn-mode"></span>
-    <span class="stat-unit">v0.2.0</span>
+    <span class="stat-unit">v0.1.2</span>
     <div class="stat-group" id="rtt-group" style="display:none">
       <span class="stat-val" id="rtt-val">—</span>
       <span class="stat-unit">ms RTT</span>
@@ -382,9 +382,8 @@
             <span style="font-size:8px;color:rgba(255,255,255,0.3);text-transform:uppercase;letter-spacing:1px;">LAN mode (direct connection, no WireGuard)</span>
           </label>
         </div>
-        <div class="conn-group" style="gap:6px;">
-          <button class="conn-btn secondary" onclick="doPing()" style="flex:1;">Ping</button>
-          <button class="conn-btn secondary" onclick="if(_juce)_juce.emitEvent('reloadUI',{})" style="flex:1;">Reload UI</button>
+        <div class="conn-group">
+          <button class="conn-btn secondary" onclick="doPing()" style="width:100%;">Ping</button>
         </div>
       </div>
     </div>
@@ -628,11 +627,6 @@ function updateConnectionStatus(state) {
     onLearnComplete(state.learnedFrom, state.learnedTo);
   }
 
-  // Patch name update
-  if (state.patchName) {
-    document.getElementById('patch-name').textContent = state.patchName;
-  }
-
   // MIDI input counter from DAW
   const midiInGroup = document.getElementById('midi-in-group');
   const midiInVal = document.getElementById('midi-in-val');
@@ -666,20 +660,6 @@ if (_juce) {
       // Auto-select LaunchKey if found
       const lk = e.midiInputs.find(n => n.toLowerCase().includes('launchkey'));
       if (lk) { sel.value = lk; onMidiInputChange(); }
-    }
-    // Restore saved MIDI learn mappings — show labels
-    if (e.midiMappings && e.midiMappings.length > 0) {
-      e.midiMappings.forEach(m => {
-        const ctrl = ccRegistry[m.to];
-        if (ctrl) {
-          if (ctrl._learnLabel) ctrl._learnLabel.style.color = '#E8A849';
-          if (ctrl._mapLabel) {
-            ctrl._mapLabel.textContent = 'CC' + m.from;
-            ctrl._mapLabel.style.display = 'block';
-          }
-        }
-      });
-      log('Restored ' + e.midiMappings.length + ' MIDI learn mapping(s)');
     }
   });
   _juce.addEventListener("logMessage", (e) => {
@@ -762,92 +742,15 @@ function knob(parent, label, value, max, opts) {
     if (cc >= 0) sendCC(cc, cv);
     else if (ctrl._nrpn >= 0) sendNRPN(ctrl._nrpn, cv);
   }
-  // Drag sensitivity: opts.sensitivity overrides, otherwise scale by range
-  // sensitivity 1.0 = default (200px for full range), 0.3 = slow/precise, 2.0 = fast/loose
-  const sensitivity = (opts && opts.sensitivity) || 1.0;
-  const dragSensitivity = (max / 200) * sensitivity;
   c.onmousedown = e => { dy0 = e.clientY; v0 = value; e.preventDefault(); document.body.style.cursor = 'grabbing'; };
   window.addEventListener('mousemove', e => {
     if (dy0 === null) return;
-    const nv = Math.max(0, Math.min(max, Math.round(v0 + (dy0 - e.clientY) * dragSensitivity)));
+    const sensitivity = max > 127 ? 1.0 : 0.7; // higher sensitivity for wider ranges
+    const nv = Math.max(0, Math.min(max, Math.round(v0 + (dy0 - e.clientY) * sensitivity)));
     if (nv !== value) { value = nv; drawKnob(c, value, max, center); emitCC(); }
   });
   window.addEventListener('mouseup', () => { dy0 = null; document.body.style.cursor = ''; });
   c.onwheel = e => { e.preventDefault(); const nv = Math.max(0, Math.min(max, value + (e.deltaY < 0 ? 1 : -1))); if (nv !== value) { value = nv; drawKnob(c, value, max, center); emitCC(); } };
-  return ctrl;
-}
-
-// ── Encoder (endless rotary) ──
-// Like a pot but infinite rotation. pixelsPerStep controls sensitivity.
-// Displays value as large number, dot indicator instead of arc.
-function drawEncoder(canvas, value, max) {
-  // Identical to pot but without tick marks and red value arc
-  canvas.width = KS * DPR; canvas.height = KS * DPR;
-  canvas.style.width = KS + 'px'; canvas.style.height = KS + 'px';
-  const ctx = canvas.getContext('2d');
-  ctx.scale(DPR, DPR);
-  const cx = KS/2, cy = KS/2, r = KS/2 - 8;
-  const startA = 0.75 * Math.PI;
-  const sweep = 1.5 * Math.PI;
-  const norm = max > 0 ? value / max : 0;
-  const valA = startA + norm * sweep;
-
-  // No tick marks — encoder has smooth surround
-  // No track arc or value arc — no red indicator
-
-  // Knob body (same as pot)
-  ctx.beginPath(); ctx.arc(cx, cy, r - 4, 0, Math.PI * 2);
-  ctx.fillStyle = '#2a2a2a'; ctx.fill();
-  ctx.strokeStyle = '#444'; ctx.lineWidth = 0.5; ctx.stroke();
-
-  // Indicator line (same as pot)
-  const il = r - 5;
-  ctx.beginPath();
-  ctx.moveTo(cx + Math.cos(valA) * 5, cy + Math.sin(valA) * 5);
-  ctx.lineTo(cx + Math.cos(valA) * il, cy + Math.sin(valA) * il);
-  ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.lineCap = 'round'; ctx.stroke();
-
-  // Value text (same as pot)
-  ctx.fillStyle = 'rgba(255,255,255,0.35)';
-  ctx.font = '500 9px Inter, sans-serif';
-  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-  ctx.fillText(value, cx, cy);
-}
-
-function encoder(parent, label, value, max, opts) {
-  const cc = (opts && opts.cc !== undefined) ? opts.cc : -1;
-  const pixelsPerStep = (opts && opts.pixelsPerStep) || 8;
-  const d = document.createElement('div'); d.className = 'ctrl';
-  const c = document.createElement('canvas'); drawEncoder(c, value, max);
-  const l = document.createElement('div'); l.className = 'ctrl-label'; l.textContent = label;
-  const ml = document.createElement('div');
-  ml.style.cssText = 'font-size:7px;color:#E8A849;text-align:center;display:none;margin-top:1px;';
-  d.appendChild(c); d.appendChild(l); d.appendChild(ml); parent.appendChild(d);
-  let dy0 = null, v0 = null, accumDrag = 0;
-  const ctrl = {
-    el: d, _max: max, _learnLabel: l, _mapLabel: ml, _nrpn: -1,
-    getValue() { return value; },
-    setValue(v) { value = v; drawEncoder(c, value, max); }
-  };
-  registerCC(cc, ctrl);
-  function emitCC() {
-    const cv = max > 127 ? Math.round(value * 127 / max) : value;
-    sendCC(cc, cv);
-  }
-  c.onmousedown = e => { dy0 = e.clientY; v0 = value; accumDrag = 0; e.preventDefault(); document.body.style.cursor = 'grabbing'; };
-  window.addEventListener('mousemove', e => {
-    if (dy0 === null) return;
-    accumDrag += (dy0 - e.clientY);
-    dy0 = e.clientY; // reset each frame for continuous rotation feel
-    const steps = Math.trunc(accumDrag / pixelsPerStep);
-    if (steps !== 0) {
-      accumDrag -= steps * pixelsPerStep;
-      const nv = Math.max(0, Math.min(max, value + steps));
-      if (nv !== value) { value = nv; drawEncoder(c, value, max); emitCC(); }
-    }
-  });
-  window.addEventListener('mouseup', () => { dy0 = null; document.body.style.cursor = ''; });
-  c.onwheel = e => { e.preventDefault(); const nv = Math.max(0, Math.min(max, value + (e.deltaY < 0 ? 1 : -1))); if (nv !== value) { value = nv; drawEncoder(c, value, max); emitCC(); } };
   return ctrl;
 }
 
@@ -1028,7 +931,7 @@ const screenHeader = document.createElement('div'); screenHeader.className = 'pa
 const screenLoc = document.createElement('div'); screenLoc.className = 'patch-loc'; screenLoc.textContent = 'U1 P1';
 const screenBpm = document.createElement('div'); screenBpm.className = 'patch-bpm'; screenBpm.textContent = '120';
 screenHeader.appendChild(screenLoc); screenHeader.appendChild(screenBpm);
-const screenName = document.createElement('div'); screenName.className = 'patch-name'; screenName.id = 'patch-name'; screenName.textContent = '...';
+const screenName = document.createElement('div'); screenName.className = 'patch-name'; screenName.textContent = 'REV 2 Massive Pad';
 const screenParam = document.createElement('div'); screenParam.className = 'patch-param';
 const screenPName = document.createElement('div'); screenPName.className = 'patch-param-name'; screenPName.textContent = 'Sub Level';
 const screenPVal = document.createElement('div'); screenPVal.className = 'patch-param-val'; screenPVal.textContent = '62';
@@ -1066,9 +969,9 @@ const _sendCCWrapped = function(cc, value) {
 sendCC = _sendCCWrapped;
 
 r = srow(progRightRows);
-knob(r, 'Program', 0, 127, {cc: 120, sensitivity: 0.05});
+knob(r, 'Program', 0, 127, {cc: 120});
 r = srow(progRightRows);
-knob(r, 'Bank', 0, 7, {cc: 121, sensitivity: 0.3});
+knob(r, 'Bank', 0, 7, {cc: 121});
 
 // Buttons grid — vertically centered
 const pgWrap = document.createElement('div');

@@ -6,113 +6,6 @@
 NetworkTransport::NetworkTransport(AudioRingBuffer& ringBuf, JitterBuffer& jitBuf)
     : Thread("AnarackAudioRecv"), audioBuffer(ringBuf), jitterBuffer(jitBuf)
 {
-    for (auto& e : dataRing) e.valid = false;
-    for (auto& e : fecRing) e.valid = false;
-}
-
-void NetworkTransport::processPacketWithFec(const uint8_t* data, int size)
-{
-    if (size < JitterBuffer::HEADER_SIZE + 2)
-        return;
-
-    // Parse header
-    uint32_t seq, timestamp;
-    uint16_t flags;
-    std::memcpy(&seq, data, 4);
-    std::memcpy(&timestamp, data + 4, 4);
-    std::memcpy(&flags, data + 8, 2);
-
-    bool isFec = (flags & 0x0001) != 0;
-    int payloadSize = size - JitterBuffer::HEADER_SIZE;
-    const uint8_t* payload = data + JitterBuffer::HEADER_SIZE;
-
-    if (isFec)
-    {
-        // Store FEC packet
-        auto& entry = fecRing[fecRingIdx % (FEC_RING_SIZE / 2)];
-        entry.seq = seq;
-        entry.timestamp = timestamp; // timestamp of first covered packet
-        entry.payload.assign(payload, payload + payloadSize);
-        entry.valid = true;
-        fecRingIdx++;
-
-        // Try to recover a missing packet
-        tryFecRecovery(entry);
-    }
-    else
-    {
-        // Write data packet to jitter buffer
-        jitterBuffer.writePacket(data, size);
-
-        // Record arrival for adaptive jitter estimation
-        double nowMs = juce::Time::getMillisecondCounterHiRes();
-        jitterEstimator.recordArrival(seq, nowMs);
-
-        // Store in data ring for FEC recovery
-        auto& entry = dataRing[dataRingIdx % FEC_RING_SIZE];
-        entry.seq = seq;
-        entry.timestamp = timestamp;
-        entry.payload.assign(payload, payload + payloadSize);
-        entry.valid = true;
-        dataRingIdx++;
-
-        // Check if any stored FEC packet can now recover a missing partner
-        for (int i = 0; i < FEC_RING_SIZE / 2; i++)
-        {
-            auto& fec = fecRing[i];
-            if (fec.valid)
-                tryFecRecovery(fec);
-        }
-    }
-}
-
-void NetworkTransport::tryFecRecovery(const FecEntry& fec)
-{
-    // FEC covers two packets: timestamp T and timestamp T+128
-    uint32_t ts1 = fec.timestamp;
-    uint32_t ts2 = ts1 + JitterBuffer::PACKET_SAMPLES;
-
-    // Find which data packets we have
-    const FecEntry* pkt1 = nullptr;
-    const FecEntry* pkt2 = nullptr;
-    for (int i = 0; i < FEC_RING_SIZE; i++)
-    {
-        auto& d = dataRing[i];
-        if (!d.valid) continue;
-        if (d.timestamp == ts1) pkt1 = &d;
-        if (d.timestamp == ts2) pkt2 = &d;
-    }
-
-    // If we have both, no recovery needed
-    if (pkt1 && pkt2) return;
-    // If we have neither, can't recover
-    if (!pkt1 && !pkt2) return;
-
-    // Recover the missing one via XOR
-    const FecEntry* have = pkt1 ? pkt1 : pkt2;
-    uint32_t missingTs = pkt1 ? ts2 : ts1;
-
-    if (have->payload.size() != fec.payload.size())
-        return; // size mismatch, can't recover
-
-    // XOR to recover
-    std::vector<uint8_t> recovered(fec.payload.size());
-    for (size_t i = 0; i < recovered.size(); i++)
-        recovered[i] = fec.payload[i] ^ have->payload[i];
-
-    // Build a packet header for the recovered data and write to jitter buffer
-    uint8_t recoveredPacket[JitterBuffer::HEADER_SIZE + JitterBuffer::PAYLOAD_BYTES];
-    uint32_t recoveredSeq = 0; // unknown, but writePacket handles late arrivals
-    uint16_t noFlags = 0;
-    int16_t noChecksum = 0;
-    std::memcpy(recoveredPacket, &recoveredSeq, 4);
-    std::memcpy(recoveredPacket + 4, &missingTs, 4);
-    std::memcpy(recoveredPacket + 8, &noFlags, 2);
-    std::memcpy(recoveredPacket + 10, &noChecksum, 2);
-    std::memcpy(recoveredPacket + JitterBuffer::HEADER_SIZE, recovered.data(),
-                juce::jmin((int)recovered.size(), JitterBuffer::PAYLOAD_BYTES));
-
-    jitterBuffer.writePacket(recoveredPacket, JitterBuffer::HEADER_SIZE + (int)recovered.size());
 }
 
 NetworkTransport::~NetworkTransport()
@@ -347,57 +240,24 @@ void NetworkTransport::run()
         if (bytesRead <= 0)
             continue;
 
-        // JSON message from server (patch name etc.)
-        if (bytesRead > 2 && packetBuf[0] == '{')
+        if (bytesRead == 268 && jitterBuffer.isConfigured())
         {
-            auto json = juce::String::fromUTF8((const char*)packetBuf, bytesRead);
-            auto parsed = juce::JSON::parse(json);
-            if (parsed.isObject())
-            {
-                auto type = parsed.getProperty("type", "").toString();
-                if (type == "patchName" && onPatchName)
-                    onPatchName(parsed.getProperty("name", "").toString());
-            }
-            continue;
-        }
-
-        // 3-byte MIDI CC from Rev2 (synth parameter update)
-        if (bytesRead == 3 && (packetBuf[0] & 0xF0) == 0xB0)
-        {
-            if (onSynthCC)
-                onSynthCC(packetBuf[1], packetBuf[2]);
-        }
-        else if ((bytesRead == JitterBuffer::PACKET_BYTES || bytesRead == JitterBuffer::LEGACY_PACKET) && jitterBuffer.isConfigured())
-        {
-            processPacketWithFec(packetBuf, bytesRead);
+            // Header packet → JitterBuffer (timestamp-indexed placement)
+            jitterBuffer.writePacket(packetBuf, bytesRead);
         }
         else
         {
-            // Legacy fallback: strip header, decode 24-bit or 16-bit
+            // Strip header if present, feed AudioRingBuffer
             const uint8_t* audioStart = packetBuf;
             int audioBytes = bytesRead;
-            bool hasHeader = (bytesRead == JitterBuffer::PACKET_BYTES || bytesRead == JitterBuffer::LEGACY_PACKET);
-            if (hasHeader) {
-                audioStart = packetBuf + JitterBuffer::HEADER_SIZE;
-                audioBytes = bytesRead - JitterBuffer::HEADER_SIZE;
+            if (bytesRead == 268) {
+                audioStart = packetBuf + 12;
+                audioBytes = 256;
             }
-
-            int numSamples;
-            if (audioBytes == JitterBuffer::PACKET_SAMPLES * 3) {
-                // 24-bit packed
-                numSamples = audioBytes / 3;
-                for (int i = 0; i < numSamples; i++) {
-                    int32_t val = (int32_t)(audioStart[i*3] | (audioStart[i*3+1] << 8) | (audioStart[i*3+2] << 16));
-                    if (val & 0x800000) val |= 0xFF000000;
-                    convBuf[i] = (float)val / 8388608.0f;
-                }
-            } else {
-                // 16-bit
-                numSamples = audioBytes / 2;
-                auto* int16Data = reinterpret_cast<const int16_t*>(audioStart);
-                for (int i = 0; i < numSamples; ++i)
-                    convBuf[i] = (float)int16Data[i] / 32768.0f;
-            }
+            int numSamples = audioBytes / 2;
+            auto* int16Data = reinterpret_cast<const int16_t*>(audioStart);
+            for (int i = 0; i < numSamples; ++i)
+                convBuf[i] = (float)int16Data[i] / 32768.0f;
             audioBuffer.write(convBuf, numSamples);
         }
 
@@ -428,58 +288,25 @@ void NetworkTransport::runWireGuard()
             continue;
         }
 
-        // JSON message from server (patch name etc.)
-        if (bytesRead > 2 && packetBuf[0] == '{')
-        {
-            auto json = juce::String::fromUTF8((const char*)packetBuf, bytesRead);
-            auto parsed = juce::JSON::parse(json);
-            if (parsed.isObject())
-            {
-                auto type = parsed.getProperty("type", "").toString();
-                if (type == "patchName" && onPatchName)
-                    onPatchName(parsed.getProperty("name", "").toString());
-            }
-            continue;
-        }
-
-        // 3-byte MIDI CC from Rev2 (synth parameter update)
-        if (bytesRead == 3 && (packetBuf[0] & 0xF0) == 0xB0)
-        {
-            if (onSynthCC)
-                onSynthCC(packetBuf[1], packetBuf[2]);
-            continue;
-        }
-
         // Audio packets come from the server's audio port
         if (srcPort == (uint16_t)serverAudioPort || bytesRead >= 128)
         {
-            if ((bytesRead == JitterBuffer::PACKET_BYTES || bytesRead == JitterBuffer::LEGACY_PACKET) && jitterBuffer.isConfigured())
+            if (bytesRead == 268 && jitterBuffer.isConfigured())
             {
-                processPacketWithFec(packetBuf, bytesRead);
+                jitterBuffer.writePacket(packetBuf, bytesRead);
             }
             else
             {
                 const uint8_t* audioStart = packetBuf;
                 int audioBytes = bytesRead;
-                bool hasHdr = (bytesRead == JitterBuffer::PACKET_BYTES || bytesRead == JitterBuffer::LEGACY_PACKET);
-                if (hasHdr) {
-                    audioStart = packetBuf + JitterBuffer::HEADER_SIZE;
-                    audioBytes = bytesRead - JitterBuffer::HEADER_SIZE;
+                if (bytesRead == 268) {
+                    audioStart = packetBuf + 12;
+                    audioBytes = 256;
                 }
-                int numSamples;
-                if (audioBytes == JitterBuffer::PACKET_SAMPLES * 3) {
-                    numSamples = audioBytes / 3;
-                    for (int i = 0; i < numSamples; i++) {
-                        int32_t val = (int32_t)(audioStart[i*3] | (audioStart[i*3+1] << 8) | (audioStart[i*3+2] << 16));
-                        if (val & 0x800000) val |= 0xFF000000;
-                        convBuf[i] = (float)val / 8388608.0f;
-                    }
-                } else {
-                    numSamples = audioBytes / 2;
-                    auto* int16Data = reinterpret_cast<const int16_t*>(audioStart);
-                    for (int i = 0; i < numSamples; ++i)
-                        convBuf[i] = (float)int16Data[i] / 32768.0f;
-                }
+                int numSamples = audioBytes / 2;
+                auto* int16Data = reinterpret_cast<const int16_t*>(audioStart);
+                for (int i = 0; i < numSamples; ++i)
+                    convBuf[i] = (float)int16Data[i] / 32768.0f;
                 audioBuffer.write(convBuf, numSamples);
             }
         }
