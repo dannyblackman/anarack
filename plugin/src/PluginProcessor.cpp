@@ -413,8 +413,21 @@ void AnarackProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::Midi
             if (doDropSample)
             {
                 // We read numOutputSamples+1 samples, need to output numOutputSamples.
-                // Crossfade over CROSSFADE_LEN at the midpoint to smoothly skip 1 sample.
+                // Find a zero-crossing near the midpoint for the most transparent splice.
                 int mid = numOutputSamples / 2;
+                int bestZC = mid;
+                float bestAbs = std::abs(resampleInputBuf[mid]);
+                int searchRange = juce::jmin(mid - CROSSFADE_LEN, numOutputSamples - mid - CROSSFADE_LEN - 1);
+                for (int j = 1; j <= searchRange; ++j)
+                {
+                    float a1 = std::abs(resampleInputBuf[mid - j]);
+                    float a2 = std::abs(resampleInputBuf[mid + j]);
+                    if (a1 < bestAbs) { bestAbs = a1; bestZC = mid - j; }
+                    if (a2 < bestAbs) { bestAbs = a2; bestZC = mid + j; }
+                    if (bestAbs < 0.001f) break; // close enough to zero
+                }
+                mid = bestZC;
+
                 // Copy first half directly
                 std::memcpy(outL, resampleInputBuf.data(), (size_t)mid * sizeof(float));
                 // Crossfade: blend samples [mid..mid+CF] with [mid+1..mid+1+CF]
@@ -436,9 +449,24 @@ void AnarackProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::Midi
             else if (doDupSample)
             {
                 // We read numOutputSamples-1 samples, need to output numOutputSamples.
-                // Crossfade to smoothly insert 1 duplicated sample at the midpoint.
+                // Find a zero-crossing near the midpoint for the most transparent splice.
                 int mid = numOutputSamples / 2;
                 int readSamples = numOutputSamples - 1;
+                int bestZC = mid;
+                float bestAbs = std::abs(resampleInputBuf[juce::jmin(mid, readSamples - 1)]);
+                int searchRange = juce::jmin(mid - CROSSFADE_LEN, readSamples - mid - CROSSFADE_LEN);
+                for (int j = 1; j <= searchRange; ++j)
+                {
+                    int lo = juce::jmin(mid - j, readSamples - 1);
+                    int hi = juce::jmin(mid + j, readSamples - 1);
+                    float a1 = std::abs(resampleInputBuf[lo]);
+                    float a2 = std::abs(resampleInputBuf[hi]);
+                    if (a1 < bestAbs) { bestAbs = a1; bestZC = mid - j; }
+                    if (a2 < bestAbs) { bestAbs = a2; bestZC = mid + j; }
+                    if (bestAbs < 0.001f) break;
+                }
+                mid = bestZC;
+
                 // Copy first half directly
                 std::memcpy(outL, resampleInputBuf.data(), (size_t)mid * sizeof(float));
                 // Crossfade: blend to create the extra sample
@@ -454,7 +482,7 @@ void AnarackProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::Midi
                 int afterCF = mid + CROSSFADE_LEN;
                 if (afterCF < numOutputSamples)
                 {
-                    int srcStart = afterCF - 1; // one less source sample
+                    int srcStart = afterCF - 1;
                     int count = juce::jmin(numOutputSamples - afterCF, readSamples - srcStart);
                     if (count > 0)
                         std::memcpy(outL + afterCF,
