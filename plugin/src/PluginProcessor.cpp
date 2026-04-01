@@ -205,6 +205,7 @@ void AnarackProcessor::prepareToPlay(double sampleRate, int samplesPerBlock)
     baseResampleRatio = SERVER_SAMPLE_RATE / sampleRate;
     resampleRatio = baseResampleRatio;
     resampler.reset();
+    asrcInitialised = false;
     updatePrebuffer();
     prebuffering = true;
     setLatencySamples(prebufferSamples);
@@ -346,55 +347,126 @@ void AnarackProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::Midi
         }
         else
         {
-            // ASRC: continuous drift correction via resampling
+            // ASRC: drift-accumulating crossfade correction
+            // Instead of continuously resampling (which causes jitter on int16 audio),
+            // we read samples directly and track buffer drift. When drift accumulates
+            // to ±1 sample, we smoothly insert or remove a sample using a crossfade.
             int currentFill = jitterBuffer.getFillLevel();
             int targetFill = jitterBuffer.getFixedLatencySamples() / 2;
 
             if (!asrcInitialised)
             {
                 smoothedFillError = 0.0;
+                driftAccumulator = 0.0;
                 asrcInitialised = true;
-                asrcCarryCount = 0;
-                resampler.reset();
+                asrcBlockCount = 0;
             }
 
-            // Low-pass filter the fill error (500ms time constant)
+            ++asrcBlockCount;
+
+            // Low-pass filter the fill error (~5 second time constant at 375 blocks/sec)
             double fillError = (double)(currentFill - targetFill) / (double)juce::jmax(1, targetFill);
-            smoothedFillError = smoothedFillError * 0.995 + fillError * 0.005;
+            smoothedFillError = smoothedFillError * 0.9996 + fillError * 0.0004;
 
-            // Corrected ratio: overfull → consume slightly faster (ratio > 1)
-            double correctedRatio = baseResampleRatio * (1.0 + smoothedFillError * 0.01);
-            correctedRatio = juce::jlimit(baseResampleRatio * 0.9995,
-                                          baseResampleRatio * 1.0005,
-                                          correctedRatio);
-
-            // Build input buffer: carry + new samples from jitter buffer
-            int newSamplesNeeded = numOutputSamples; // read same amount as output
-            int totalInput = asrcCarryCount + newSamplesNeeded;
-            if (totalInput + 8 > (int)resampleInputBuf.size())
-                resampleInputBuf.resize((size_t)(totalInput + 8), 0.0f);
-
-            // Shift carry samples to start of buffer (if any)
-            // (they're already there from last iteration)
-
-            // Read new samples after carry
-            jitterBuffer.read(resampleInputBuf.data() + asrcCarryCount, newSamplesNeeded);
-
-            // Resample
-            int consumed = resampler.process(correctedRatio,
-                                             resampleInputBuf.data(),
-                                             outL,
-                                             numOutputSamples);
-
-            // Move unconsumed samples to start of buffer for next iteration
-            int leftover = totalInput - consumed;
-            if (leftover > 0 && leftover < totalInput)
+            // Don't accumulate drift during startup (let buffer stabilize first)
+            // 1500 blocks ≈ 4 seconds at 128 samples/block @ 48kHz
+            if (asrcBlockCount > 1500)
             {
-                std::memmove(resampleInputBuf.data(),
-                             resampleInputBuf.data() + consumed,
-                             (size_t)leftover * sizeof(float));
+                // Accumulate drift, clamped to max realistic clock drift (~150ppm)
+                // 150ppm at 128 samples = 0.019 samples/block → max ~7 corrections/sec
+                double driftIncrement = smoothedFillError * 0.005 * numOutputSamples;
+                driftIncrement = juce::jlimit(-0.02, 0.02, driftIncrement);
+                driftAccumulator += driftIncrement;
             }
-            asrcCarryCount = juce::jmax(0, leftover);
+
+            // Normal case: read exactly numOutputSamples
+            int samplesToRead = numOutputSamples;
+            bool doDropSample = false;
+            bool doDupSample = false;
+
+            // When drift exceeds ±1 sample, apply correction
+            if (driftAccumulator >= 1.0)
+            {
+                // Buffer is overfull — consume one extra sample (drop)
+                doDropSample = true;
+                driftAccumulator -= 1.0;
+                samplesToRead = numOutputSamples + 1;
+            }
+            else if (driftAccumulator <= -1.0)
+            {
+                // Buffer is underfull — consume one fewer sample (duplicate)
+                doDupSample = true;
+                driftAccumulator += 1.0;
+                samplesToRead = numOutputSamples - 1;
+            }
+
+            // Clamp drift accumulator to prevent runaway
+            driftAccumulator = juce::jlimit(-4.0, 4.0, driftAccumulator);
+
+            // Ensure we have a temp buffer large enough
+            if (samplesToRead + CROSSFADE_LEN > (int)resampleInputBuf.size())
+                resampleInputBuf.resize((size_t)(samplesToRead + CROSSFADE_LEN), 0.0f);
+
+            // Read from jitter buffer
+            jitterBuffer.read(resampleInputBuf.data(), samplesToRead);
+
+            if (doDropSample)
+            {
+                // We read numOutputSamples+1 samples, need to output numOutputSamples.
+                // Crossfade over CROSSFADE_LEN at the midpoint to smoothly skip 1 sample.
+                int mid = numOutputSamples / 2;
+                // Copy first half directly
+                std::memcpy(outL, resampleInputBuf.data(), (size_t)mid * sizeof(float));
+                // Crossfade: blend samples [mid..mid+CF] with [mid+1..mid+1+CF]
+                for (int i = 0; i < CROSSFADE_LEN && (mid + i) < numOutputSamples; ++i)
+                {
+                    float t = (float)(i + 1) / (float)(CROSSFADE_LEN + 1);
+                    outL[mid + i] = resampleInputBuf[mid + i] * (1.0f - t)
+                                  + resampleInputBuf[mid + i + 1] * t;
+                }
+                // Copy remainder (shifted by 1)
+                int afterCF = mid + CROSSFADE_LEN;
+                if (afterCF < numOutputSamples)
+                {
+                    std::memcpy(outL + afterCF,
+                                resampleInputBuf.data() + afterCF + 1,
+                                (size_t)(numOutputSamples - afterCF) * sizeof(float));
+                }
+            }
+            else if (doDupSample)
+            {
+                // We read numOutputSamples-1 samples, need to output numOutputSamples.
+                // Crossfade to smoothly insert 1 duplicated sample at the midpoint.
+                int mid = numOutputSamples / 2;
+                int readSamples = numOutputSamples - 1;
+                // Copy first half directly
+                std::memcpy(outL, resampleInputBuf.data(), (size_t)mid * sizeof(float));
+                // Crossfade: blend to create the extra sample
+                for (int i = 0; i < CROSSFADE_LEN && (mid + i) < numOutputSamples; ++i)
+                {
+                    float t = (float)(i + 1) / (float)(CROSSFADE_LEN + 1);
+                    int srcIdx = juce::jmin(mid + i, readSamples - 1);
+                    int srcIdxM1 = juce::jmax(0, srcIdx - 1);
+                    outL[mid + i] = resampleInputBuf[srcIdxM1] * (1.0f - t)
+                                  + resampleInputBuf[srcIdx] * t;
+                }
+                // Copy remainder (shifted back by 1)
+                int afterCF = mid + CROSSFADE_LEN;
+                if (afterCF < numOutputSamples)
+                {
+                    int srcStart = afterCF - 1; // one less source sample
+                    int count = juce::jmin(numOutputSamples - afterCF, readSamples - srcStart);
+                    if (count > 0)
+                        std::memcpy(outL + afterCF,
+                                    resampleInputBuf.data() + srcStart,
+                                    (size_t)count * sizeof(float));
+                }
+            }
+            else
+            {
+                // No correction needed — direct copy
+                std::memcpy(outL, resampleInputBuf.data(), (size_t)numOutputSamples * sizeof(float));
+            }
         }
     }
     else

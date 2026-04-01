@@ -91,16 +91,13 @@ private:
     NetworkTransport transport;
     int underrunCount = 0;
 
-    // ASRC state
+    // ASRC: drift-accumulating crossfade correction
     double smoothedFillError = 0.0;
+    double driftAccumulator = 0.0;            // fractional sample drift accumulated
     bool asrcInitialised = false;
-    int asrcCarryCount = 0;
-
-    // Media clock recovery: measure server clock rate vs DAW clock rate
-    int64_t clockRecoveryDAWSamples = 0;      // total DAW samples consumed
-    int64_t clockRecoveryStartDAW = -1;       // DAW sample count at measurement start
-    int clockRecoveryStartFill = 0;           // buffer fill at measurement start
-    double recoveredRatio = 1.0;              // server_rate / daw_rate
+    int asrcBlockCount = 0;                   // blocks since last correction
+    static constexpr int CROSSFADE_LEN = 8;   // samples for crossfade blend
+    float crossfadeBuf[CROSSFADE_LEN] {};     // temp buffer for crossfade overlap
 
     // Resampling: server sends 48kHz, host may run at 44.1kHz etc.
     juce::LagrangeInterpolator resampler;
