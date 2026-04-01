@@ -34,8 +34,12 @@ class JitterBuffer
 public:
     static constexpr int PACKET_SAMPLES     = 128;
     static constexpr int HEADER_SIZE        = 12;
-    static constexpr int PAYLOAD_BYTES      = PACKET_SAMPLES * (int)sizeof(int16_t);   // 256
-    static constexpr int PACKET_BYTES       = HEADER_SIZE + PAYLOAD_BYTES;              // 268
+    static constexpr int BYTES_PER_SAMPLE   = 3;   // 24-bit packed
+    static constexpr int PAYLOAD_BYTES      = PACKET_SAMPLES * BYTES_PER_SAMPLE;  // 384
+    static constexpr int PACKET_BYTES       = HEADER_SIZE + PAYLOAD_BYTES;        // 396
+    // Legacy 16-bit support
+    static constexpr int LEGACY_PAYLOAD     = PACKET_SAMPLES * 2;  // 256
+    static constexpr int LEGACY_PACKET      = HEADER_SIZE + LEGACY_PAYLOAD;  // 268
 
     // Packet flag bits
     static constexpr uint16_t kFlagFEC          = 0x0001;
@@ -114,11 +118,35 @@ public:
         std::memcpy(&checksum, rawPacket + 10, 2);
 
         int payloadBytes = rawSize - HEADER_SIZE;
-        int numSamples = payloadBytes / (int)sizeof(int16_t);
+
+        // Detect 24-bit (3 bytes/sample) vs 16-bit (2 bytes/sample)
+        bool is24bit = (payloadBytes == PACKET_SAMPLES * 3);
+        bool is16bit = (payloadBytes == PACKET_SAMPLES * 2);
+        if (!is24bit && !is16bit)
+            return;
+        int numSamples = is24bit ? payloadBytes / 3 : payloadBytes / 2;
         if (numSamples <= 0 || numSamples > PACKET_SAMPLES * 2)
             return;
 
-        const int16_t* int16Data = reinterpret_cast<const int16_t*>(rawPacket + HEADER_SIZE);
+        // Convert to float (temp buffer on stack)
+        float tempSamples[PACKET_SAMPLES * 2];
+        const uint8_t* payload = rawPacket + HEADER_SIZE;
+        if (is24bit)
+        {
+            for (int s = 0; s < numSamples; s++)
+            {
+                // Unpack 3 bytes little-endian → int32 (sign-extend)
+                int32_t val = (int32_t)(payload[s*3] | (payload[s*3+1] << 8) | (payload[s*3+2] << 16));
+                if (val & 0x800000) val |= 0xFF000000; // sign extend
+                tempSamples[s] = (float)val / 8388608.0f;
+            }
+        }
+        else
+        {
+            const int16_t* int16Data = reinterpret_cast<const int16_t*>(payload);
+            for (int s = 0; s < numSamples; s++)
+                tempSamples[s] = (float)int16Data[s] / 32768.0f;
+        }
 
         // --- First packet: bootstrap the buffer position ---
         if (firstPacket.load(std::memory_order_acquire))
@@ -186,7 +214,7 @@ public:
             if (slotFilled[(size_t)pos])
                 continue; // already have this sample (duplicate packet)
 
-            buffer[(size_t)pos] = static_cast<float>(int16Data[i]) / 32768.0f;
+            buffer[(size_t)pos] = tempSamples[i];
             slotFilled[(size_t)pos] = 1;
             anyNew = true;
         }

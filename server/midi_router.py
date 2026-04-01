@@ -303,10 +303,9 @@ class AudioStreamer:
         self._seq = 0
         self._ts = 0
         self._blocksize = 128
-        # Packet duplication: ring of recent packets, resent after ~10ms delay
-        self._dup_delay = 4  # resend packet from N packets ago (~10ms at 2.67ms/pkt)
-        self._dup_ring = [None] * (self._dup_delay + 2)
-        self._dup_idx = 0
+        # XOR FEC state
+        self._prev_fec_payload = None
+        self._prev_fec_ts = 0
 
     def start(self):
         """Start the JACK audio capture client."""
@@ -322,17 +321,26 @@ class AudioStreamer:
 
             # Pre-allocate conversion buffer to avoid allocation in RT callback
             blocksize = self.jack_client.blocksize
-            self._int16_buf = np.zeros(blocksize, dtype=np.int16)
-            self._scale = np.float32(32767.0)
+            self._blocksize = blocksize
+            self._int32_buf = np.zeros(blocksize, dtype=np.int32)
+            self._scale24 = np.float32(8388607.0)  # 2^23 - 1 for 24-bit
+
+            # Pre-allocate int24 packing buffer
+            self._int24_buf = np.zeros(blocksize * 3, dtype=np.uint8)
 
             @self.jack_client.set_process_callback
             def process(frames):
                 # Get audio data from JACK port (float32) — minimal work in RT callback
                 audio_data = self.jack_client.inports[0].get_array()
-                # Fast in-place conversion: float32 → int16
-                np.multiply(audio_data, self._scale, out=self._int16_buf, casting='unsafe')
+                # Convert float32 → int32 (24-bit range)
+                np.multiply(audio_data, self._scale24, out=self._int32_buf, casting='unsafe')
+                # Pack int32 → int24: take low 3 bytes of each int32 (little-endian)
+                raw = self._int32_buf.view(np.uint8).reshape(-1, 4)
+                self._int24_buf[0::3] = raw[:, 0]
+                self._int24_buf[1::3] = raw[:, 1]
+                self._int24_buf[2::3] = raw[:, 2]
                 try:
-                    self.audio_queue.put_nowait(self._int16_buf.tobytes())
+                    self.audio_queue.put_nowait(self._int24_buf.tobytes())
                 except queue.Full:
                     pass  # Drop if consumers are too slow
 
@@ -377,18 +385,34 @@ class AudioStreamer:
         print(f"UDP audio client removed: {addr}")
 
     async def stream_to_clients(self):
-        """Continuously send audio data to all connected WebSocket clients."""
+        """Continuously stream audio to all connected clients.
+        Sends silence when no audio from JACK to keep jitter buffer fed."""
+        # Pre-allocate silence packet (24-bit: 128 samples × 3 bytes = 384 bytes of zeros)
+        silence_24bit = b'\x00' * (self._blocksize * 3)
+        silence_counter = 0
+
         while self._running:
             try:
-                # Poll the queue rapidly instead of blocking in executor
+                chunk = None
                 try:
                     chunk = self.audio_queue.get_nowait()
+                    silence_counter = 0
                 except queue.Empty:
-                    await asyncio.sleep(0.001)  # 1ms poll — fast enough for audio
-                    continue
+                    pass
 
                 if not self.clients and not self.udp_clients:
+                    if chunk is None:
+                        await asyncio.sleep(0.001)
                     continue
+
+                # If no audio from JACK, send silence to keep buffer alive
+                if chunk is None:
+                    silence_counter += 1
+                    if silence_counter < 3:
+                        await asyncio.sleep(0.001)
+                        continue
+                    silence_counter = 0
+                    chunk = silence_24bit
 
                 # Send to WebSocket clients
                 if self.clients:
@@ -400,7 +424,7 @@ class AudioStreamer:
                             dead_clients.add(ws)
                     self.clients -= dead_clients
 
-                # Send to UDP clients with 12-byte header + packet duplication
+                # Send to UDP clients with 12-byte header + XOR FEC
                 if self.udp_clients:
                     hdr = struct.pack("<IIHh", self._seq, self._ts, 0, 0)
                     pkt = hdr + chunk
@@ -414,17 +438,21 @@ class AudioStreamer:
                         except OSError:
                             dead_udp.append(addr)
 
-                    # Store for delayed duplication
-                    self._dup_ring[self._dup_idx % len(self._dup_ring)] = pkt
-                    self._dup_idx += 1
-
-                    # Fire-and-forget: send duplicate from N packets ago
-                    old_idx = (self._dup_idx - self._dup_delay - 1) % len(self._dup_ring)
-                    old_pkt = self._dup_ring[old_idx]
-                    if old_pkt is not None:
+                    # XOR FEC: after every 2nd data packet, send a parity packet
+                    if self._prev_fec_payload is not None:
+                        # XOR previous and current payload
+                        fec_payload = bytes(a ^ b for a, b in zip(self._prev_fec_payload, chunk))
+                        fec_hdr = struct.pack("<IIHh", self._seq, self._prev_fec_ts, 0x0001, 0)
+                        fec_pkt = fec_hdr + fec_payload
+                        self._seq += 1
+                        # Send FEC packet with slight delay to separate from burst
                         loop = asyncio.get_event_loop()
                         for addr, sock in list(self.udp_clients.items()):
-                            loop.call_later(0.005, sock.sendto, old_pkt, addr)
+                            loop.call_later(0.003, sock.sendto, fec_pkt, addr)
+                        self._prev_fec_payload = None
+                    else:
+                        self._prev_fec_payload = chunk
+                        self._prev_fec_ts = self._ts - self._blocksize
 
                     for addr in dead_udp:
                         self.udp_clients.pop(addr, None)

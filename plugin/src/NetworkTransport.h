@@ -6,6 +6,7 @@
 #include <unistd.h>
 #include "AudioRingBuffer.h"
 #include "JitterBuffer.h"
+#include "JitterEstimator.h"
 #include "WgTunnel.h"
 
 // Lock-free MIDI message slot for audio thread -> network thread communication.
@@ -59,6 +60,19 @@ private:
 
     AudioRingBuffer& audioBuffer;
     JitterBuffer& jitterBuffer;
+public:
+    JitterEstimator jitterEstimator;
+private:
+
+    // FEC recovery
+    static constexpr int FEC_RING_SIZE = 16;
+    struct FecEntry { uint32_t seq; uint32_t timestamp; std::vector<uint8_t> payload; bool valid; };
+    FecEntry dataRing[FEC_RING_SIZE];   // recent data packets
+    FecEntry fecRing[FEC_RING_SIZE / 2]; // recent FEC packets
+    int dataRingIdx = 0;
+    int fecRingIdx = 0;
+    void processPacketWithFec(const uint8_t* data, int size);
+    void tryFecRecovery(const FecEntry& fec);
 
     // Connection mode
     bool useWireGuard = false;

@@ -364,69 +364,46 @@ void AnarackProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::Midi
 
     if (jitterBuffer.isConfigured())
     {
-        // ── JitterBuffer path: fixed latency, loss concealment ──
+        // ── JitterBuffer + ASRC path ──
         if (jitterBuffer.isPrebuffering())
         {
             buffer.clear();
+            asrcInitialised = false; // reset ASRC on re-prebuffer
         }
         else
         {
-            // Drift correction: check every ~0.5s
-            // Read numOutputSamples ± 1 based on buffer fill
-            driftCounter++;
-            int extra = 0;
-            if (driftCounter >= 192)
+            // ASRC: continuously resample based on buffer fill level
+            int currentFill = jitterBuffer.getFillLevel();
+            // Use adaptive target from jitter estimator, or 50% of buffer as fallback
+            int adaptiveTarget = transport.jitterEstimator.getTargetBufferSamples();
+            int targetFill = adaptiveTarget > 0 ? adaptiveTarget : jitterBuffer.getFixedLatencySamples() / 2;
+
+            if (!asrcInitialised)
             {
-                driftCounter = 0;
-                int fill = jitterBuffer.getFillLevel();
-                int target = jitterBuffer.getFixedLatencySamples() / 2;
-                int drift = fill - target;
-                if (drift > target / 10)        extra = 1;  // overfull: consume more
-                else if (drift < -(target / 10)) extra = -1; // underfull: consume less
+                // Seed the filter after prebuffer completes
+                smoothedFillError = 0.0;
+                asrcInitialised = true;
             }
 
-            int toRead = numOutputSamples + extra;
-            if (toRead < 1) toRead = 1;
+            // Compute fill error and smooth it (500ms time constant)
+            double fillError = (double)(currentFill - targetFill) / (double)juce::jmax(1, targetFill);
+            smoothedFillError = smoothedFillError * 0.995 + fillError * 0.005;
 
-            if (toRead == numOutputSamples)
-            {
-                jitterBuffer.read(outL, numOutputSamples);
-            }
-            else if (toRead > numOutputSamples)
-            {
-                // Read 1 extra into temp, resample down to output size
-                if (toRead > (int)resampleInputBuf.size())
-                    resampleInputBuf.resize((size_t)toRead, 0.0f);
-                jitterBuffer.read(resampleInputBuf.data(), toRead);
-                // Linear interpolation to fit toRead samples into numOutputSamples
-                for (int i = 0; i < numOutputSamples; i++)
-                {
-                    float pos = (float)i * (float)toRead / (float)numOutputSamples;
-                    int idx = (int)pos;
-                    float frac = pos - (float)idx;
-                    if (idx + 1 < toRead)
-                        outL[i] = resampleInputBuf[(size_t)idx] * (1.0f - frac) + resampleInputBuf[(size_t)(idx + 1)] * frac;
-                    else
-                        outL[i] = resampleInputBuf[(size_t)idx];
-                }
-            }
-            else
-            {
-                // Read 1 fewer, stretch to fill output
-                if (toRead > (int)resampleInputBuf.size())
-                    resampleInputBuf.resize((size_t)toRead, 0.0f);
-                jitterBuffer.read(resampleInputBuf.data(), toRead);
-                for (int i = 0; i < numOutputSamples; i++)
-                {
-                    float pos = (float)i * (float)toRead / (float)numOutputSamples;
-                    int idx = (int)pos;
-                    float frac = pos - (float)idx;
-                    if (idx + 1 < toRead)
-                        outL[i] = resampleInputBuf[(size_t)idx] * (1.0f - frac) + resampleInputBuf[(size_t)(idx + 1)] * frac;
-                    else
-                        outL[i] = resampleInputBuf[(size_t)idx];
-                }
-            }
+            // Drift-corrected ratio: if overfull, consume faster (ratio > base)
+            double correctedRatio = baseResampleRatio * (1.0 + smoothedFillError * 0.01);
+            // Clamp to ±500ppm from base
+            correctedRatio = juce::jlimit(baseResampleRatio * 0.9995,
+                                          baseResampleRatio * 1.0005,
+                                          correctedRatio);
+
+            // Read from jitter buffer and resample
+            int inputNeeded = (int)(numOutputSamples * correctedRatio + 2);
+            if (inputNeeded < 1) inputNeeded = 1;
+            if (inputNeeded > (int)resampleInputBuf.size())
+                resampleInputBuf.resize((size_t)inputNeeded, 0.0f);
+
+            jitterBuffer.read(resampleInputBuf.data(), inputNeeded);
+            resampler.process(correctedRatio, resampleInputBuf.data(), outL, numOutputSamples);
         }
     }
     else
