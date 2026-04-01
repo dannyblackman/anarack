@@ -127,11 +127,31 @@ AnarackEditor::AnarackEditor(AnarackProcessor& p)
                 webView->emitEventIfBrowserIsVisible("logMessage", juce::var(obj.get()));
             }
         })
-        // Serve the HTML panel
+        // Reload WebView (dev mode hot reload)
+        .withEventListener("reloadUI", [this](const juce::var&)
+        {
+            if (webView)
+                webView->goToURL(juce::WebBrowserComponent::getResourceProviderRoot());
+        })
+        // Serve the HTML panel — dev mode loads from filesystem for hot reload
         .withResourceProvider([](const juce::String& url) -> std::optional<juce::WebBrowserComponent::Resource>
         {
             if (url == "/" || url.isEmpty())
             {
+                // Dev mode: try loading from filesystem first
+                juce::File devFile("/Users/Danny_1/Sites/Anarack/plugin/ui/rev2-panel.html");
+                if (devFile.existsAsFile())
+                {
+                    auto content = devFile.loadFileAsString();
+                    auto bytes = content.toRawUTF8();
+                    auto len = content.getNumBytesAsUTF8();
+                    return juce::WebBrowserComponent::Resource{
+                        { reinterpret_cast<const std::byte*>(bytes),
+                          reinterpret_cast<const std::byte*>(bytes) + len },
+                        "text/html"
+                    };
+                }
+                // Fallback: embedded binary
                 auto* data = BinaryData::rev2panel_html;
                 auto size = BinaryData::rev2panel_htmlSize;
                 return juce::WebBrowserComponent::Resource{
@@ -230,7 +250,7 @@ void AnarackEditor::timerCallback()
         state->setProperty("bufferTarget", fixedMs > 0 ? fixedMs : -1);
         state->setProperty("totalLatency", c ? (int)(processor.getLatencySamples() * 1000.0 / 48000.0) : 0);
         state->setProperty("midiIn", processor.midiInCount.load(std::memory_order_relaxed));
-        if (processor.currentPatchName.isNotEmpty())
+        if (processor.patchNameUpdated.exchange(false))
             state->setProperty("patchName", processor.currentPatchName);
         state->setProperty("mappedSends", processor.mappedSendCount.load(std::memory_order_relaxed));
         state->setProperty("learning", processor.learnTargetCC.load() >= 0);

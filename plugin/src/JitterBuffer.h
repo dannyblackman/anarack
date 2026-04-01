@@ -71,7 +71,7 @@ public:
 
         firstPacket.store(true, std::memory_order_relaxed);
         prebuffering.store(true, std::memory_order_relaxed);
-        prebufferTarget = fixedSizeSamples / 2;
+        prebufferTarget = fixedSizeSamples * 3 / 4; // 75% fill before playing
 
         packetsLost.store(0, std::memory_order_relaxed);
         packetsRecovered.store(0, std::memory_order_relaxed);
@@ -323,28 +323,24 @@ public:
             if (slotFilled[(size_t)pos])
             {
                 float sample = buffer[(size_t)pos];
+                lastGoodSample = sample;
                 output[i] = sample;
-
-                // Update last-good block for PLC (circular write into block)
-                lastGoodBlock[(size_t)(lastGoodWriteIdx % lastGoodLength)] = sample;
-                lastGoodWriteIdx++;
-
-                // If we were in a gap, apply a short crossfade-in from the PLC
-                // output to avoid a click at the gap->data transition.
-                if (gapLength > 0)
-                {
-                    int fadeIn = juce::jmin(gapLength, 32);
-                    // We are at the first good sample after a gap — the fade-in
-                    // was already partially applied by the gap handler. Just
-                    // reset the gap counter.
-                    gapLength = 0;
-                }
+                gapLength = 0;
             }
             else
             {
-                // --- Packet loss concealment ---
+                // Simple sample-hold: repeat the last good sample.
+                // This is inaudible for short gaps (1-2 samples) and
+                // fades gently for longer gaps.
                 gapLength++;
-                output[i] = concealSample(gapLength);
+                if (gapLength <= PACKET_SAMPLES * 2)
+                    output[i] = lastGoodSample;
+                else
+                {
+                    // Fade to silence over ~5ms
+                    float fade = juce::jmax(0.0f, 1.0f - (float)(gapLength - PACKET_SAMPLES * 2) / 240.0f);
+                    output[i] = lastGoodSample * fade;
+                }
             }
 
             // Clear the slot for reuse.
@@ -538,6 +534,7 @@ private:
     int lastGoodLength = PACKET_SAMPLES;
     int lastGoodWriteIdx = 0;
     int gapLength = 0;
+    float lastGoodSample = 0.0f;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(JitterBuffer)
 };

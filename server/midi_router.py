@@ -152,11 +152,19 @@ class MidiRouter:
         """Parse and forward a UDP MIDI packet."""
         if len(data) >= 2:
             self.send(list(data[:3] if len(data) >= 3 else data))
-            # On program change, request edit buffer so all params update
+            # On program change, debounce edit buffer request (wait 500ms after last change)
             if (data[0] & 0xF0) == 0xC0 and self._loop:
+                self._pending_edit_buffer = time.monotonic()
                 self._loop.call_soon_threadsafe(
-                    self._loop.call_later, 0.15, self.request_edit_buffer
+                    self._loop.call_later, 0.5, self._maybe_request_edit_buffer
                 )
+
+    def _maybe_request_edit_buffer(self):
+        """Only request if no program change in the last 400ms (debounce)."""
+        if hasattr(self, '_pending_edit_buffer'):
+            elapsed = time.monotonic() - self._pending_edit_buffer
+            if elapsed >= 0.4:
+                self.request_edit_buffer()
 
     def send_from_websocket(self, payload: str):
         """Parse and forward a WebSocket MIDI message."""
@@ -177,6 +185,7 @@ class MidiRouter:
 
     def request_edit_buffer(self):
         """Send SysEx request for the synth's current edit buffer."""
+        print("Requesting edit buffer from synth...")
         req = self._sysex_config.get("edit_buffer_request",
                                      [0xF0, 0x01, 0x2F, 0x06, 0xF7])
         self.midi_out.send_message(req)
@@ -203,20 +212,29 @@ class MidiRouter:
         resp_cmd = self._sysex_config.get("edit_buffer_response_cmd", 0x03)
 
         # Validate header
+        print(f"  SysEx header: mfr={message[1]:02X} dev={message[2]:02X} cmd={message[3]:02X} (expecting mfr={mfr_id[0]:02X} dev={dev_id:02X} cmd={resp_cmd:02X})")
         if message[1] != mfr_id[0] or message[2] != dev_id:
+            print(f"  REJECTED: manufacturer or device ID mismatch")
             return
         if message[3] != resp_cmd:
+            print(f"  REJECTED: command mismatch")
             return
 
         # Unpack the data (skip F0, header bytes, and trailing F7)
         packed = message[4:-1]
         raw = self._unpack_sysex(packed)
 
-        # Extract patch name (Rev2: 20 ASCII chars at offset 235-254)
+        # Extract patch name: Rev2 stores 20 ASCII chars at offset 235
+        print(f"  Unpacked {len(raw)} bytes")
         if len(raw) >= 255:
             name_bytes = raw[235:255]
             patch_name = ''.join(chr(b) for b in name_bytes if 32 <= b < 127).strip()
-            self._broadcast_patch_name(patch_name)
+            print(f"  Name bytes: {name_bytes[:20]}")
+            print(f"  Patch name: '{patch_name}'")
+            if patch_name:
+                self._broadcast_patch_name(patch_name)
+        else:
+            print(f"  Too short for name extraction (need 255, got {len(raw)})")
 
         # Broadcast each mapped parameter as a CC update (scaled to 0-127)
         for offset, (cc, native_max) in self._sysex_offset_to_cc.items():
@@ -240,6 +258,9 @@ class MidiRouter:
         message, _ = event
         if not message:
             return
+        # Log SysEx responses
+        if message[0] == 0xF0:
+            print(f"SysEx received: {len(message)} bytes, cmd=0x{message[3]:02X}" if len(message) > 3 else f"SysEx: {len(message)} bytes")
 
         # SysEx message
         if message[0] == 0xF0:

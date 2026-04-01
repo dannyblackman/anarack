@@ -105,6 +105,7 @@ AnarackProcessor::AnarackProcessor()
     transport.onPatchName = [this](const juce::String& name)
     {
         currentPatchName = name;
+        patchNameUpdated.store(true);
     };
 
     // When the Rev2 sends a CC (knob turned on hardware, program change)
