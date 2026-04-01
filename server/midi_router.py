@@ -292,6 +292,10 @@ class MidiRouter:
 class AudioStreamer:
     """Captures audio from JACK and makes it available to WebSocket and UDP clients."""
 
+    # Xrun watchdog: restart JACK if xruns accumulate
+    XRUN_THRESHOLD = 5       # xruns in the window = restart
+    XRUN_WINDOW_SECS = 60    # rolling window
+
     def __init__(self, capture_port: str = "system:capture_1"):
         self.capture_port = capture_port
         self.clients: set = set()  # WebSocket clients
@@ -307,6 +311,9 @@ class AudioStreamer:
         self._dup_delay = 4  # resend packet from N packets ago (~10ms at 2.67ms/pkt)
         self._dup_ring = [None] * (self._dup_delay + 2)
         self._dup_idx = 0
+        # Xrun tracking
+        self._xrun_times: list[float] = []
+        self._restart_requested = False
 
     def start(self):
         """Start the JACK audio capture client."""
@@ -336,6 +343,19 @@ class AudioStreamer:
                 except queue.Full:
                     pass  # Drop if consumers are too slow
 
+            @self.jack_client.set_xrun_callback
+            def xrun_callback(delay):
+                now = time.monotonic()
+                self._xrun_times.append(now)
+                # Prune old xruns outside the window
+                cutoff = now - self.XRUN_WINDOW_SECS
+                self._xrun_times = [t for t in self._xrun_times if t > cutoff]
+                count = len(self._xrun_times)
+                print(f"JACK xrun (delay={delay:.1f}ms) — {count} in last {self.XRUN_WINDOW_SECS}s")
+                if count >= self.XRUN_THRESHOLD:
+                    print(f"⚠ Xrun threshold reached ({count} >= {self.XRUN_THRESHOLD}) — requesting JACK restart")
+                    self._restart_requested = True
+
             self.jack_client.activate()
 
             # Connect to the Scarlett capture port
@@ -358,8 +378,37 @@ class AudioStreamer:
         """Stop the JACK client."""
         self._running = False
         if self.jack_client:
-            self.jack_client.deactivate()
-            self.jack_client.close()
+            try:
+                self.jack_client.deactivate()
+                self.jack_client.close()
+            except Exception:
+                pass
+            self.jack_client = None
+
+    def restart(self):
+        """Restart JACK client to clear accumulated xruns."""
+        import subprocess
+        print("🔄 Restarting JACK...")
+        self.stop()
+        # Kill JACK server and restart fresh
+        subprocess.run(["pkill", "-9", "jackd"], capture_output=True)
+        time.sleep(3)
+        subprocess.Popen(
+            ["jackd", "-R", "-d", "alsa", "-d", "hw:0", "-r", "48000", "-p", "128", "-n", "3"],
+            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
+        )
+        # Wait for JACK to accept connections
+        for i in range(20):
+            time.sleep(1)
+            result = subprocess.run(["jack_lsp"], capture_output=True)
+            if result.returncode == 0:
+                print(f"  JACK ready after {i+1}s")
+                break
+        # Restart our JACK client
+        self._xrun_times.clear()
+        self._restart_requested = False
+        self.start()
+        print("✅ JACK restarted successfully")
 
     def add_client(self, ws):
         self.clients.add(ws)
@@ -380,6 +429,20 @@ class AudioStreamer:
         """Continuously send audio data to all connected WebSocket clients."""
         while self._running:
             try:
+                # Check if JACK restart was requested (xrun watchdog)
+                if self._restart_requested:
+                    # Notify UDP clients that a restart is happening
+                    restart_msg = json.dumps({"type": "jackRestart"}).encode()
+                    for addr, sock in self.udp_clients.items():
+                        try:
+                            sock.sendto(restart_msg, addr)
+                        except OSError:
+                            pass
+                    # Run restart in executor to avoid blocking event loop
+                    loop = asyncio.get_event_loop()
+                    await loop.run_in_executor(None, self.restart)
+                    continue
+
                 # Poll the queue rapidly instead of blocking in executor
                 try:
                     chunk = self.audio_queue.get_nowait()
