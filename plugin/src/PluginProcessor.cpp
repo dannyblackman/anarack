@@ -394,7 +394,6 @@ void AnarackProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::Midi
             // but only if the buffer actually needs it (prevents over-correction)
             if (driftAccumulator >= 1.0 && currentFill > targetFill)
             {
-                // Buffer is overfull — consume one extra sample (drop)
                 doDropSample = true;
                 driftAccumulator -= 1.0;
                 samplesToRead = numOutputSamples + 1;
@@ -402,7 +401,6 @@ void AnarackProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::Midi
             }
             else if (driftAccumulator <= -1.0 && currentFill < targetFill)
             {
-                // Buffer is underfull — consume one fewer sample (duplicate)
                 doDupSample = true;
                 driftAccumulator += 1.0;
                 samplesToRead = numOutputSamples - 1;
