@@ -29,8 +29,12 @@ public:
     void connect(const juce::String& host, int midiPort = 5555, int audioPort = 9999);
 
     // WireGuard connection (internet)
+    // If privateKey is empty, uses static test keypair (legacy fallback).
     void connectWireGuard(const juce::String& serverEndpoint,
                           const juce::String& serverPubkey,
+                          const juce::String& privateKey = {},
+                          const juce::String& tunnelLocalIp = "10.0.0.3",
+                          const juce::String& tunnelRemoteIp = "10.0.0.2",
                           int midiPort = 5555, int audioPort = 9999);
 
     void disconnect();

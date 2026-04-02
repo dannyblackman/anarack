@@ -85,6 +85,9 @@ void NetworkTransport::connect(const juce::String& host, int midiPort, int audio
 
 void NetworkTransport::connectWireGuard(const juce::String& serverEndpoint,
                                          const juce::String& serverPubkey,
+                                         const juce::String& privateKey,
+                                         const juce::String& tunnelLocalIp,
+                                         const juce::String& tunnelRemoteIp,
                                          int midiPort, int audioPort)
 {
     disconnect();
@@ -92,14 +95,19 @@ void NetworkTransport::connectWireGuard(const juce::String& serverEndpoint,
     serverMidiPort = midiPort;
     serverAudioPort = audioPort;
 
-    // TODO: ephemeral keys via session API. For now, use static test keypair.
-    auto privKey = juce::String("XTmhMhpKGEhfNtqff4GUQ5cS281pfScf+1x2Cd6aF44=");
-    auto pubKey = juce::String("arRpxSMBrlWstnbjoHA5sL6ONaVHIeH5pcWAhZPsXEM=");
+    // Use provided ephemeral key, or fall back to static test keypair
+    auto privKey = privateKey.isNotEmpty()
+        ? privateKey
+        : juce::String("XTmhMhpKGEhfNtqff4GUQ5cS281pfScf+1x2Cd6aF44=");
+
+    DBG("WG connect: endpoint=" + serverEndpoint
+        + " pubkey=" + serverPubkey.substring(0, 16) + "..."
+        + " privkey=" + (privateKey.isNotEmpty() ? "ephemeral" : "static")
+        + " tunnel=" + tunnelLocalIp + "→" + tunnelRemoteIp);
 
     wgTunnel = std::make_unique<WgTunnel>();
-    // Plugin is 10.0.0.3, Pi studio is 10.0.0.2 (via VPS relay at 10.0.0.1)
     if (!wgTunnel->connect(privKey, serverPubkey, serverEndpoint,
-                           "10.0.0.3", "10.0.0.2"))
+                           tunnelLocalIp, tunnelRemoteIp))
     {
         wgTunnel.reset();
         return;

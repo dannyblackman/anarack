@@ -84,9 +84,36 @@ AnarackEditor::AnarackEditor(AnarackProcessor& p)
 
                 auto& t = processor.getTransport();
                 if (lan)
+                {
                     t.connect(host);
+                }
+                else if (processor.useSessionApi)
+                {
+                    // Session API: get ephemeral keys + Pi endpoint
+                    processor.sessionClient.setApiUrl(processor.sessionApiUrl);
+                    auto session = processor.sessionClient.createSession(processor.piId);
+                    if (session.valid)
+                    {
+                        processor.currentSessionId = session.sessionId;
+                        // Connect WireGuard with ephemeral keys direct to Pi
+                        auto privKey = processor.sessionClient.getPrivateKey();
+                        // Try Pi's local IP first (same network), fall back to relay
+                        auto endpoint = session.piLocalIp.isNotEmpty()
+                            ? session.piLocalIp + ":" + juce::String(session.piWgPort)
+                            : session.relayEndpoint;
+                        t.connectWireGuard(endpoint, session.piPubkey,
+                                           privKey, "10.0.0.3", "10.0.0.2");
+                    }
+                    else
+                    {
+                        // Fall back to static keys via relay
+                        auto ep = processor.wgEndpoint + ":" + juce::String(processor.wgPort);
+                        t.connectWireGuard(ep, processor.wgServerPubkey);
+                    }
+                }
                 else
                 {
+                    // Legacy: static keys via relay
                     auto ep = processor.wgEndpoint + ":" + juce::String(processor.wgPort);
                     t.connectWireGuard(ep, processor.wgServerPubkey);
                 }
@@ -96,6 +123,12 @@ AnarackEditor::AnarackEditor(AnarackProcessor& p)
         .withEventListener("doDisconnect", [this](const juce::var&)
         {
             processor.getTransport().disconnect();
+            // End session API session (cleanup WG peer on Pi)
+            if (processor.currentSessionId.isNotEmpty())
+            {
+                processor.sessionClient.endSession(processor.currentSessionId);
+                processor.currentSessionId = {};
+            }
         })
         // MIDI Learn: JS sends synthCC to learn
         .withEventListener("startLearn", [this](const juce::var& payload)
@@ -191,13 +224,36 @@ AnarackEditor::AnarackEditor(AnarackProcessor& p)
             processor.setLatencySamples(bufferSamples);
 
             auto& t = processor.getTransport();
-            if (processor.useWireGuard)
+            if (!processor.useWireGuard)
+            {
+                t.connect(processor.serverHost);
+            }
+            else if (processor.useSessionApi)
+            {
+                processor.sessionClient.setApiUrl(processor.sessionApiUrl);
+                auto session = processor.sessionClient.createSession(processor.piId);
+                if (session.valid)
+                {
+                    processor.currentSessionId = session.sessionId;
+                    auto privKey = processor.sessionClient.getPrivateKey();
+                        auto endpoint = session.piLocalIp.isNotEmpty()
+                        ? session.piLocalIp + ":" + juce::String(session.piWgPort)
+                        : session.relayEndpoint;
+                    t.connectWireGuard(endpoint, session.piPubkey,
+                                       privKey, "10.0.0.10", "10.0.0.2");
+                }
+                else
+                {
+                    // Fall back to static keys
+                    auto ep = processor.wgEndpoint + ":" + juce::String(processor.wgPort);
+                    t.connectWireGuard(ep, processor.wgServerPubkey);
+                }
+            }
+            else
             {
                 auto ep = processor.wgEndpoint + ":" + juce::String(processor.wgPort);
                 t.connectWireGuard(ep, processor.wgServerPubkey);
             }
-            else
-                t.connect(processor.serverHost);
         }
     });
 

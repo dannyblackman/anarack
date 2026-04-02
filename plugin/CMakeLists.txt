@@ -28,6 +28,7 @@ target_sources(AnarackRev2
         src/PluginProcessor.cpp
         src/PluginEditor.cpp
         src/NetworkTransport.cpp
+        src/SessionClient.cpp
         src/WgTunnel.cpp
 )
 

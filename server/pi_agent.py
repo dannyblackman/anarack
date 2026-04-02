@@ -45,6 +45,19 @@ def get_wg_pubkey(interface: str = "wg0") -> str:
         return ""
 
 
+def get_wg_listen_port(interface: str = "wg0") -> int:
+    """Read this Pi's WireGuard listen port."""
+    try:
+        result = subprocess.run(
+            ["sudo", "wg", "show", interface, "listen-port"],
+            capture_output=True, text=True, timeout=5,
+        )
+        return int(result.stdout.strip())
+    except Exception as e:
+        log.error(f"Failed to get WG listen port: {e}")
+        return 51820
+
+
 def get_local_ip() -> str:
     """Get the Pi's LAN IP."""
     try:
@@ -100,13 +113,14 @@ def remove_wg_peer(pubkey: str, interface: str = "wg0"):
 async def run_agent(args):
     pi_id = args.pi_id
     wg_pubkey = get_wg_pubkey()
+    wg_port = get_wg_listen_port()
     local_ip = get_local_ip()
 
     if not wg_pubkey:
         log.error("Could not read WireGuard public key. Is wg0 up?")
         return
 
-    log.info(f"Pi agent starting: id={pi_id}, pubkey={wg_pubkey[:16]}..., local_ip={local_ip}")
+    log.info(f"Pi agent starting: id={pi_id}, pubkey={wg_pubkey[:16]}..., local_ip={local_ip}, wg_port={wg_port}")
 
     # Track active sessions for peer cleanup
     active_sessions: dict[str, str] = {}  # session_id → plugin_pubkey
@@ -129,6 +143,7 @@ async def run_agent(args):
                     "type": "register",
                     "pi_id": pi_id,
                     "wg_pubkey": wg_pubkey,
+                    "wg_port": wg_port,
                     "local_ip": local_ip,
                     "synths": [{"id": "rev2", "name": "Prophet Rev2", "midi_port": "Prophet Rev2"}],
                 }))
@@ -162,7 +177,8 @@ async def run_agent(args):
 
                             # Add WireGuard peer for this plugin
                             # TODO: assign unique tunnel IPs for multi-session
-                            add_wg_peer(plugin_pubkey, "10.0.0.3")
+                            # Use 10.0.0.10+ for direct sessions (10.0.0.3 is reserved for VPS relay)
+                            add_wg_peer(plugin_pubkey, "10.0.0.10")
                             active_sessions[session_id] = plugin_pubkey
 
                             # Tell API we're ready for hole punching

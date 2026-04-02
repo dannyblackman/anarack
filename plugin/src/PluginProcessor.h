@@ -5,6 +5,7 @@
 #include "AudioRingBuffer.h"
 #include "JitterBuffer.h"
 #include "NetworkTransport.h"
+#include "SessionClient.h"
 
 class AnarackProcessor : public juce::AudioProcessor, private juce::MidiInputCallback
 {
@@ -86,6 +87,13 @@ public:
     juce::String wgServerPubkey { "uX4s7vVGT+B2tJl7+4plM3vO+LceS/LKe+8A8IPH934=" };
     int wgPort = 51820;
     bool useWireGuard = true;
+
+    // Session API for P2P connections
+    SessionClient sessionClient;
+    juce::String sessionApiUrl { "http://anarack.local:8800" };
+    juce::String currentSessionId;
+    juce::String piId { "anarack-pi-01" };
+    bool useSessionApi = true;  // try session API first, fall back to static keys
 
 private:
     static constexpr double SERVER_SAMPLE_RATE = 48000.0;

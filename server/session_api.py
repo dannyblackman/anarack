@@ -54,6 +54,7 @@ class PiRegistration:
     public_port: int = 0
     local_ip: str = ""
     wg_pubkey: str = ""
+    wg_port: int = 51820
     synths: list = field(default_factory=list)
     last_heartbeat: float = 0.0
     ws: object = None  # WebSocket connection
@@ -82,11 +83,12 @@ class SessionManager:
         self.relay_endpoint = relay_endpoint
 
     def register_pi(self, pi_id: str, wg_pubkey: str, synths: list,
-                    local_ip: str = "") -> PiRegistration:
+                    local_ip: str = "", wg_port: int = 51820) -> PiRegistration:
         if pi_id not in self.pis:
             self.pis[pi_id] = PiRegistration(pi_id=pi_id)
         pi = self.pis[pi_id]
         pi.wg_pubkey = wg_pubkey
+        pi.wg_port = wg_port
         pi.synths = synths
         pi.local_ip = local_ip
         pi.last_heartbeat = time.time()
@@ -270,6 +272,7 @@ class HttpApi:
                 "pi_endpoint": session.pi_endpoint,
                 "pi_pubkey": session.pi_pubkey,
                 "pi_local_ip": pi.local_ip if pi else "",
+                "pi_wg_port": pi.wg_port if pi else 51820,
                 "relay_endpoint": session.relay_endpoint,
                 "state": session.state,
             }
@@ -335,6 +338,7 @@ class PiWebSocketHandler:
                         wg_pubkey=data.get("wg_pubkey", ""),
                         synths=data.get("synths", []),
                         local_ip=data.get("local_ip", ""),
+                        wg_port=data.get("wg_port", 51820),
                     )
                     pi.ws = ws
                     await ws.send(json.dumps({"type": "registered", "pi_id": pi_id}))
