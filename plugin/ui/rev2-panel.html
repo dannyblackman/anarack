@@ -366,9 +366,9 @@
             <option value="50">50ms</option>
             <option value="80">80ms</option>
             <option value="100">100ms</option>
-            <option value="150">150ms</option>
+            <option value="150" selected>150ms (default)</option>
             <option value="200">200ms</option>
-            <option value="300" selected>300ms (default)</option>
+            <option value="300">300ms</option>
             <option value="500">500ms</option>
             <option value="750">750ms</option>
             <option value="1000">1000ms</option>
@@ -520,6 +520,53 @@ if (_juce) {
   });
 }
 
+// ── Boot animation — synth "comes alive" when connection is established ──
+let _booted = false;
+function setAllKnobsToZero() {
+  for (const cc in ccRegistry) {
+    const ctrl = ccRegistry[cc];
+    if (ctrl && ctrl.setValue) ctrl.setValue(0);
+  }
+}
+
+function bootAnimation() {
+  if (_booted) return;
+  _booted = true;
+  // Update patch screen
+  screenName.textContent = 'Connected';
+  // Animate each knob to its default value with staggered timing
+  const entries = Object.entries(ccRegistry);
+  entries.forEach(([cc, ctrl], i) => {
+    const targetVal = ctrl._defaultVal !== undefined ? ctrl._defaultVal : Math.round(ctrl._max * 0.5);
+    const delay = 100 + i * 15; // stagger: 15ms between each knob
+    const duration = 400; // animation duration per knob
+    const startVal = 0;
+    const startTime = performance.now() + delay;
+    function animate(now) {
+      const elapsed = now - startTime;
+      if (elapsed < 0) { requestAnimationFrame(animate); return; }
+      const t = Math.min(1, elapsed / duration);
+      // Ease-out cubic
+      const eased = 1 - Math.pow(1 - t, 3);
+      const v = Math.round(startVal + (targetVal - startVal) * eased);
+      ctrl.setValue(v);
+      if (t < 1) requestAnimationFrame(animate);
+    }
+    requestAnimationFrame(animate);
+  });
+}
+
+// Start in "off" state — all knobs at zero, screen shows connecting
+function showConnectingState() {
+  setAllKnobsToZero();
+  screenName.textContent = 'Connecting...';
+  screenLoc.textContent = '';
+  screenBpm.textContent = '';
+}
+
+// Initialize in connecting state
+setTimeout(showConnectingState, 100);
+
 // ── Log ──
 function log(msg) {
   const el = document.getElementById('log');
@@ -583,14 +630,42 @@ function updateConnectionStatus(state) {
 
   const wasConnected = _connected;
   _connected = state.connected;
-  if (_connected && !wasConnected) log('Connected via ' + (state.mode || 'unknown'));
-  if (!_connected && wasConnected) log('Disconnected');
-  dot.className = 'status-dot' + (_connected ? ' live' : '');
-  label.textContent = _connected ? 'Live' : 'Offline';
-  pill.className = 'status-pill' + (_connected ? ' live' : '');
+  const connState = state.connState; // 0=disconnected, 1=connecting, 2=connected
+  const isConnecting = connState === 1 && !_connected;
+
+  if (_connected && !wasConnected) {
+    log('Connected via ' + (state.mode || 'unknown'));
+    bootAnimation();
+  }
+  if (!_connected && wasConnected) { log('Disconnected'); _booted = false; }
+
+  // Log auto-detected buffer size once
+  if (state.autoBuffer > 0 && !window._loggedAutoBuffer) {
+    log('Auto buffer: ' + state.autoBuffer + 'ms');
+    // Update the dropdown to reflect the detected value
+    const sel = document.getElementById('buffer-mode');
+    if (sel) {
+      for (let i = 0; i < sel.options.length; i++) {
+        if (parseInt(sel.options[i].value) === state.autoBuffer) {
+          sel.selectedIndex = i; break;
+        }
+      }
+    }
+    window._loggedAutoBuffer = true;
+  }
+
+  if (isConnecting) {
+    dot.className = 'status-dot connecting';
+    label.textContent = 'Connecting';
+    pill.className = 'status-pill';
+  } else {
+    dot.className = 'status-dot' + (_connected ? ' live' : '');
+    label.textContent = _connected ? 'Live' : 'Offline';
+    pill.className = 'status-pill' + (_connected ? ' live' : '');
+  }
   mode.textContent = (state.mode || '') + (state.pktSize > 0 ? ' [' + state.pktSize + 'B]' : '');
 
-  btn.textContent = _connected ? 'Disconnect' : 'Connect';
+  btn.textContent = _connected ? 'Disconnect' : (isConnecting ? 'Connecting...' : 'Connect');
   btn.className = 'conn-btn' + (_connected ? ' disconnect' : '');
 
   if (_connected && state.rtt > 0) {

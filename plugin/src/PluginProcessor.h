@@ -79,7 +79,7 @@ public:
     int lastAutomationVal[128] {};                 // last value sent from DAW automation
 
     // Fixed buffer mode: user-set buffer size in ms (0 = adaptive/auto)
-    std::atomic<int> fixedBufferMs { 300 };
+    std::atomic<int> fixedBufferMs { 150 };
     void setFixedBuffer(int ms);
 
     juce::String serverHost { "192.168.1.131" };
@@ -95,7 +95,19 @@ public:
     juce::String piId { "anarack-pi-01" };
     bool useSessionApi = true;  // try session API first, fall back to static keys
 
+    // Connection state (readable from UI)
+    enum class ConnState { disconnected, connecting, connected };
+    std::atomic<int> connectionState { (int)ConnState::disconnected };
+    ConnState getConnState() const { return (ConnState)connectionState.load(); }
+
+    // Connection management
+    void autoConnect();
+    void reconnect();
+    void disconnectAndCleanup();
+    std::atomic<int> autoDetectedBufferMs { 0 }; // result of auto buffer detection (0 = not yet detected)
+
 private:
+    std::unique_ptr<juce::Thread> connectThread;
     static constexpr double SERVER_SAMPLE_RATE = 48000.0;
 
     AudioRingBuffer audioRingBuffer;

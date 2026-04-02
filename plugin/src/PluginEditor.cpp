@@ -72,63 +72,12 @@ AnarackEditor::AnarackEditor(AnarackProcessor& p)
             {
                 processor.serverHost = host;
                 processor.useWireGuard = !lan;
-
-                // Configure JitterBuffer with current buffer setting
-                int fixed = processor.fixedBufferMs.load();
-                int bufferMs = fixed > 0 ? fixed : 300;
-                int bufferSamples = (int)(48000.0 * bufferMs / 1000.0);
-                processor.jitterBuffer.configure(bufferSamples, 48000.0);
-                processor.setLatencySamples(bufferSamples);
-                processor.asrcDropCount.store(0, std::memory_order_relaxed);
-                processor.asrcDupCount.store(0, std::memory_order_relaxed);
-
-                auto& t = processor.getTransport();
-                if (lan)
-                {
-                    t.connect(host);
-                }
-                else if (processor.useSessionApi)
-                {
-                    // Session API: get ephemeral keys + Pi endpoint
-                    processor.sessionClient.setApiUrl(processor.sessionApiUrl);
-                    auto session = processor.sessionClient.createSession(processor.piId);
-                    if (session.valid)
-                    {
-                        processor.currentSessionId = session.sessionId;
-                        // Connect WireGuard with ephemeral keys direct to Pi
-                        auto privKey = processor.sessionClient.getPrivateKey();
-                        // Try Pi's local IP first (same network), fall back to relay
-                        auto endpoint = session.piLocalIp.isNotEmpty()
-                            ? session.piLocalIp + ":" + juce::String(session.piWgPort)
-                            : session.relayEndpoint;
-                        t.connectWireGuard(endpoint, session.piPubkey,
-                                           privKey, "10.0.0.3", "10.0.0.2");
-                    }
-                    else
-                    {
-                        // Fall back to static keys via relay
-                        auto ep = processor.wgEndpoint + ":" + juce::String(processor.wgPort);
-                        t.connectWireGuard(ep, processor.wgServerPubkey);
-                    }
-                }
-                else
-                {
-                    // Legacy: static keys via relay
-                    auto ep = processor.wgEndpoint + ":" + juce::String(processor.wgPort);
-                    t.connectWireGuard(ep, processor.wgServerPubkey);
-                }
+                processor.reconnect();
             }
         })
-        // Disconnect button
         .withEventListener("doDisconnect", [this](const juce::var&)
         {
-            processor.getTransport().disconnect();
-            // End session API session (cleanup WG peer on Pi)
-            if (processor.currentSessionId.isNotEmpty())
-            {
-                processor.sessionClient.endSession(processor.currentSessionId);
-                processor.currentSessionId = {};
-            }
+            processor.disconnectAndCleanup();
         })
         // MIDI Learn: JS sends synthCC to learn
         .withEventListener("startLearn", [this](const juce::var& payload)
@@ -213,48 +162,8 @@ AnarackEditor::AnarackEditor(AnarackProcessor& p)
             webView->emitEventIfBrowserIsVisible("initConfig", juce::var(obj.get()));
         }
 
-        // Auto-connect if not already connected
-        if (!processor.getTransport().isConnected())
-        {
-            // Configure JitterBuffer BEFORE connecting
-            int fixed = processor.fixedBufferMs.load();
-            int bufferMs = fixed > 0 ? fixed : 300;
-            int bufferSamples = (int)(48000.0 * bufferMs / 1000.0);
-            processor.jitterBuffer.configure(bufferSamples, 48000.0);
-            processor.setLatencySamples(bufferSamples);
-
-            auto& t = processor.getTransport();
-            if (!processor.useWireGuard)
-            {
-                t.connect(processor.serverHost);
-            }
-            else if (processor.useSessionApi)
-            {
-                processor.sessionClient.setApiUrl(processor.sessionApiUrl);
-                auto session = processor.sessionClient.createSession(processor.piId);
-                if (session.valid)
-                {
-                    processor.currentSessionId = session.sessionId;
-                    auto privKey = processor.sessionClient.getPrivateKey();
-                        auto endpoint = session.piLocalIp.isNotEmpty()
-                        ? session.piLocalIp + ":" + juce::String(session.piWgPort)
-                        : session.relayEndpoint;
-                    t.connectWireGuard(endpoint, session.piPubkey,
-                                       privKey, "10.0.0.10", "10.0.0.2");
-                }
-                else
-                {
-                    // Fall back to static keys
-                    auto ep = processor.wgEndpoint + ":" + juce::String(processor.wgPort);
-                    t.connectWireGuard(ep, processor.wgServerPubkey);
-                }
-            }
-            else
-            {
-                auto ep = processor.wgEndpoint + ":" + juce::String(processor.wgPort);
-                t.connectWireGuard(ep, processor.wgServerPubkey);
-            }
-        }
+        // Connection is handled by PluginProcessor::autoConnect (background thread)
+        // No auto-connect here — the processor connects on prepareToPlay
     });
 
     setSize(1900, 516);
@@ -286,6 +195,8 @@ void AnarackEditor::timerCallback()
         state->setProperty("midiIn", processor.midiInCount.load(std::memory_order_relaxed));
         state->setProperty("mappedSends", processor.mappedSendCount.load(std::memory_order_relaxed));
         state->setProperty("learning", processor.learnTargetCC.load() >= 0);
+        state->setProperty("connState", processor.connectionState.load(std::memory_order_relaxed));
+        state->setProperty("autoBuffer", processor.autoDetectedBufferMs.load(std::memory_order_relaxed));
         state->setProperty("blockSize", processor.lastBlockSize.load(std::memory_order_relaxed));
         state->setProperty("asrcDrops", processor.asrcDropCount.load(std::memory_order_relaxed));
         state->setProperty("asrcDups", processor.asrcDupCount.load(std::memory_order_relaxed));

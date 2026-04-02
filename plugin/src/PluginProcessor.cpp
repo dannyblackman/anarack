@@ -102,8 +102,106 @@ AnarackProcessor::AnarackProcessor()
 
 AnarackProcessor::~AnarackProcessor()
 {
+    if (connectThread) connectThread->stopThread(3000);
     if (directMidiInput) directMidiInput->stop();
+    if (currentSessionId.isNotEmpty())
+        sessionClient.endSession(currentSessionId);
     transport.disconnect();
+}
+
+// Background thread class for auto-connect
+class ConnectThread : public juce::Thread
+{
+public:
+    ConnectThread(AnarackProcessor& p) : Thread("AnarackConnect"), proc(p) {}
+    void run() override { proc.autoConnect(); }
+private:
+    AnarackProcessor& proc;
+};
+
+void AnarackProcessor::autoConnect()
+{
+    if (transport.isConnected()) return;
+
+    connectionState.store((int)ConnState::connecting);
+
+    // Only configure JitterBuffer for WireGuard (LAN uses AudioRingBuffer)
+    if (useWireGuard)
+    {
+        int fixed = fixedBufferMs.load();
+        int bufferMs = fixed > 0 ? fixed : 300;
+        int bufferSamples = (int)(48000.0 * bufferMs / 1000.0);
+        jitterBuffer.configure(bufferSamples, 48000.0);
+        setLatencySamples(bufferSamples);
+    }
+
+    bool connected = false;
+
+    if (useWireGuard && useSessionApi)
+    {
+        // Try Session API (P2P direct connection)
+        sessionClient.setApiUrl(sessionApiUrl);
+        auto session = sessionClient.createSession(piId);
+        if (session.valid)
+        {
+            currentSessionId = session.sessionId;
+            auto privKey = sessionClient.getPrivateKey();
+            auto endpoint = session.piLocalIp.isNotEmpty()
+                ? session.piLocalIp + ":" + juce::String(session.piWgPort)
+                : session.relayEndpoint;
+            transport.connectWireGuard(endpoint, session.piPubkey,
+                                       privKey, "10.0.0.10", "10.0.0.2");
+            connected = true;
+        }
+    }
+
+    if (!connected && useWireGuard)
+    {
+        // Fall back to static keys via relay
+        auto ep = wgEndpoint + ":" + juce::String(wgPort);
+        transport.connectWireGuard(ep, wgServerPubkey);
+        connected = true;
+    }
+
+    if (!connected)
+    {
+        // LAN mode
+        transport.connect(serverHost);
+        connected = true;
+    }
+
+    // Wait briefly for handshake, then update state
+    juce::Thread::sleep(1000);
+    connectionState.store(transport.isConnected()
+        ? (int)ConnState::connected
+        : (int)ConnState::disconnected);
+
+    // TODO: Auto buffer detection — needs thread-safe buffer resizing.
+    // For now, start at 80ms which testing showed is stable on this connection.
+    // User can adjust manually via the buffer dropdown.
+}
+
+void AnarackProcessor::disconnectAndCleanup()
+{
+    transport.disconnect();
+    if (currentSessionId.isNotEmpty())
+    {
+        sessionClient.endSession(currentSessionId);
+        currentSessionId = {};
+    }
+    connectionState.store((int)ConnState::disconnected);
+    asrcDropCount.store(0, std::memory_order_relaxed);
+    asrcDupCount.store(0, std::memory_order_relaxed);
+    asrcInitialised = false;
+}
+
+void AnarackProcessor::reconnect()
+{
+    disconnectAndCleanup();
+    // Run autoConnect on a background thread
+    if (connectThread) connectThread->stopThread(3000);
+    connectThread = std::make_unique<ConnectThread>(*this);
+    connectThread->startThread();
 }
 
 juce::StringArray AnarackProcessor::getAvailableMidiInputs() const
@@ -197,27 +295,35 @@ void AnarackProcessor::handleIncomingMidiMessage(juce::MidiInput*, const juce::M
 
 void AnarackProcessor::prepareToPlay(double sampleRate, int samplesPerBlock)
 {
-    // Ring buffer: 500ms at server sample rate (48kHz)
-    int bufferSize = (int)(SERVER_SAMPLE_RATE * 0.5);
-    audioRingBuffer.resize(bufferSize);
-
     // Resampling ratio: how many input (48kHz) samples per output sample
     baseResampleRatio = SERVER_SAMPLE_RATE / sampleRate;
     resampleRatio = baseResampleRatio;
-    resampler.reset();
-    asrcInitialised = false;
-    updatePrebuffer();
-    prebuffering = true;
-    setLatencySamples(prebufferSamples);
 
     // Pre-allocate buffer for resampler input (worst case: full block at highest ratio)
     int maxInputSamples = (int)(samplesPerBlock * resampleRatio + 16);
     resampleInputBuf.resize((size_t)maxInputSamples, 0.0f);
 
+    // Only reset audio state if not already streaming
+    if (!transport.isConnected())
+    {
+        int bufferSize = (int)(SERVER_SAMPLE_RATE * 0.5);
+        audioRingBuffer.resize(bufferSize);
+        resampler.reset();
+        asrcInitialised = false;
+        updatePrebuffer();
+        prebuffering = true;
+    }
+
     DBG("prepareToPlay: sampleRate=" + juce::String(sampleRate)
         + " samplesPerBlock=" + juce::String(samplesPerBlock)
         + " baseResampleRatio=" + juce::String(baseResampleRatio));
 
+    // Auto-connect on first prepareToPlay (background thread)
+    if (!transport.isConnected() && !connectThread)
+    {
+        connectThread = std::make_unique<ConnectThread>(*this);
+        connectThread->startThread();
+    }
 }
 
 void AnarackProcessor::releaseResources()
