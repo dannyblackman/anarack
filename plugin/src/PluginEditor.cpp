@@ -182,7 +182,17 @@ void AnarackEditor::timerCallback()
     {
         auto state = juce::DynamicObject::Ptr(new juce::DynamicObject());
         state->setProperty("connected", c);
-        state->setProperty("mode", c ? juce::String(t.isWireGuard() ? "WireGuard" : "LAN") : juce::String());
+        juce::String modeStr;
+        if (c)
+        {
+            if (!t.isWireGuard())
+                modeStr = "LAN";
+            else if (processor.currentSessionId.isNotEmpty())
+                modeStr = "P2P";
+            else
+                modeStr = "Relay";
+        }
+        state->setProperty("mode", modeStr);
         state->setProperty("pktSize", t.getLastPacketSize());
         state->setProperty("rtt", c ? t.getEstimatedRtt() : 0);
         int fillSamples = processor.jitterBuffer.isConfigured()

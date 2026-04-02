@@ -79,7 +79,7 @@ public:
     int lastAutomationVal[128] {};                 // last value sent from DAW automation
 
     // Fixed buffer mode: user-set buffer size in ms (0 = adaptive/auto)
-    std::atomic<int> fixedBufferMs { 150 };
+    std::atomic<int> fixedBufferMs { 300 };
     void setFixedBuffer(int ms);
 
     juce::String serverHost { "192.168.1.131" };

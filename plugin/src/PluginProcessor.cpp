@@ -170,8 +170,18 @@ void AnarackProcessor::autoConnect()
         connected = true;
     }
 
-    // Wait briefly for handshake, then update state
-    juce::Thread::sleep(1000);
+    // Wait for audio to actually flow (prebuffer fills), not just handshake
+    // Timeout after 15 seconds if audio never starts
+    for (int i = 0; i < 150 && transport.isConnected(); ++i)
+    {
+        juce::Thread::sleep(100);
+        if (jitterBuffer.isConfigured() && !jitterBuffer.isPrebuffering())
+        {
+            // Audio is flowing
+            connectionState.store((int)ConnState::connected);
+            return;
+        }
+    }
     connectionState.store(transport.isConnected()
         ? (int)ConnState::connected
         : (int)ConnState::disconnected);
@@ -295,24 +305,22 @@ void AnarackProcessor::handleIncomingMidiMessage(juce::MidiInput*, const juce::M
 
 void AnarackProcessor::prepareToPlay(double sampleRate, int samplesPerBlock)
 {
+    // Ring buffer: 500ms at server sample rate (48kHz)
+    int bufferSize = (int)(SERVER_SAMPLE_RATE * 0.5);
+    audioRingBuffer.resize(bufferSize);
+
     // Resampling ratio: how many input (48kHz) samples per output sample
     baseResampleRatio = SERVER_SAMPLE_RATE / sampleRate;
     resampleRatio = baseResampleRatio;
+    resampler.reset();
+    asrcInitialised = false;
+    updatePrebuffer();
+    prebuffering = true;
+    setLatencySamples(prebufferSamples);
 
     // Pre-allocate buffer for resampler input (worst case: full block at highest ratio)
     int maxInputSamples = (int)(samplesPerBlock * resampleRatio + 16);
     resampleInputBuf.resize((size_t)maxInputSamples, 0.0f);
-
-    // Only reset audio state if not already streaming
-    if (!transport.isConnected())
-    {
-        int bufferSize = (int)(SERVER_SAMPLE_RATE * 0.5);
-        audioRingBuffer.resize(bufferSize);
-        resampler.reset();
-        asrcInitialised = false;
-        updatePrebuffer();
-        prebuffering = true;
-    }
 
     DBG("prepareToPlay: sampleRate=" + juce::String(sampleRate)
         + " samplesPerBlock=" + juce::String(samplesPerBlock)

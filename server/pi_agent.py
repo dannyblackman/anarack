@@ -175,8 +175,12 @@ async def run_agent(args):
 
                             log.info(f"New session {session_id}: plugin={plugin_pubkey[:16]}...")
 
+                            # Clean up any previous sessions first
+                            for old_id, old_key in list(active_sessions.items()):
+                                remove_wg_peer(old_key)
+                            active_sessions.clear()
+
                             # Add WireGuard peer for this plugin
-                            # TODO: assign unique tunnel IPs for multi-session
                             # Use 10.0.0.10+ for direct sessions (10.0.0.3 is reserved for VPS relay)
                             add_wg_peer(plugin_pubkey, "10.0.0.10")
                             active_sessions[session_id] = plugin_pubkey
