@@ -86,7 +86,7 @@ public:
     juce::String wgEndpoint { "66.245.195.65" };
     juce::String wgServerPubkey { "uX4s7vVGT+B2tJl7+4plM3vO+LceS/LKe+8A8IPH934=" };
     int wgPort = 51820;
-    bool useWireGuard = true;
+    bool useWireGuard = false;
 
     // Session API for P2P connections
     SessionClient sessionClient;

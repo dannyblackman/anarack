@@ -125,15 +125,12 @@ void AnarackProcessor::autoConnect()
 
     connectionState.store((int)ConnState::connecting);
 
-    // Only configure JitterBuffer for WireGuard (LAN uses AudioRingBuffer)
-    if (useWireGuard)
-    {
-        int fixed = fixedBufferMs.load();
-        int bufferMs = fixed > 0 ? fixed : 300;
-        int bufferSamples = (int)(48000.0 * bufferMs / 1000.0);
-        jitterBuffer.configure(bufferSamples, 48000.0);
-        setLatencySamples(bufferSamples);
-    }
+    // Configure JitterBuffer for all modes (handles packet deduplication + timestamps)
+    int fixed = fixedBufferMs.load();
+    int bufferMs = fixed > 0 ? fixed : 300;
+    int bufferSamples = (int)(48000.0 * bufferMs / 1000.0);
+    jitterBuffer.configure(bufferSamples, 48000.0);
+    setLatencySamples(bufferSamples);
 
     bool connected = false;
 
@@ -314,22 +311,18 @@ void AnarackProcessor::handleIncomingMidiMessage(juce::MidiInput*, const juce::M
 
 void AnarackProcessor::prepareToPlay(double sampleRate, int samplesPerBlock)
 {
+    // Ring buffer: 500ms at server sample rate (48kHz)
+    int bufferSize = (int)(SERVER_SAMPLE_RATE * 0.5);
+    audioRingBuffer.resize(bufferSize);
+
     // Resampling ratio: how many input (48kHz) samples per output sample
     baseResampleRatio = SERVER_SAMPLE_RATE / sampleRate;
     resampleRatio = baseResampleRatio;
-
-    // Only reset audio buffers if not currently streaming
-    // (DAW may call prepareToPlay multiple times; resizing while streaming corrupts audio)
-    if (!transport.isConnected())
-    {
-        int bufferSize = (int)(SERVER_SAMPLE_RATE * 0.5);
-        audioRingBuffer.resize(bufferSize);
-        resampler.reset();
-        asrcInitialised = false;
-        updatePrebuffer();
-        prebuffering = true;
-        setLatencySamples(prebufferSamples);
-    }
+    resampler.reset();
+    asrcInitialised = false;
+    updatePrebuffer();
+    prebuffering = true;
+    setLatencySamples(prebufferSamples);
 
     // Pre-allocate buffer for resampler input (worst case: full block at highest ratio)
     int maxInputSamples = (int)(samplesPerBlock * resampleRatio + 16);
