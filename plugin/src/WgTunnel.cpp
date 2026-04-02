@@ -107,10 +107,10 @@ bool WgTunnel::connect(const juce::String& myPrivkeyB64,
         return false;
     }
 
-    // Set recv timeout for clean shutdown
+    // Set recv timeout — low for minimal jitter, just enough for clean shutdown
     struct timeval tv;
     tv.tv_sec = 0;
-    tv.tv_usec = 50000;
+    tv.tv_usec = 1000; // 1ms (was 50ms — added up to 50ms jitter per packet)
     setsockopt(udpFd, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
 
     connected = true;
@@ -315,7 +315,7 @@ void WgTunnel::tickLoop()
 
     while (connected.load())
     {
-        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
         if (!connected.load() || !tunnel) break;
 
         std::lock_guard<std::mutex> lock(sendMutex);
