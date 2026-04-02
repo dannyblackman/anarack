@@ -370,18 +370,23 @@ void AnarackProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::Midi
 
             ++asrcBlockCount;
 
-            // Low-pass filter the fill error (~5 second time constant at 375 blocks/sec)
+            // Low-pass filter the fill error — block-size independent
+            // Target: ~5 second time constant regardless of block size
+            // alpha = blockSize / (sampleRate * timeConstant) = N / (48000 * 5)
+            double alpha = (double)numOutputSamples / (48000.0 * 5.0);
             double fillError = (double)(currentFill - targetFill) / (double)juce::jmax(1, targetFill);
-            smoothedFillError = smoothedFillError * 0.9996 + fillError * 0.0004;
+            smoothedFillError = smoothedFillError * (1.0 - alpha) + fillError * alpha;
 
             // Don't accumulate drift during startup (let buffer stabilize first)
-            // 1500 blocks ≈ 4 seconds at 128 samples/block @ 48kHz
-            if (asrcBlockCount > 1500)
+            // ~4 seconds regardless of block size
+            int startupBlocks = (int)(4.0 * 48000.0 / juce::jmax(1, numOutputSamples));
+            if (asrcBlockCount > startupBlocks)
             {
-                // Accumulate drift, clamped to max realistic clock drift (~150ppm)
-                // 150ppm at 128 samples = 0.019 samples/block → max ~7 corrections/sec
+                // Accumulate drift — block-size independent
+                // Max correction rate: ~7 corrections/sec regardless of block size
                 double driftIncrement = smoothedFillError * 0.005 * numOutputSamples;
-                driftIncrement = juce::jlimit(-0.02, 0.02, driftIncrement);
+                double maxDrift = 7.0 * (double)numOutputSamples / 48000.0;
+                driftIncrement = juce::jlimit(-maxDrift, maxDrift, driftIncrement);
                 driftAccumulator += driftIncrement;
             }
 
@@ -406,12 +411,8 @@ void AnarackProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::Midi
                 samplesToRead = numOutputSamples - 1;
                 asrcDupCount.fetch_add(1, std::memory_order_relaxed);
             }
-            else if ((driftAccumulator >= 1.0 && currentFill <= targetFill) ||
-                     (driftAccumulator <= -1.0 && currentFill >= targetFill))
-            {
-                // Accumulator says correct, but buffer disagrees — reset
-                driftAccumulator = 0.0;
-            }
+            // If accumulator wants to correct but buffer disagrees, just skip
+            // this block — don't reset the accumulator, so drift tracking is preserved.
 
             // Clamp drift accumulator to prevent runaway
             driftAccumulator = juce::jlimit(-2.0, 2.0, driftAccumulator);
