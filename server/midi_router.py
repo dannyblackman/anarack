@@ -235,6 +235,9 @@ class MidiRouter:
         message, _ = event
         if not message:
             return
+        status = message[0] & 0xF0
+        if status in (0xB0, 0xC0, 0xF0):
+            print(f"Synth→Server: {' '.join(f'{b:02X}' for b in message[:8])}")
 
         # SysEx message
         if message[0] == 0xF0:
