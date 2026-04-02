@@ -72,6 +72,16 @@ AnarackEditor::AnarackEditor(AnarackProcessor& p)
             {
                 processor.serverHost = host;
                 processor.useWireGuard = !lan;
+
+                // Configure JitterBuffer with current buffer setting
+                int fixed = processor.fixedBufferMs.load();
+                int bufferMs = fixed > 0 ? fixed : 300;
+                int bufferSamples = (int)(48000.0 * bufferMs / 1000.0);
+                processor.jitterBuffer.configure(bufferSamples, 48000.0);
+                processor.setLatencySamples(bufferSamples);
+                processor.asrcDropCount.store(0, std::memory_order_relaxed);
+                processor.asrcDupCount.store(0, std::memory_order_relaxed);
+
                 auto& t = processor.getTransport();
                 if (lan)
                     t.connect(host);

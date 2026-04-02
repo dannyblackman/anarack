@@ -324,29 +324,38 @@ public:
             if (slotFilled[(size_t)pos])
             {
                 float sample = buffer[(size_t)pos];
-                output[i] = sample;
 
-                // Update last-good block for PLC (circular write into block)
-                lastGoodBlock[(size_t)(lastGoodWriteIdx % lastGoodLength)] = sample;
-                lastGoodWriteIdx++;
-
-                // If we were in a gap, apply a short crossfade-in from the PLC
-                // output to avoid a click at the gap->data transition.
+                // If resuming after a gap, crossfade from last PLC output to real audio
                 if (gapLength > 0)
                 {
-                    int fadeIn = juce::jmin(gapLength, 32);
-                    // We are at the first good sample after a gap — the fade-in
-                    // was already partially applied by the gap handler. Just
-                    // reset the gap counter.
+                    fadeBackIn = juce::jmin(gapLength, 64);
+                    fadeBackTotal = fadeBackIn;
                     gapLength = 0;
                 }
+
+                if (fadeBackIn > 0)
+                {
+                    float t = (float)(fadeBackTotal - fadeBackIn + 1) / (float)(fadeBackTotal + 1);
+                    output[i] = lastPlcOutput * (1.0f - t) + sample * t;
+                    fadeBackIn--;
+                }
+                else
+                {
+                    output[i] = sample;
+                }
+
+                lastPlcOutput = sample; // track for next potential gap
+                lastGoodBlock[(size_t)(lastGoodWriteIdx % lastGoodLength)] = sample;
+                lastGoodWriteIdx++;
             }
             else
             {
                 // --- Packet loss concealment ---
                 gapLength++;
+                fadeBackIn = 0;
                 plcSamples.fetch_add(1, std::memory_order_relaxed);
-                output[i] = concealSample(gapLength);
+                lastPlcOutput = concealSample(gapLength);
+                output[i] = lastPlcOutput;
             }
 
             // Clear the slot for reuse.
@@ -542,6 +551,9 @@ private:
     int lastGoodLength = PACKET_SAMPLES;
     int lastGoodWriteIdx = 0;
     int gapLength = 0;
+    int fadeBackIn = 0;      // samples remaining in gap→data crossfade
+    int fadeBackTotal = 0;   // total crossfade length for current transition
+    float lastPlcOutput = 0.0f; // last output sample (real or concealed) for crossfade
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(JitterBuffer)
 };
