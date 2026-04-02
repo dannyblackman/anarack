@@ -319,7 +319,7 @@
       <span class="status-label" id="status-label">Offline</span>
     </div>
     <span class="conn-mode" id="conn-mode"></span>
-    <span class="stat-unit">v0.3.7</span>
+    <span class="stat-unit">v0.3.8</span>
     <div class="stat-group" id="rtt-group" style="display:none">
       <span class="stat-val" id="rtt-val">—</span>
       <span class="stat-unit">ms RTT</span>
@@ -695,6 +695,12 @@ function updateConnectionStatus(state) {
     rttVal.className = 'stat-val';
     // Append total latency info
     document.getElementById('rtt-group').title = 'Total latency reported to DAW: ' + state.totalLatency + 'ms (buffer + RTT)';
+  }
+
+  // Patch name from Rev2
+  if (state.patchName && state.patchName !== window._lastPatchName) {
+    window._lastPatchName = state.patchName;
+    screenName.textContent = state.patchName;
   }
 
   // ASRC/PLC diagnostics — log every 5 seconds

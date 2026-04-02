@@ -214,6 +214,26 @@ void NetworkTransport::sendPendingMidi()
     midiFifo.finishedRead(size1 + size2);
 }
 
+void NetworkTransport::handleJsonPacket(const uint8_t* data, int size)
+{
+    // Parse JSON messages from the server (CC updates, patch names)
+    auto json = juce::JSON::parse(juce::String::fromUTF8((const char*)data, size));
+    if (json.isVoid()) return;
+
+    auto type = json.getProperty("type", "").toString();
+    if (type == "cc" && onSynthCC)
+    {
+        int cc = (int)json.getProperty("cc", -1);
+        int value = (int)json.getProperty("value", 0);
+        if (cc >= 0) onSynthCC(cc, value);
+    }
+    else if (type == "patchName" && onPatchName)
+    {
+        auto name = json.getProperty("name", "").toString();
+        if (name.isNotEmpty()) onPatchName(name);
+    }
+}
+
 int NetworkTransport::getEstimatedRtt() const
 {
     if (wgTunnel)
@@ -247,6 +267,13 @@ void NetworkTransport::run()
 
         if (bytesRead <= 0)
             continue;
+
+        // JSON messages from server (CC updates, patch names)
+        if (bytesRead > 0 && bytesRead < 512 && packetBuf[0] == '{')
+        {
+            handleJsonPacket(packetBuf, bytesRead);
+            continue;
+        }
 
         if (bytesRead == 268 && jitterBuffer.isConfigured())
         {
@@ -293,6 +320,13 @@ void NetworkTransport::runWireGuard()
         {
             // No data ready — brief sleep to avoid busy spinning
             std::this_thread::sleep_for(std::chrono::microseconds(500));
+            continue;
+        }
+
+        // JSON messages from server (CC updates, patch names)
+        if (bytesRead > 0 && bytesRead < 512 && packetBuf[0] == '{')
+        {
+            handleJsonPacket(packetBuf, bytesRead);
             continue;
         }
 

@@ -276,17 +276,24 @@ class MidiRouter:
                     pass
 
     def _broadcast_cc(self, cc: int, value: int):
-        """Send a CC update to all connected MIDI WebSocket clients."""
-        if not self.midi_ws_clients or not self._loop:
-            return
+        """Send a CC update to all connected clients (WebSocket + UDP plugin)."""
         msg = json.dumps({"type": "cc", "cc": cc, "value": value})
-        dead = set()
-        for ws in self.midi_ws_clients:
-            try:
-                asyncio.run_coroutine_threadsafe(ws.send(msg), self._loop)
-            except Exception:
-                dead.add(ws)
-        self.midi_ws_clients -= dead
+        # WebSocket clients (browser)
+        if self.midi_ws_clients and self._loop:
+            dead = set()
+            for ws in self.midi_ws_clients:
+                try:
+                    asyncio.run_coroutine_threadsafe(ws.send(msg), self._loop)
+                except Exception:
+                    dead.add(ws)
+            self.midi_ws_clients -= dead
+        # UDP plugin clients
+        if audio_streamer:
+            for addr, sock in audio_streamer.udp_clients.items():
+                try:
+                    sock.sendto(msg.encode(), addr)
+                except Exception:
+                    pass
 
 
 class AudioStreamer:

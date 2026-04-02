@@ -51,6 +51,7 @@ public:
     std::atomic<int> asrcDupCount { 0 };         // ASRC: samples duplicated (buffer underfull)
     std::atomic<int> plcConcealCount { 0 };      // PLC: unfilled slots concealed
     std::atomic<int> lastBlockSize { 0 };        // actual numOutputSamples from processBlock
+    juce::String currentPatchName;               // last patch name from Rev2
 
     // Ring buffer for mapped CC values to push to UI (audio thread → message thread)
     static constexpr int CC_RING_SIZE = 64;

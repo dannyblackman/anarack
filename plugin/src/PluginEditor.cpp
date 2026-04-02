@@ -220,6 +220,12 @@ void AnarackEditor::timerCallback()
             state->setProperty("learnedFrom", learnFrom);
             state->setProperty("learnedTo", learnTo);
         }
+        // Patch name from Rev2
+        if (processor.currentPatchName.isNotEmpty())
+        {
+            state->setProperty("patchName", processor.currentPatchName);
+        }
+
         webView->emitEventIfBrowserIsVisible("connectionStatus", juce::var(state.get()));
 
         // Drain mapped CC ring buffer and push to JS for knob updates

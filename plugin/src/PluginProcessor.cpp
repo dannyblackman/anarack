@@ -98,6 +98,25 @@ AnarackProcessor::AnarackProcessor()
         if (sp.cc >= 0 && sp.cc < 128)
             paramByCC[sp.cc] = p;
     }
+
+    // Bidirectional MIDI: when the Rev2 sends CCs or patch names, push to UI
+    transport.onSynthCC = [this](int cc, int value)
+    {
+        if (cc < 0 || cc > 127) return;
+        ccValues[cc] = value;
+        // Push to ring buffer for UI knob update
+        int w = ccRingWrite.load(std::memory_order_relaxed);
+        ccRing[w % CC_RING_SIZE] = { (uint8_t)cc, (uint8_t)value };
+        ccRingWrite.store(w + 1, std::memory_order_release);
+        // Sync DAW parameter
+        if (auto* p = paramByCC[cc])
+            p->setValueNotifyingHost(p->convertTo0to1((float)value));
+    };
+
+    transport.onPatchName = [this](const juce::String& name)
+    {
+        currentPatchName = name;
+    };
 }
 
 AnarackProcessor::~AnarackProcessor()

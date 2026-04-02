@@ -44,6 +44,10 @@ public:
     // Called from audio thread — pushes a MIDI message into the lock-free FIFO.
     void sendMidi(const uint8_t* data, int size);
 
+    // Callbacks for incoming synth data (called from network thread)
+    std::function<void(int cc, int value)> onSynthCC;
+    std::function<void(const juce::String& name)> onPatchName;
+
     // Stats for UI
     int getPacketsReceived() const { return packetsReceived.load(); }
     int getBufferLevel() const { return audioBuffer.getNumReady(); }
@@ -55,6 +59,7 @@ private:
     void runWireGuard();  // Receive loop (WireGuard mode)
     void sendPendingMidi();
     void sendRegistration();
+    void handleJsonPacket(const uint8_t* data, int size);
 
     AudioRingBuffer& audioBuffer;
     JitterBuffer& jitterBuffer;
