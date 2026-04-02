@@ -1,5 +1,27 @@
 # Changelog
 
+## v0.3.3 — Reconnect fix, LAN stability (2026-04-02)
+
+- Fix reconnect race condition — stop old connect thread before resetting JitterBuffer
+- Fix LAN garbled audio — don't resize AudioRingBuffer while streaming
+- WgTunnel recv timeout 50ms→1ms, tick 100ms→10ms for less WireGuard jitter
+- JitterBuffer reset on disconnect prevents ghost PLC between sessions
+
+## v0.3.2 — Persist settings, P2P mode indicator (2026-04-02)
+
+- Buffer size, WireGuard mode, server host persisted in plugin state across DAW restarts
+- Buffer dropdown reflects saved value on editor open
+- Connection mode shows P2P / Relay / LAN in status bar
+
+## v0.3.1 — Auto-connect, connecting UI, P2P (2026-04-02)
+
+- P2P direct WireGuard connection via Session API with ephemeral keys
+- Auto-connect on plugin load (background thread from prepareToPlay)
+- Connecting state: yellow pulsing dot, stays until audio flows
+- Boot animation: knobs animate from zero on connect
+- Session API + Pi Agent for P2P connection coordination
+- Pi agent cleans up previous sessions on new connection
+
 ## v0.3.0 — Stable ASRC Streaming (2026-04-02)
 
 Drift correction that actually works. Zero clicks in extended recordings.

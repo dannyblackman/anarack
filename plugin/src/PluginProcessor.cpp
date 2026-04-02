@@ -209,9 +209,14 @@ void AnarackProcessor::disconnectAndCleanup()
 
 void AnarackProcessor::reconnect()
 {
+    // Stop old connect thread FIRST to avoid race with reset
+    if (connectThread)
+    {
+        connectThread->signalThreadShouldExit();
+        connectThread->stopThread(3000);
+        connectThread.reset();
+    }
     disconnectAndCleanup();
-    // Run autoConnect on a background thread
-    if (connectThread) connectThread->stopThread(3000);
     connectThread = std::make_unique<ConnectThread>(*this);
     connectThread->startThread();
 }
@@ -307,18 +312,22 @@ void AnarackProcessor::handleIncomingMidiMessage(juce::MidiInput*, const juce::M
 
 void AnarackProcessor::prepareToPlay(double sampleRate, int samplesPerBlock)
 {
-    // Ring buffer: 500ms at server sample rate (48kHz)
-    int bufferSize = (int)(SERVER_SAMPLE_RATE * 0.5);
-    audioRingBuffer.resize(bufferSize);
-
     // Resampling ratio: how many input (48kHz) samples per output sample
     baseResampleRatio = SERVER_SAMPLE_RATE / sampleRate;
     resampleRatio = baseResampleRatio;
-    resampler.reset();
-    asrcInitialised = false;
-    updatePrebuffer();
-    prebuffering = true;
-    setLatencySamples(prebufferSamples);
+
+    // Only reset audio buffers if not currently streaming
+    // (DAW may call prepareToPlay multiple times; resizing while streaming corrupts audio)
+    if (!transport.isConnected())
+    {
+        int bufferSize = (int)(SERVER_SAMPLE_RATE * 0.5);
+        audioRingBuffer.resize(bufferSize);
+        resampler.reset();
+        asrcInitialised = false;
+        updatePrebuffer();
+        prebuffering = true;
+        setLatencySamples(prebufferSamples);
+    }
 
     // Pre-allocate buffer for resampler input (worst case: full block at highest ratio)
     int maxInputSamples = (int)(samplesPerBlock * resampleRatio + 16);

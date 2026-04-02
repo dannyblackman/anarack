@@ -175,9 +175,12 @@ cmake --build build --config Release
 
 # Install AU for Logic
 cp -R build/AnarackRev2_artefacts/Release/AU/"Anarack Rev2.component" ~/Library/Audio/Plug-Ins/Components/
-
-# After every build: bump version in plugin/ui/rev2-panel.html
 ```
+
+### IMPORTANT: On every build
+1. **Bump the version** in `plugin/ui/rev2-panel.html` (the `vX.Y.Z` in the status bar span)
+2. **Update CHANGELOG.md** with a brief summary of what changed
+3. Use patch version (Z) for fixes, minor version (Y) for features
 
 ## Key Decisions
 
