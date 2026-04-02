@@ -319,7 +319,7 @@
       <span class="status-label" id="status-label">Offline</span>
     </div>
     <span class="conn-mode" id="conn-mode"></span>
-    <span class="stat-unit">v0.3.3</span>
+    <span class="stat-unit">v0.3.4</span>
     <div class="stat-group" id="rtt-group" style="display:none">
       <span class="stat-val" id="rtt-val">—</span>
       <span class="stat-unit">ms RTT</span>
@@ -637,7 +637,7 @@ function updateConnectionStatus(state) {
     log('Connected via ' + (state.mode || 'unknown'));
     bootAnimation();
   }
-  if (!_connected && wasConnected) { log('Disconnected'); _booted = false; }
+  if (!_connected && wasConnected) { log('Disconnected'); _booted = false; window._loggedFirstDiag = false; window._lastDiagTotal = 0; window._loggedAutoBuffer = false; }
 
   // Log auto-detected buffer size once
   if (state.autoBuffer > 0 && !window._loggedAutoBuffer) {
@@ -705,7 +705,8 @@ function updateConnectionStatus(state) {
       const lost = state.pktLost || 0;
       const drops = state.asrcDrops || 0;
       const dups = state.asrcDups || 0;
-      if (drops + dups + plc > (window._lastDiagTotal || 0)) {
+      if (drops + dups + plc > (window._lastDiagTotal || 0) || !window._loggedFirstDiag) {
+        window._loggedFirstDiag = true;
         const buf = state.bufferMs ? state.bufferMs.toFixed(0) : '?';
         let msg = 'ASRC: ' + drops + 'd ' + dups + 'u | PLC: ' + plc + ' | Buf: ' + buf + 'ms | Lost: ' + lost;
         if (state.blockSize && !window._loggedBlockSize) {

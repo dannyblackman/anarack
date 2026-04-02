@@ -194,8 +194,11 @@ void AnarackProcessor::autoConnect()
 void AnarackProcessor::disconnectAndCleanup()
 {
     transport.disconnect();
-    jitterBuffer.reset();  // stop processBlock from reading empty buffer
-    prebuffering = true;   // reset AudioRingBuffer prebuffer too
+    jitterBuffer.reset();       // stop processBlock from reading empty buffer
+    resampler.reset();          // clear stale interpolator state
+    asrcInitialised = false;
+    prebuffering = true;        // reset AudioRingBuffer prebuffer
+    updatePrebuffer();          // recalculate prebuffer target for current buffer size
     if (currentSessionId.isNotEmpty())
     {
         sessionClient.endSession(currentSessionId);
@@ -204,7 +207,6 @@ void AnarackProcessor::disconnectAndCleanup()
     connectionState.store((int)ConnState::disconnected);
     asrcDropCount.store(0, std::memory_order_relaxed);
     asrcDupCount.store(0, std::memory_order_relaxed);
-    asrcInitialised = false;
 }
 
 void AnarackProcessor::reconnect()
