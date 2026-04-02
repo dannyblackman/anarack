@@ -4,137 +4,208 @@ Remote hardware synth studio — producers control real synths over the internet
 
 ## Project Phase
 
-**Phase 1 — Production plugin working.** The AU/VST3 plugin connects to the Pi over the internet via an embedded WireGuard tunnel, with a VPS relay handling NAT traversal. Tested at 18ms RTT on WiFi, ~80ms on 4G.
+**Phase 2 — P2P direct connection working.** The AU/VST3 plugin connects directly to the Pi via Session API with ephemeral WireGuard keys. ASRC drift correction produces click-free audio. Tested stable at 80ms buffer on LAN, 200ms on WireGuard.
+
+## Current Version
+
+**v0.3.2** — Check `plugin/ui/rev2-panel.html` for the version shown in the UI status bar. Increment on every build.
 
 ## Tech Stack
 
 - **Server (Pi):** Python 3.11+, JACK2, rtmidi, asyncio, WireGuard (kernel module)
+- **Session API:** Python asyncio HTTP + WebSocket (coordinates P2P connections, manages WG peers)
+- **Pi Agent:** Python service that registers Pi with Session API, manages WG peers dynamically
 - **Plugin (DAW):** JUCE C++ — builds as AU (Logic) + VST3 (Ableton) from one codebase
-- **Networking:** Embedded WireGuard (boringtun static lib in the plugin). No user-visible VPN — one plugin, click connect, it works.
-- **VPS Relay:** Vultr London, `66.245.195.65` — forwards encrypted UDP between plugin and Pi
-- **Audio:** JACK at 64 samples / 48kHz, raw PCM over UDP (int16 mono, 128-sample packets)
+- **Networking:** Embedded WireGuard (boringtun static lib in the plugin). No user-visible VPN.
+- **VPS Relay:** Vultr Manchester, `66.245.195.65` — fallback relay when P2P fails
+- **Audio:** JACK at 128 samples / 48kHz, raw PCM over UDP (int16 mono, 128-sample packets with 12-byte header)
 - **Legacy client (Web):** Vanilla HTML/JS demo UI, WebSocket for MIDI (still works for quick testing)
 
 ## Project Structure
 
 ```
-plugin/         — JUCE AU/VST3 plugin (C++, builds for Logic + Ableton)
-server/         — Runs on Raspberry Pi 5 (MIDI routing, audio engine, session management)
-client/         — Browser-based demo UI (virtual keyboard + CC sliders)
-scripts/        — Setup and utility scripts (JACK config, Pi setup, dev server)
-docs/strategy/  — Business plan & strategy docs (overview, financials, timelines, etc.)
-docs/plans/     — Implementation plans and specs
-worktrees/      — Git worktrees for feature branches (gitignored)
+plugin/              — JUCE AU/VST3 plugin (C++, builds for Logic + Ableton)
+  src/               — Plugin source (PluginProcessor, PluginEditor, NetworkTransport, WgTunnel, SessionClient, JitterBuffer)
+  ui/rev2-panel.html — Full Rev2 front panel UI (HTML/JS, served via WebBrowserComponent)
+  lib/               — Static libraries (libboringtun.a)
+server/              — Runs on Raspberry Pi 5
+  midi_router.py     — MIDI routing, audio streaming, JACK interface
+  session_api.py     — Session coordination API (HTTP + WebSocket + STUN)
+  pi_agent.py        — Pi registration, WG peer management
+client/              — Browser-based demo UI (virtual keyboard + CC sliders)
+scripts/             — Setup and utility scripts (JACK config, Pi setup, dev server)
+docs/strategy/       — Business plan & strategy docs
+docs/plans/          — Implementation plans and specs
 ```
 
-## Development Workflow
+## Audio Streaming Architecture
 
-### Branches
+### Packet Format
+- **12-byte header:** sequence (u32) + timestamp (u32) + flags (u16) + checksum (u16)
+- **Payload:** 128 × int16 samples = 256 bytes
+- **Total:** 268 bytes per packet, 375 packets/sec at 48kHz
+- **Server-side packet duplication:** each packet sent twice (5ms delayed) for loss recovery
 
-- `main` is the default branch — always deployable
-- Feature branches: `feat/description`
-- Bug fixes: `fix/description`
-- Chores/maintenance: `chore/description`
+### JitterBuffer (plugin/src/JitterBuffer.h)
+- Timestamp-indexed ring buffer — packets placed by timestamp, not arrival order
+- Packet loss concealment (PLC): crossfade from last good audio on gaps
+- PLC gap→data transition: 64-sample crossfade from last PLC output to real audio
+- 50% prebuffer target before playback starts
+- Fill level: `samplesWritten - totalSamplesRead` (only counts unique samples, not duplicates)
 
-### Worktrees
+### ASRC Drift Correction (plugin/src/PluginProcessor.cpp)
+Pi and DAW clocks drift by ~10-100ppm. The ASRC system corrects this:
+- **Smoothed fill error:** low-pass filter on buffer fill level vs target (block-size-independent alpha)
+- **Drift accumulator:** accumulates fractional sample drift per block
+- **Correction:** when accumulator reaches ±1, drop or duplicate 1 sample
+- **Linear interpolation:** maps N±1 input samples across N output samples (no splice, no click)
+- **Guard check:** only drop when buffer above target, only dup when below. Skip (don't reset) if guard blocks.
+- **Block-size independent:** filter alpha = blockSize / (sampleRate × 5.0), drift clamp = 7.0 × blockSize / sampleRate
+- **Startup delay:** 4 seconds (scaled by block size) before corrections begin
 
-Use git worktrees for parallel work on feature branches:
+### Tested Buffer Sizes
+| Connection | Min Stable Buffer | Notes |
+|-----------|-------------------|-------|
+| LAN (raw UDP) | 80ms | Zero encryption overhead |
+| P2P (WireGuard, same LAN) | 200ms | boringtun userspace jitter ~50ms |
+| Relay (WireGuard via VPS) | 300ms | Encryption + network jitter |
 
-```bash
-# Create a worktree for a new feature branch
-git worktree add worktrees/feat-my-feature -b feat/my-feature
+## Connection Modes
 
-# Clean up when done (after merging)
-git worktree remove worktrees/feat-my-feature
+### Three modes:
+1. **P2P** — Session API + ephemeral WireGuard keys, direct to Pi (preferred)
+2. **Relay** — Static WireGuard keys via VPS relay (fallback)
+3. **LAN** — Raw UDP, no encryption (development/testing)
+
+### P2P Connection Flow
+1. Plugin generates ephemeral X25519 keypair (`WgTunnel::generateKeypair()`)
+2. Plugin calls `POST /sessions` on Session API with its pubkey
+3. Session API notifies Pi Agent via WebSocket
+4. Pi Agent runs `wg set wg0 peer <pubkey> allowed-ips 10.0.0.10/32`
+5. API returns Pi's pubkey + WG listen port to plugin
+6. Plugin connects boringtun to Pi's LAN IP + WG port
+7. Audio streams directly, no VPS relay
+
+### Network Topology
+```
+P2P (preferred):
+Plugin (10.0.0.10) ◄──── WireGuard ────► Pi wg0 (10.0.0.2)
+                     direct, ~2-5ms LAN
+
+Relay (fallback):
+Plugin (10.0.0.3) ──► VPS (10.0.0.1) ──► Pi (10.0.0.2)
+                   66.245.195.65:51820
+
+LAN (dev):
+Plugin ◄──── raw UDP ────► Pi (192.168.1.131)
 ```
 
-### Commands
+### Tunnel IPs
+- `10.0.0.1` — VPS relay
+- `10.0.0.2` — Pi (WireGuard interface)
+- `10.0.0.3` — Plugin via VPS relay (static keys)
+- `10.0.0.10` — Plugin via P2P direct (ephemeral keys)
 
-```bash
-# Local dev (serves client UI)
-./scripts/dev.sh                   # http://localhost:8080
+### Session API (runs on Pi for now, move to VPS for production)
+- HTTP `:8800` — `GET /pis`, `POST /sessions`, `DELETE /sessions/{id}`
+- WebSocket `:8802` — Pi registration, heartbeat, session notifications
+- STUN UDP `:8801` — endpoint discovery for NAT traversal
 
-# Server (on Pi)
-cd server && pip install -r requirements.txt
-python midi_router.py              # Start MIDI routing server
-```
+## Plugin Architecture
 
-## Network Topology
+### Auto-connect
+- `prepareToPlay` triggers `autoConnect()` on a background thread
+- No need to open the editor — plugin connects when loaded by DAW
+- Connection state: disconnected → connecting → connected
+- UI stays yellow "Connecting" until JitterBuffer prebuffer fills (audio flowing)
 
-```
-Plugin (DAW)                    VPS Relay (Vultr London)           Pi (home)
-10.0.0.3  ──── WireGuard ────▶ 66.245.195.65 (10.0.0.1) ────▶ 192.168.1.131 (10.0.0.2)
-                                forwards encrypted UDP             WireGuard kernel module
-```
+### State Persistence
+`getStateInformation` / `setStateInformation` saves:
+- Server host, WireGuard mode, buffer size
+- MIDI learn mappings (ccMap[128])
+- Restored on DAW project reload
 
-- **Plugin tunnel IP:** `10.0.0.3`
-- **VPS tunnel IP:** `10.0.0.1` (relay at `66.245.195.65`)
-- **Pi tunnel IP:** `10.0.0.2` (LAN: `192.168.1.131`, hostname: `pi@anarack.local`)
-- **Two connection modes:** Raw UDP for LAN testing, WireGuard for internet. The plugin picks the right mode based on the target address.
-- **Adaptive pre-buffer:** 15ms on LAN, scales with measured RTT on internet connections.
-- **Sample rate resampling:** Server always sends 48kHz. Plugin resamples to match whatever rate the DAW host is running.
-
-## VPS Relay
-
-The VPS at `66.245.195.65` (Vultr London) runs WireGuard and forwards encrypted UDP between the plugin and the Pi. It solves NAT traversal — neither the plugin nor the Pi need open ports.
-
-```bash
-# SSH to the VPS
-ssh root@66.245.195.65
-
-# WireGuard config is at /etc/wireguard/wg0.conf
-# Check tunnel status
-wg show
-```
+### WebView UI
+- `plugin/ui/rev2-panel.html` — full Rev2 front panel
+- Dev mode: loads from filesystem if file exists at hardcoded path (hot reload)
+- Production: served via JUCE ResourceProvider
+- Boot animation: knobs animate from zero to default values on connect
+- ASRC/PLC diagnostics logged every 5 seconds in bottom-right panel
 
 ## Raspberry Pi Deployment
 
-The server runs on a Raspberry Pi 5. Deploy directly via SSH — never ask the user to SSH manually.
-
 ```bash
 # Connection
-ssh pi@anarack.local              # LAN: 192.168.1.131, WireGuard tunnel: 10.0.0.2
+ssh pi@anarack.local              # LAN: 192.168.1.131, WG tunnel: 10.0.0.2
 
-# Deploy server
-scp server/midi_router.py pi@anarack.local:~/anarack/server/midi_router.py
+# Deploy server files
+scp server/midi_router.py pi@anarack.local:~/anarack/server/
+scp server/session_api.py pi@anarack.local:~/anarack/server/
+scp server/pi_agent.py pi@anarack.local:~/anarack/server/
 
-# Restart server (use venv Python, PYTHONUNBUFFERED for log visibility)
+# Restart midi_router
 ssh pi@anarack.local "cd /home/pi/anarack && PYTHONUNBUFFERED=1 nohup venv/bin/python server/midi_router.py --midi-port 'Prophet Rev2' > /tmp/anarack.log 2>&1 &"
+
+# Restart session API + Pi agent
+ssh pi@anarack.local "cd /home/pi/anarack && PYTHONUNBUFFERED=1 nohup venv/bin/python server/session_api.py > /tmp/session_api.log 2>&1 &"
+ssh pi@anarack.local "cd /home/pi/anarack && PYTHONUNBUFFERED=1 nohup venv/bin/python server/pi_agent.py > /tmp/pi_agent.log 2>&1 &"
 
 # Check logs
 ssh pi@anarack.local "cat /tmp/anarack.log"
+ssh pi@anarack.local "cat /tmp/pi_agent.log"
+
+# Check WireGuard peers (clean up stale ephemeral peers)
+ssh pi@anarack.local "sudo wg show wg0"
 ```
 
 **Important:**
-- Python venv is at `~/anarack/venv/` — always use `venv/bin/python`
-- JACK runs as a separate process (`jackd -R -d alsa -d hw:0 -r 48000 -p 128 -n 3`)
+- Python venv: `~/anarack/venv/` — always use `venv/bin/python`
+- JACK: `jackd -R -d alsa -d hw:0 -r 48000 -p 128 -n 3`
 - Scarlett 18i16 is `hw:0`, Rev2 MIDI is on USB
-- WireGuard kernel module is configured on the Pi (`/etc/wireguard/wg0.conf`)
+- Pi WireGuard listen port: **33933** (NOT 51820 — check with `sudo wg show wg0`)
+- JACK xrun watchdog in midi_router.py auto-restarts JACK after 5 xruns in 60s
 
 ## Plugin Build
 
-The plugin builds AU + VST3 + Standalone from a single JUCE codebase. boringtun (Cloudflare's Rust WireGuard implementation) is compiled as a static library and linked into the plugin — no user-visible VPN, no separate app to install.
-
 ```bash
-# Build the plugin (from plugin/ directory)
-cmake -B build -G Xcode
+# Build (from plugin/ directory)
+cd plugin
+cmake -B build -G "Unix Makefiles" -DCMAKE_BUILD_TYPE=Release
 cmake --build build --config Release
 
-# Outputs:
-#   Anarack Rev2.component  → ~/Library/Audio/Plug-Ins/Components/  (Logic)
-#   Anarack Rev2.vst3       → ~/Library/Audio/Plug-Ins/VST3/        (Ableton, Bitwig)
-#   Anarack Rev2.app        → Standalone for testing
+# Install AU for Logic
+cp -R build/AnarackRev2_artefacts/Release/AU/"Anarack Rev2.component" ~/Library/Audio/Plug-Ins/Components/
 
-# Rebuild boringtun static lib (if needed)
-cd plugin/lib/boringtun/boringtun
-cargo build --lib --no-default-features --features ffi-bindings --release --target aarch64-apple-darwin
-# Then copy the .a to plugin/lib/libboringtun.a
+# After every build: bump version in plugin/ui/rev2-panel.html
 ```
 
 ## Key Decisions
 
-- **Embedded WireGuard** via boringtun (Cloudflare's Rust implementation) compiled as a static lib inside the plugin. No Tailscale, no VPN client, no user setup.
-- **VPS relay** for NAT traversal — the Pi stays behind home NAT, the VPS has a public IP, encrypted UDP flows through it.
-- JACK2 for audio capture on the Pi, raw PCM over UDP (no netjack2 in production path)
-- Python for the server; may move audio path to Rust later
-- Single JUCE codebase produces AU + VST3 — same source, different wrappers
+- **Embedded WireGuard** via boringtun — no Tailscale, no VPN client, no user setup
+- **Session API** for P2P — ephemeral keys per session, dynamic peer management
+- **P2P first, relay fallback** — direct connection when possible, VPS relay when NAT blocks it
+- **ASRC with linear interpolation** — not Lagrange resampler (caused jitter on int16 audio)
+- **JitterBuffer with PLC** — timestamp-indexed, crossfade concealment, better than simple ring buffer
+- **16-bit audio** — captures full Rev2 dynamic range (~90dB), lower bandwidth than 24-bit
+- **Block-size-independent ASRC** — works correctly at 32, 128, or 2048 sample blocks (Logic uses 32)
+- **Int16 PCM, not compressed** — lowest latency, acceptable bandwidth (~100KB/s mono)
+
+## Known Issues / TODO
+
+- **WireGuard jitter ~50ms** — boringtun userspace encryption adds jitter, limits P2P buffer to ~200ms
+- **Auto buffer detection** — needs thread-safe JitterBuffer resize (can't reconfigure while streaming)
+- **Bidirectional CC sync** — Rev2 can send CCs back (MIDI Param Xmit → CC), not yet wired to plugin
+- **Stale WG peers** — cleaned up on new session, but manual cleanup may be needed: `ssh pi@anarack.local "sudo wg show wg0"`
+- **VPS SSH** — SSH key not configured from dev machine, need to set up
+
+## Adding a New Synth / Rack
+
+When adding a new Pi rack or synth:
+
+1. **Pi setup:** Install JACK, WireGuard, Python venv, deploy server files (see `scripts/pi-setup/`)
+2. **WireGuard:** Configure wg0 with VPS as peer, note the listen port
+3. **Session API:** Register Pi with unique `pi_id` and synth list
+4. **Synth definition:** Add to `synths/` directory (JSON with CC mappings)
+5. **UI panel:** Create HTML panel matching the synth's front panel layout
+6. **Plugin:** Update synth parameter list in `PluginProcessor.cpp`
+7. **Test:** LAN first (80ms), then WireGuard P2P (200ms), then remote via VPS (300ms)
