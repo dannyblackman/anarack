@@ -198,9 +198,12 @@ class MidiRouter:
         resp_cmd = self._sysex_config.get("edit_buffer_response_cmd", 0x03)
 
         # Validate header
+        print(f"SysEx: len={len(message)} hdr=[{message[1]:02X},{message[2]:02X},{message[3]:02X}] expect=[{mfr_id[0]:02X},{dev_id:02X},{resp_cmd:02X}]")
         if message[1] != mfr_id[0] or message[2] != dev_id:
+            print(f"SysEx: manufacturer/device mismatch, skipping")
             return
         if message[3] != resp_cmd:
+            print(f"SysEx: command mismatch ({message[3]:02X} != {resp_cmd:02X}), skipping")
             return
 
         # Unpack the data (skip F0, header bytes, and trailing F7)
@@ -281,6 +284,7 @@ class MidiRouter:
     def _broadcast_cc(self, cc: int, value: int):
         """Send a CC update to all connected clients (WebSocket + UDP plugin)."""
         msg = json.dumps({"type": "cc", "cc": cc, "value": value})
+        print(f"Broadcasting CC {cc}={value} to {len(audio_streamer.udp_clients) if audio_streamer else 0} UDP clients")
         # WebSocket clients (browser)
         if self.midi_ws_clients and self._loop:
             dead = set()
