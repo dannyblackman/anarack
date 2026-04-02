@@ -155,6 +155,7 @@ AnarackEditor::AnarackEditor(AnarackProcessor& p)
             auto obj = juce::DynamicObject::Ptr(new juce::DynamicObject());
             obj->setProperty("host", processor.serverHost);
             obj->setProperty("lan", !processor.useWireGuard);
+            obj->setProperty("bufferMs", processor.fixedBufferMs.load());
             juce::Array<juce::var> devs;
             for (auto& name : processor.getAvailableMidiInputs())
                 devs.add(name);

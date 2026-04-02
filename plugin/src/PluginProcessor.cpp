@@ -194,6 +194,8 @@ void AnarackProcessor::autoConnect()
 void AnarackProcessor::disconnectAndCleanup()
 {
     transport.disconnect();
+    jitterBuffer.reset();  // stop processBlock from reading empty buffer
+    prebuffering = true;   // reset AudioRingBuffer prebuffer too
     if (currentSessionId.isNotEmpty())
     {
         sessionClient.endSession(currentSessionId);
@@ -643,6 +645,8 @@ void AnarackProcessor::getStateInformation(juce::MemoryBlock& destData)
 {
     juce::ValueTree state("AnarackState");
     state.setProperty("serverHost", serverHost, nullptr);
+    state.setProperty("fixedBufferMs", fixedBufferMs.load(), nullptr);
+    state.setProperty("useWireGuard", useWireGuard, nullptr);
     juce::MemoryOutputStream stream(destData, false);
     state.writeToStream(stream);
 }
@@ -651,7 +655,11 @@ void AnarackProcessor::setStateInformation(const void* data, int sizeInBytes)
 {
     auto state = juce::ValueTree::readFromData(data, (size_t)sizeInBytes);
     if (state.hasType("AnarackState"))
+    {
         serverHost = state.getProperty("serverHost", "anarack.local").toString();
+        fixedBufferMs.store((int)state.getProperty("fixedBufferMs", 300));
+        useWireGuard = (bool)state.getProperty("useWireGuard", true);
+    }
 }
 
 void AnarackProcessor::setFixedBuffer(int ms)
