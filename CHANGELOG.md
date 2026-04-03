@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.3.18 (build 54) — UI polish: patch name transitions, disconnect state (2026-04-03)
+
+- Screen keeps old patch name until new one arrives (no more '...' flash on program change)
+- Disconnect properly resets screen to "Connecting..."
+- Reconnect clears stale patch name state
+
 ## v0.3.17 (build 53) — Fix critical audio packet loss bug (2026-04-03)
 
 - **Root cause found:** JSON detection `packetBuf[0] == '{'` false-matched audio packets when the sequence number's low byte was 0x7B (123 = ASCII `{`). This silently dropped 1 audio packet every 256 packets = 7 clicks per 5 seconds.

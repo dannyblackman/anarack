@@ -640,8 +640,18 @@ function updateConnectionStatus(state) {
   if (_connected && !wasConnected) {
     log('Connected via ' + (state.mode || 'unknown'));
     bootAnimation();
+    // Request initial patch values after UI is ready
+    window._lastPatchName = null;
   }
-  if (!_connected && wasConnected) { log('Disconnected'); _booted = false; window._loggedFirstDiag = false; window._lastDiagTotal = 0; window._loggedAutoBuffer = false; }
+  if (!_connected && wasConnected) {
+    log('Disconnected');
+    _booted = false;
+    window._loggedFirstDiag = false;
+    window._lastDiagTotal = 0;
+    window._loggedAutoBuffer = false;
+    window._lastPatchName = null;
+    screenName.textContent = 'Connecting...';
+  }
 
   // Log auto-detected buffer size once
   if (state.autoBuffer > 0 && !window._loggedAutoBuffer) {
@@ -1076,12 +1086,12 @@ const _sendCCWrapped = function(cc, value) {
   if (cc === 120) {
     currentProgram = value;
     screenLoc.textContent = bankNames[currentBank] + ' P' + (currentProgram + 1);
-    screenName.textContent = '...';
+    // Keep current name until new patch data arrives
     log('Program: ' + bankNames[currentBank] + ' P' + (currentProgram + 1));
   } else if (cc === 121) {
     currentBank = value;
     screenLoc.textContent = bankNames[currentBank] + ' P' + (currentProgram + 1);
-    screenName.textContent = '...';
+    // Keep current name until new patch data arrives
     log('Bank: ' + bankNames[currentBank]);
   }
   _origSendCC(cc, value);
