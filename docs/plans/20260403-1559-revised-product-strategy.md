@@ -288,16 +288,104 @@ LA ─────────── US West Coast (sub-30ms)
 
 Four rigs, same synths everywhere. Total hardware investment at launch (Rev2 only): **~£10,400 for global coverage.**
 
-### Scaling Cost Summary
+### Synth Catalogue (Target)
 
-| Milestone | Rigs | Synths/rig | Hardware total | Monthly infra |
-|-----------|------|-----------|---------------|---------------|
-| Launch (UK only) | 1 | Rev2 | £2,600 | ~£500 (line + rent) |
-| EU expansion | 2 | Rev2 | £5,200 | ~£800 |
-| US expansion | 4 | Rev2 | £10,400 | ~£1,500 |
-| Full lineup (4 rigs × 4 synths) | 4 | Rev2 + Sub37 + Juno + OB-6 | £33,200 | ~£1,500 |
+| Synth | New/Used | Est. Cost | Character |
+|-------|----------|-----------|-----------|
+| Sequential Prophet Rev2 | New | £1,500 | Deep polysynth, pads, leads, sound design |
+| Moog Subsequent 37 | New | £1,200 | The Moog bass/lead sound |
+| Sequential Prophet 6 | Used | £1,800 | Classic Prophet, simpler than Rev2, beautiful |
+| Sequential OB-6 | Used | £2,200 | Oberheim character, huge pads |
+| Moog Minimoog Model D | Used | £3,500 | The most iconic synth ever made |
+| Roland Juno-106 | Used | £2,000 | The most sampled synth in history |
 
-Even the "full lineup" scenario is £33k — roughly the price of a used car. For a global commercial music service, these are remarkably low capital costs.
+Full catalogue: ~£12,200 per location. Not all needed at launch.
+
+### Concurrency and Synth Duplication
+
+Each synth can only serve one user at a time. At peak hours (~15% of subscribers online), you need enough units:
+
+| Subscribers | Peak concurrent (15%) | Units needed per popular synth |
+|-------------|----------------------|-------------------------------|
+| 50 | ~8 | 1-2 |
+| 100 | ~15 | 2-3 |
+| 200 | ~30 | 3-5 |
+| 350 | ~50 | 5-8 |
+
+Less popular synths need fewer units. Not every user wants every synth at the same time.
+
+### Scaling Roadmap with Revenue Projections
+
+**Phase 1: Launch (Leeds only, Rev2 + Sub37)**
+
+| | |
+|---|---|
+| **Synths** | 2× Rev2, 1× Sub37 |
+| **Hardware** | 1× NUC+RME (£1,100) + synths (£4,200) = **£5,300** |
+| **Monthly infra** | ~£500 (leased line + rent) |
+| **Target subs** | 50 |
+| **Revenue** | 50 × £30 = **£1,500/month** |
+| **Profit** | ~£780/month |
+| **Timeline** | Months 1-6 |
+
+Validates the product, builds word of mouth. Break-even at ~20 subscribers.
+
+**Phase 2: Growing UK (Leeds, expanded lineup)**
+
+| | |
+|---|---|
+| **Synths** | 3× Rev2, 2× Sub37, 1× Prophet 6, 1× OB-6 |
+| **Hardware** | 2× NUC+RME (£2,200) + synths (£9,700) = **£11,900** (cumulative) |
+| **Monthly infra** | ~£600 |
+| **Target subs** | 150 |
+| **Revenue** | 150 × £30 = **£4,500/month** |
+| **Profit** | ~£3,400/month |
+| **Timeline** | Months 6-12 |
+
+Revenue funds Berlin expansion. Multiple synth models attract different producer types.
+
+**Phase 3: EU expansion (Leeds + Berlin)**
+
+| | |
+|---|---|
+| **Synths (Berlin rig)** | 2× Rev2, 1× Sub37, 1× Prophet 6, 1× Minimoog |
+| **New hardware** | 1× NUC+RME (£1,100) + synths (£8,000) = £9,100. **Cumulative: ~£21,000** |
+| **Monthly infra** | ~£1,000 (2 sites) |
+| **Target subs** | 250 (UK + EU) |
+| **Revenue** | 250 × £30 = **£7,500/month** |
+| **Profit** | ~£5,600/month |
+| **Timeline** | Months 12-18 |
+
+Berlin opens EU market. You maintain it on regular trips.
+
+**Phase 4: Global (Leeds + Berlin + NYC + LA)**
+
+| | |
+|---|---|
+| **Synths (US rigs, 2 locations)** | Same lineup as Leeds, mirrored |
+| **New hardware** | 2× NUC+RME (£2,200) + synths (~£16,000) = £18,200. **Cumulative: ~£39,200** |
+| **Monthly infra** | ~£2,000 (4 sites) |
+| **Target subs** | 400+ (UK + EU + US) |
+| **Revenue** | 400 × £30 = **£12,000/month** |
+| **Profit** | ~£8,400/month |
+| **Timeline** | Months 18-24 |
+
+US remote hands service needed (~£200/month per site for occasional maintenance).
+
+### Financial Summary
+
+| | Phase 1 | Phase 2 | Phase 3 | Phase 4 |
+|---|---|---|---|---|
+| **Subscribers** | 50 | 150 | 250 | 400 |
+| **Monthly revenue** | £1,500 | £4,500 | £7,500 | £12,000 |
+| **Monthly costs** | £720 | £1,100 | £1,900 | £3,600 |
+| **Monthly profit** | £780 | £3,400 | £5,600 | £8,400 |
+| **Cumulative capex** | £5,300 | £11,900 | £21,000 | £39,200 |
+| **Capex payback** | 7 months | 4 months | 4 months | 5 months |
+
+Each phase funds the next. The hardware pays for itself within months. Margins improve as subscriber count grows because infrastructure costs are largely fixed.
+
+**The £10k/month target is achievable between Phase 3 and Phase 4** — roughly 300-350 subscribers across UK and EU, before even entering the US market.
 
 ## Engineering Priorities (In Order)
 
@@ -346,7 +434,7 @@ Even the "full lineup" scenario is £33k — roughly the price of a used car. Fo
 
 ## Revenue Model
 
-**Target: £10k/month within 1 year.**
+**Target: £10k/month within 18 months.**
 
 Subscription-based access to the synth studio:
 
@@ -356,26 +444,11 @@ Subscription-based access to the synth studio:
 | Producer | £30/month | 10 hours/week, all synths |
 | Studio | £60/month | Unlimited, priority access, offline bounce queue |
 
-At £30/month average:
-- 100 subscribers = £3,000/month
-- 200 subscribers = £6,000/month
-- **334 subscribers = £10,000/month**
+At £30/month average, breakeven is ~20 subscribers (Phase 1). £10k/month at ~300-350 subscribers (Phase 3/4).
 
-334 paying producers in the UK is achievable if the product is genuinely good. There are ~50,000 active music producers in the UK (based on DAW license estimates). You need 0.7% of them.
+There are ~50,000 active music producers in the UK alone, ~500,000 in the US. You need 0.07% of the combined market. The addressable audience is every producer who wants analogue sound but can't afford or house the hardware.
 
-**Cost structure at £10k/month (UK only, Rev2 launch):**
-- Office + leased line: ~£500/month
-- Hardware depreciation: ~£110/month (£2,600 over 2 years)
-- Software/services: ~£100/month
-- **Profit: ~£9,300/month** before tax
-
-**Cost structure at £10k/month (4 rigs, Rev2 only):**
-- Infrastructure (4 sites): ~£1,500/month
-- Hardware depreciation: ~£430/month (£10,400 over 2 years)
-- Software/services: ~£100/month
-- **Profit: ~£7,970/month** before tax
-
-The margins are excellent because hardware cost is fixed and shared across all subscribers. Each additional subscriber is almost pure profit.
+See **Scaling Roadmap** above for detailed revenue and cost projections per phase.
 
 ## What We're NOT Building
 
