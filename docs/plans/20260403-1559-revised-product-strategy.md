@@ -186,6 +186,49 @@ sequenceDiagram
 
 ## Deployment Roadmap
 
+### Production Hardware per Rig
+
+Pi + Scarlett is fine for development. Production rigs need 24/7 reliability:
+
+| Component | Dev (current) | Production | Why upgrade |
+|-----------|--------------|------------|-------------|
+| Computer | Pi 5 (£80) | Intel NUC 13 Pro or similar mini PC (~£400) | NVMe boot (no SD card failure), wake-on-LAN, BIOS watchdog, dual ethernet |
+| Audio interface | Scarlett 18i20 (£100) | RME Babyface Pro FS (~£600) | Class-compliant USB, rock-solid Linux drivers, designed for 24/7 operation. RME is what studios and broadcast use. |
+| Power | Standard plug | Smart PDU with remote reboot (~£80) | Remote power cycle when nothing else works |
+| Storage | SD card / single NVMe | Mirrored NVMe pair (RAID 1) | Survives drive failure without downtime |
+| OS | Raspberry Pi OS | Ubuntu Server 24.04 LTS + PREEMPT_RT kernel | Real-time scheduling, 5 years security updates |
+
+**Production rig cost (excluding synths): ~£1,100**
+
+Upgrade path: Ship with the Pi for validation. Upgrade to production hardware when taking money. The software is identical — just swap the computer and audio interface.
+
+### Synth Lineup — Mirrored Across All Locations
+
+Every rig has the **same synths**. A user in LA gets the same instruments as a user in Leeds. The synth selection is a product decision, not a per-location decision. Users expect access to the full catalogue regardless of where they are.
+
+**Launch lineup (per rig):**
+
+| Synth | Cost | Why |
+|-------|------|-----|
+| Sequential Prophet Rev2 | ~£1,500 | Flagship polysynth, deep sound design, already working |
+
+**Growth lineup (add when revenue supports, roll out to ALL rigs simultaneously):**
+
+| Synth | Cost | Why |
+|-------|------|-----|
+| Moog Subsequent 37 | ~£1,200 | Iconic mono/paraphonic, the Moog sound |
+| Roland Juno-106 (or JU-06A) | ~£2,000 (vintage) / £400 (boutique) | The most sampled synth in history, instant recognition |
+| Sequential OB-6 | ~£2,500 | Oberheim character, huge pads |
+| Korg Prologue | ~£1,000 | Modern digital/analogue hybrid, versatile |
+
+**Cost per rig at each stage:**
+
+| Stage | Synths | Hardware (prod) | Synth cost | Total per rig |
+|-------|--------|----------------|------------|---------------|
+| Launch | Rev2 only | £1,100 | £1,500 | £2,600 |
+| Growth 1 | + Moog Sub37 | £1,100 | £2,700 | £3,800 |
+| Growth 2 | + Juno + OB-6 | £1,100 | £7,200 | £8,300 |
+
 ### Rig #1: Leeds HQ (Now → Launch)
 
 ```
@@ -196,10 +239,11 @@ sequenceDiagram
 │  Static IP, low jitter              │
 │                                     │
 │  ┌─── Rack ────────────────────┐    │
-│  │  Pi 5                       │    │
-│  │  Scarlett 18i20             │    │
+│  │  NUC / mini PC              │    │
+│  │  RME Babyface Pro FS        │    │
 │  │  Prophet Rev2               │    │
-│  │  [Future: Moog, Korg, etc]  │    │
+│  │  [Growth: Moog, Juno, etc]  │    │
+│  │  Smart PDU (remote reboot)  │    │
 │  └─────────────────────────────┘    │
 │                                     │
 │  Also: desk, monitors, camera       │
@@ -209,26 +253,29 @@ sequenceDiagram
 └─────────────────────────────────────┘
 ```
 
-- **Cost:** ~£200-300/month leased line + office rent
+- **Cost:** ~£2,600 hardware + ~£200-300/month leased line + office rent
 - **Coverage:** Sub-35ms to most of UK. 40-50ms to London (still playable).
-- **Synths:** Start with Rev2. Add more as revenue allows.
 - **Content:** Studio space for YouTube demos, walkthroughs, marketing material. "This is the room your synth signal comes from."
+- **Dev on Pi first** — prove the latency, then upgrade to production hardware before launch.
 
 ### Rig #2: Berlin (After UK Traction)
 
 - EU market, electronic music capital
-- You're there regularly — can set up and maintain
+- You're there regularly — can set up and maintain personally
 - Quarter rack colo or small studio space
+- **Same synth lineup as Leeds** — mirrored catalogue
 - Opens: Germany, Netherlands, Scandinavia, Eastern Europe
 - ~5-10ms RTT to most of central/western Europe
+- ~£2,600 hardware (Rev2 launch) + ~€200-300/month colo
 
 ### Rig #3-4: US East + West (Revenue Supports It)
 
-- NYC data centre: covers east coast producers
-- LA data centre: covers west coast producers
-- Quarter rack colo: ~$200-400/month each
+- NYC data centre + LA data centre — covers entire US
+- Quarter rack colo: ~$250-400/month each
+- **Same synth lineup** — mirrored catalogue
 - ~5-10ms RTT within region
 - Need local engineer or reliable remote hands service
+- ~$3,000 per rig (Rev2 launch)
 
 ### Coverage Map (at scale)
 
@@ -239,7 +286,18 @@ NYC ────────── US East Coast (sub-30ms)
 LA ─────────── US West Coast (sub-30ms)
 ```
 
-Four rigs covering the majority of the western music production market. Each additional synth per rig is ~£1,000-2,000 hardware cost, no additional engineering.
+Four rigs, same synths everywhere. Total hardware investment at launch (Rev2 only): **~£10,400 for global coverage.**
+
+### Scaling Cost Summary
+
+| Milestone | Rigs | Synths/rig | Hardware total | Monthly infra |
+|-----------|------|-----------|---------------|---------------|
+| Launch (UK only) | 1 | Rev2 | £2,600 | ~£500 (line + rent) |
+| EU expansion | 2 | Rev2 | £5,200 | ~£800 |
+| US expansion | 4 | Rev2 | £10,400 | ~£1,500 |
+| Full lineup (4 rigs × 4 synths) | 4 | Rev2 + Sub37 + Juno + OB-6 | £33,200 | ~£1,500 |
+
+Even the "full lineup" scenario is £33k — roughly the price of a used car. For a global commercial music service, these are remarkably low capital costs.
 
 ## Engineering Priorities (In Order)
 
@@ -305,13 +363,19 @@ At £30/month average:
 
 334 paying producers in the UK is achievable if the product is genuinely good. There are ~50,000 active music producers in the UK (based on DAW license estimates). You need 0.7% of them.
 
-**Cost structure at £10k/month:**
-- Office + leased line: ~£800/month
-- Synth depreciation: ~£200/month (spreading hardware cost over 2 years)
+**Cost structure at £10k/month (UK only, Rev2 launch):**
+- Office + leased line: ~£500/month
+- Hardware depreciation: ~£110/month (£2,600 over 2 years)
 - Software/services: ~£100/month
-- **Profit: ~£8,900/month** before tax
+- **Profit: ~£9,300/month** before tax
 
-The margins are excellent because the hardware cost is fixed and shared across all subscribers.
+**Cost structure at £10k/month (4 rigs, Rev2 only):**
+- Infrastructure (4 sites): ~£1,500/month
+- Hardware depreciation: ~£430/month (£10,400 over 2 years)
+- Software/services: ~£100/month
+- **Profit: ~£7,970/month** before tax
+
+The margins are excellent because hardware cost is fixed and shared across all subscribers. Each additional subscriber is almost pure profit.
 
 ## What We're NOT Building
 
@@ -330,7 +394,7 @@ The margins are excellent because the hardware cost is fixed and shared across a
 | Leased line latency disappoints | High — investment wasted | Test over broadband first with port forwarding. Measure real RTT/jitter before committing to a lease. |
 | boringtun hard to remove from audio path | Medium — blocks latency improvement | Raw UDP already works (LAN mode). Just need to add token auth and make it work over public internet. |
 | Concurrent users contend for the same synth | Medium — scheduling problem | Queue system + booking. One user per synth at a time. Show availability in plugin. |
-| Hardware failure (synth, Pi, Scarlett) | Medium — downtime | Spare Pi + Scarlett on hand. Synth failure needs repair — budget for backup units as revenue grows. |
+| Hardware failure (synth, computer, audio interface) | Medium — downtime | Production rigs use NUC (NVMe, no SD card) + RME (rock-solid drivers) + smart PDU (remote reboot). Spare NUC + RME on hand. Synth failure needs repair — budget for backup units as revenue grows. |
 | 334 subscribers is ambitious for year 1 | Medium — revenue target missed | Start with lower pricing to build user base. Even 100 subs at £30 = £3k/month, enough to sustain part-time. |
 
 ## Validation Steps (Before Major Investment)
