@@ -1,5 +1,19 @@
 # Changelog
 
+## v0.3.20 (build 56) — Boot with real patch values, reconnect fix (2026-04-03)
+
+- Knobs + patch name load from Rev2 on every connect (first load, reconnect, re-add plugin)
+- Edit buffer request fires on every registration, throttled to 1 per 3 seconds
+- Fixed: edit buffer CCs were sent to wrong port (MIDI source port instead of audio port 9999)
+- Removed hardcoded "REV 2 Massive Pad" default — screen blank until real name arrives
+- Removed "Connected" text — screen shows real patch name directly
+- showConnectingState only fires if not already connected (was overwriting patch name)
+- Known: program/bank pot position not synced from SysEx (not in parameter mapping)
+
+## v0.3.19 (build 55) — Fix "Connecting..." stuck on screen (2026-04-03)
+
+- showConnectingState was overwriting "Connected" text after auto-connect
+
 ## v0.3.18 (build 54) — UI polish: patch name transitions, disconnect state (2026-04-03)
 
 - Screen keeps old patch name until new one arrives (no more '...' flash on program change)

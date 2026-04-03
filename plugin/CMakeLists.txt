@@ -1,8 +1,8 @@
 cmake_minimum_required(VERSION 3.22)
-project(AnarackRev2 VERSION 0.3.18)
+project(AnarackRev2 VERSION 0.3.20)
 
 # Build number: monotonically increasing, increment on every build
-set(ANARACK_BUILD_NUMBER 54)
+set(ANARACK_BUILD_NUMBER 56)
 
 set(CMAKE_CXX_STANDARD 17)
 

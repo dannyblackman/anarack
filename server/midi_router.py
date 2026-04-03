@@ -543,16 +543,23 @@ async def udp_server(router: MidiRouter, host: str, port: int, audio_port: int =
 
         def datagram_received(self, data, addr):
             router.send_from_udp(data)
-            # Register client for CC broadcast (sent back on same MIDI port)
-            client_addr = (addr[0], addr[1])
-            if client_addr not in router._udp_clients:
-                router._udp_clients.add(client_addr)
+            # Register client for CC broadcast on the AUDIO port
+            client_addr = (addr[0], audio_port)
+            is_new = client_addr not in router._udp_clients
+            router._udp_clients.add(client_addr)
+            if is_new:
                 print(f"Registered UDP client for CC broadcast: {client_addr}")
-                # Request edit buffer so new client gets current patch values
+
+            # Request edit buffer on EVERY registration packet (not just new clients)
+            # This handles reconnects where the client IP:port hasn't changed
+            if not hasattr(router, '_last_edit_request') or \
+               (time.monotonic() - router._last_edit_request) > 3.0:
+                router._last_edit_request = time.monotonic()
                 if router._loop:
                     router._loop.call_soon_threadsafe(
-                        router._loop.call_later, 2.0, router.request_edit_buffer
+                        router._loop.call_later, 3.0, router.request_edit_buffer
                     )
+
             # Auto-register this client for audio return
             if audio_streamer and (addr[0], audio_port) not in audio_streamer.udp_clients:
                 audio_streamer.add_udp_client((addr[0], audio_port), audio_sock)

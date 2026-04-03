@@ -537,9 +537,7 @@ function setAllKnobsToZero() {
 function bootAnimation() {
   if (_booted) return;
   _booted = true;
-  // Update patch screen — knobs stay at zero until real CC values arrive
-  // from the server's edit buffer request (triggered on client registration)
-  screenName.textContent = 'Connected';
+  // Don't set screen text — let the patchName from the status update fill it
 }
 
 // Animate a knob from its current value to a target value (used when CCs arrive)
@@ -569,7 +567,8 @@ function showConnectingState() {
 }
 
 // Initialize in connecting state
-setTimeout(showConnectingState, 100);
+// Only show connecting state if not already connected
+setTimeout(() => { if (!_connected) showConnectingState(); }, 100);
 
 // ── Log ──
 function log(msg) {
@@ -1064,7 +1063,7 @@ const screenHeader = document.createElement('div'); screenHeader.className = 'pa
 const screenLoc = document.createElement('div'); screenLoc.className = 'patch-loc'; screenLoc.textContent = 'U1 P1';
 const screenBpm = document.createElement('div'); screenBpm.className = 'patch-bpm'; screenBpm.textContent = '120';
 screenHeader.appendChild(screenLoc); screenHeader.appendChild(screenBpm);
-const screenName = document.createElement('div'); screenName.className = 'patch-name'; screenName.textContent = 'REV 2 Massive Pad';
+const screenName = document.createElement('div'); screenName.className = 'patch-name'; screenName.textContent = '';
 const screenParam = document.createElement('div'); screenParam.className = 'patch-param';
 const screenPName = document.createElement('div'); screenPName.className = 'patch-param-name'; screenPName.textContent = 'Sub Level';
 const screenPVal = document.createElement('div'); screenPVal.className = 'patch-param-val'; screenPVal.textContent = '62';
