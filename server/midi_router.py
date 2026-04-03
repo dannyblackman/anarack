@@ -124,6 +124,8 @@ class MidiRouter:
         self.midi_ws_clients: set = set()  # MIDI WebSocket clients for sending CC updates
         self._last_sent: dict[int, float] = {}  # {cc: timestamp} for echo suppression
         self._loop: asyncio.AbstractEventLoop | None = None
+        self._udp_transport = None  # set by udp_server after startup
+        self._udp_clients: set = set()  # {(ip, port)} for CC broadcast
 
         # Build SysEx mapping from active synth definition
         self._sysex_offset_to_cc = {}
@@ -150,8 +152,21 @@ class MidiRouter:
 
     def send_from_udp(self, data: bytes):
         """Parse and forward a UDP MIDI packet."""
-        if len(data) >= 2:
-            self.send(list(data[:3] if len(data) >= 3 else data))
+        if len(data) < 2:
+            return
+        if data[0] == 0xFE:
+            return  # registration packet, not MIDI
+        msg = list(data[:3] if len(data) >= 3 else data)
+        status = msg[0] & 0xF0
+        if status in (0xC0, 0xD0):
+            self.send(msg[:2])
+            # On program change, request edit buffer so UI knobs update
+            if status == 0xC0 and self._loop:
+                self._loop.call_soon_threadsafe(
+                    self._loop.call_later, 0.1, self.request_edit_buffer
+                )
+        else:
+            self.send(msg)
 
     def send_from_websocket(self, payload: str):
         """Parse and forward a WebSocket MIDI message."""
@@ -239,8 +254,6 @@ class MidiRouter:
         if not message:
             return
         status = message[0] & 0xF0
-        if status in (0xB0, 0xC0, 0xF0):
-            print(f"Synth→Server: {' '.join(f'{b:02X}' for b in message[:8])}")
 
         # SysEx message
         if message[0] == 0xF0:
@@ -256,6 +269,7 @@ class MidiRouter:
             return
 
         if len(message) < 3:
+            print(f"Short message: {message}")
             return
         status = message[0] & 0xF0
         if status == 0xB0:
@@ -284,7 +298,6 @@ class MidiRouter:
     def _broadcast_cc(self, cc: int, value: int):
         """Send a CC update to all connected clients (WebSocket + UDP plugin)."""
         msg = json.dumps({"type": "cc", "cc": cc, "value": value})
-        print(f"Broadcasting CC {cc}={value} to {len(audio_streamer.udp_clients) if audio_streamer else 0} UDP clients")
         # WebSocket clients (browser)
         if self.midi_ws_clients and self._loop:
             dead = set()
@@ -294,11 +307,20 @@ class MidiRouter:
                 except Exception:
                     dead.add(ws)
             self.midi_ws_clients -= dead
-        # UDP plugin clients
-        if audio_streamer:
-            for addr, sock in audio_streamer.udp_clients.items():
+        # UDP plugin clients (use audio_streamer's client list)
+        if audio_streamer and audio_streamer.udp_clients:
+            encoded = msg.encode()
+            for addr, sock in list(audio_streamer.udp_clients.items()):
                 try:
-                    sock.sendto(msg.encode(), addr)
+                    sock.sendto(encoded, addr)
+                except Exception:
+                    pass
+        # Also send via the UDP transport socket if available
+        elif self._udp_transport and self._udp_clients:
+            encoded = msg.encode()
+            for addr in list(self._udp_clients):
+                try:
+                    self._udp_transport.sendto(encoded, addr)
                 except Exception:
                     pass
 
@@ -520,8 +542,16 @@ async def udp_server(router: MidiRouter, host: str, port: int, audio_port: int =
     audio_sock = _socket.socket(_socket.AF_INET, _socket.SOCK_DGRAM)
 
     class MidiUDPProtocol(asyncio.DatagramProtocol):
+        def connection_made(self, transport):
+            router._udp_transport = transport
+
         def datagram_received(self, data, addr):
             router.send_from_udp(data)
+            # Register client for CC broadcast (sent back on same MIDI port)
+            client_addr = (addr[0], addr[1])
+            if client_addr not in router._udp_clients:
+                router._udp_clients.add(client_addr)
+                print(f"Registered UDP client for CC broadcast: {client_addr}")
             # Auto-register this client for audio return
             if audio_streamer and (addr[0], audio_port) not in audio_streamer.udp_clients:
                 audio_streamer.add_udp_client((addr[0], audio_port), audio_sock)
@@ -710,15 +740,74 @@ async def main():
     router = MidiRouter(midi_out, synth_mgr)
     router._loop = asyncio.get_running_loop()
 
-    # Open MIDI input from synth (bidirectional: receive CCs for UI sync)
+    # Open MIDI input from synth via raw ALSA device (not rtmidi sequencer).
+    # rtmidi can't receive on the same ALSA port that's open for output — the
+    # sequencer doesn't deliver data. Raw device access bypasses this limitation.
+    midi_in_fd = None
+    midi_in_dev = None
     try:
-        midi_in = open_midi_input(args.midi_port)
-        midi_in.ignore_types(sysex=False, timing=True, active_sense=True)
-        midi_in.set_callback(router.on_synth_message)
-        print("Bidirectional MIDI active — synth parameter changes will sync to clients")
-    except RuntimeError as e:
-        midi_in = None
-        print(f"WARNING: No MIDI input port — synth→browser sync disabled ({e})")
+        import subprocess as _sp
+        # Find the raw MIDI device for the synth
+        amidi_out = _sp.run(["amidi", "-l"], capture_output=True, text=True).stdout
+        for line in amidi_out.strip().split("\n"):
+            if args.midi_port and args.midi_port.lower() in line.lower():
+                midi_in_dev = line.split()[1]  # e.g. "hw:3,0,0"
+                break
+        if midi_in_dev:
+            import os as _os
+            # Map hw:X,Y,Z to /dev/snd/midiCXDY
+            parts = midi_in_dev.replace("hw:", "").split(",")
+            raw_path = f"/dev/snd/midiC{parts[0]}D{parts[1] if len(parts) > 1 else '0'}"
+            midi_in_fd = _os.open(raw_path, _os.O_RDONLY | _os.O_NONBLOCK)
+            print(f"Bidirectional MIDI active (raw device: {raw_path})")
+        else:
+            print("WARNING: Could not find raw MIDI device for synth input")
+    except Exception as e:
+        print(f"WARNING: Raw MIDI input failed: {e}")
+
+    async def poll_raw_midi():
+        """Read raw MIDI bytes from /dev/snd/midiCxDy and dispatch to router."""
+        import os as _os, select as _sel
+        buf = bytearray()
+        print("Raw MIDI polling started")
+        while True:
+            try:
+                if midi_in_fd is not None:
+                    r, _, _ = _sel.select([midi_in_fd], [], [], 0.002)
+                    if r:
+                        data = _os.read(midi_in_fd, 1024)
+                        if data:
+                            buf.extend(data)
+                            # Parse complete MIDI messages from buffer
+                            while buf:
+                                status = buf[0]
+                                if status == 0xF0:
+                                    # SysEx: find F7 terminator
+                                    end = buf.find(0xF7)
+                                    if end < 0:
+                                        break  # incomplete
+                                    msg = list(buf[:end+1])
+                                    del buf[:end+1]
+                                    router.on_synth_message((msg, 0))
+                                elif status & 0x80:
+                                    # Channel message
+                                    if (status & 0xF0) in (0xC0, 0xD0):
+                                        needed = 2
+                                    else:
+                                        needed = 3
+                                    if len(buf) < needed:
+                                        break  # incomplete
+                                    msg = list(buf[:needed])
+                                    del buf[:needed]
+                                    router.on_synth_message((msg, 0))
+                                else:
+                                    del buf[0]  # skip stray data byte
+                else:
+                    await asyncio.sleep(0.1)
+            except Exception as e:
+                print(f"Raw MIDI poll error: {e}")
+                await asyncio.sleep(0.1)
+            await asyncio.sleep(0)
 
     # Start UDP server
     udp_transport = await udp_server(router, args.host, args.udp_port)
@@ -746,6 +835,9 @@ async def main():
     print(f"  WebSocket: ws://{args.host}:{args.ws_port} (MIDI: / , Audio: /audio)")
     print(f"  Plugin UI: http://{args.host}:8080")
     print()
+
+    # Start raw MIDI polling
+    midi_poll_task = asyncio.create_task(poll_raw_midi()) if midi_in_fd is not None else None
 
     # Run until interrupted
     stop = asyncio.Event()
