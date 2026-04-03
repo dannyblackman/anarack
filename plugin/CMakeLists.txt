@@ -1,5 +1,8 @@
 cmake_minimum_required(VERSION 3.22)
-project(AnarackRev2 VERSION 0.1.0)
+project(AnarackRev2 VERSION 0.3.12)
+
+# Build number: monotonically increasing, increment on every build
+set(ANARACK_BUILD_NUMBER 48)
 
 set(CMAKE_CXX_STANDARD 17)
 
@@ -48,6 +51,8 @@ target_compile_definitions(AnarackRev2
         JUCE_USE_CURL=0
         JUCE_VST3_CAN_REPLACE_VST2=0
         JUCE_DISPLAY_SPLASH_SCREEN=0
+        ANARACK_VERSION="${PROJECT_VERSION}"
+        ANARACK_BUILD_NUMBER=${ANARACK_BUILD_NUMBER}
 )
 
 target_link_libraries(AnarackRev2

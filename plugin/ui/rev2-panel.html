@@ -319,7 +319,7 @@
       <span class="status-label" id="status-label">Offline</span>
     </div>
     <span class="conn-mode" id="conn-mode"></span>
-    <span class="stat-unit">v0.3.10</span>
+    <span class="stat-unit" id="version-label">v0.3.12</span>
     <div class="stat-group" id="rtt-group" style="display:none">
       <span class="stat-val" id="rtt-val">—</span>
       <span class="stat-unit">ms RTT</span>
@@ -750,6 +750,10 @@ function updateConnectionStatus(state) {
 if (_juce) {
   _juce.addEventListener("connectionStatus", (e) => updateConnectionStatus(e));
   _juce.addEventListener("initConfig", (e) => {
+    if (e.version) {
+      const label = document.getElementById('version-label');
+      if (label) label.textContent = e.build ? e.version + ' (' + e.build + ')' : e.version;
+    }
     if (e.host) document.getElementById('server-host').value = e.host;
     if (e.lan !== undefined) document.getElementById('lan-mode').checked = !!e.lan;
     if (e.bufferMs > 0) {

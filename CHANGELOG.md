@@ -1,5 +1,47 @@
 # Changelog
 
+## v0.3.12 (build 48) — Centralize version/build number (2026-04-03)
+
+- **Version single source of truth** — version and build number now defined in `plugin/CMakeLists.txt` only
+- CMake passes `ANARACK_VERSION` and `ANARACK_BUILD_NUMBER` as compile definitions
+- Plugin sends version + build to WebView UI via `initConfig` event
+- HTML status bar displays version from C++ (no more hardcoded version in HTML)
+- Build number is a monotonic integer — increment on every build, never reset
+- Status bar now shows `v0.3.12 (48)` format
+
+### Missing from changelog: v0.3.11
+
+v0.3.11 was released without a changelog entry. Changes unknown — included here for completeness.
+
+## v0.3.10 — Fix CC feedback loop, auto-detect Scarlett (2026-04-03)
+
+- Prevent bidirectional CC feedback loop: update lastAutomationVal when receiving CCs from synth
+- start-all.sh auto-detects Scarlett card number (was hardcoded hw:0)
+
+## v0.3.9 — Bidirectional MIDI via raw device (2026-04-03)
+
+- Fix: rtmidi can't receive on same ALSA port open for output. Switch MIDI input to raw /dev/snd/midiCxDy with asyncio polling
+- UDP program changes now trigger edit buffer request (was WebSocket only)
+- Rev2 USB MIDI output may need global settings toggled off/on after Pi reboot
+
+## v0.3.8 — Bidirectional MIDI: Rev2 → plugin UI (2026-04-02)
+
+- Server broadcasts CCs to UDP plugin clients (was WebSocket only)
+- Plugin parses JSON CC packets, updates UI knobs and DAW parameters
+- Patch name displayed on OLED screen
+- Transport.onSynthCC / onPatchName callbacks
+
+## v0.3.7 — Fix LAN garbled audio (2026-04-02)
+
+- Configure JitterBuffer for ALL modes (LAN + P2P). Server packet duplication was writing every packet twice to AudioRingBuffer (no dedup)
+- Default to LAN mode
+
+## v0.3.4-v0.3.6 — Reconnect fixes, diagnostics (2026-04-02)
+
+- Reset resampler on disconnect
+- Diagnostics always log at least once after connect
+- Various prepareToPlay fixes
+
 ## v0.3.3 — Reconnect fix, LAN stability (2026-04-02)
 
 - Fix reconnect race condition — stop old connect thread before resetting JitterBuffer

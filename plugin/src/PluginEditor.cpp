@@ -156,6 +156,8 @@ AnarackEditor::AnarackEditor(AnarackProcessor& p)
             obj->setProperty("host", processor.serverHost);
             obj->setProperty("lan", !processor.useWireGuard);
             obj->setProperty("bufferMs", processor.fixedBufferMs.load());
+            obj->setProperty("version", juce::String("v") + ANARACK_VERSION);
+            obj->setProperty("build", ANARACK_BUILD_NUMBER);
             juce::Array<juce::var> devs;
             for (auto& name : processor.getAvailableMidiInputs())
                 devs.add(name);

@@ -8,7 +8,7 @@ Remote hardware synth studio — producers control real synths over the internet
 
 ## Current Version
 
-**v0.3.2** — Check `plugin/ui/rev2-panel.html` for the version shown in the UI status bar. Increment on every build.
+**v0.3.12 (build 48)** — Single source of truth: `plugin/CMakeLists.txt` (`VERSION` + `ANARACK_BUILD_NUMBER`). Piped to C++ via compile defs, then to WebView UI via `initConfig`.
 
 ## Tech Stack
 
@@ -178,9 +178,11 @@ cp -R build/AnarackRev2_artefacts/Release/AU/"Anarack Rev2.component" ~/Library/
 ```
 
 ### IMPORTANT: On every build
-1. **Bump the version** in `plugin/ui/rev2-panel.html` (the `vX.Y.Z` in the status bar span)
-2. **Update CHANGELOG.md** with a brief summary of what changed
-3. Use patch version (Z) for fixes, minor version (Y) for features
+1. **Bump the version** in `plugin/CMakeLists.txt` — `project(AnarackRev2 VERSION X.Y.Z)`
+2. **Increment the build number** in `plugin/CMakeLists.txt` — `set(ANARACK_BUILD_NUMBER N)`
+3. **Update CHANGELOG.md** — log what changed, including things that didn't work. Format: `## vX.Y.Z (build N) — Description (YYYY-MM-DD)`
+4. Use patch (Z) for fixes, minor (Y) for features, major (X) for breaking changes
+5. The HTML fallback version in `plugin/ui/rev2-panel.html` should also be updated (shown before initConfig fires)
 
 ## Key Decisions
 
