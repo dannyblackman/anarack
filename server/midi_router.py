@@ -263,12 +263,20 @@ class MidiRouter:
             self._handle_sysex(message)
             return
 
-        # Program Change — request edit buffer to get all parameter values
-        if (message[0] & 0xF0) == 0xC0:
+        # Program Change — broadcast program number and request edit buffer
+        if (message[0] & 0xF0) == 0xC0 and len(message) >= 2:
+            program = message[1]
+            print(f"Program change from synth: {program}")
+            self._broadcast_cc(120, program)  # CC 120 = program number in UI
             if self._loop:
                 self._loop.call_soon_threadsafe(
                     self._loop.call_later, 0.05, self.request_edit_buffer
                 )
+            return
+
+        # Bank Select (CC 32) — broadcast as CC 121 for UI bank knob
+        if status == 0xB0 and len(message) >= 3 and message[1] == 32:
+            self._broadcast_cc(121, message[2])
             return
 
         if len(message) < 3:
