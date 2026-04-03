@@ -1,6 +1,15 @@
 # Changelog
 
-## v0.3.12 (build 48) — Centralize version/build number (2026-04-03)
+## v0.3.13 (build 49) — Boot animation with real patch values (2026-04-03)
+
+- On connect, knobs stay at zero until real CC values arrive from Rev2's edit buffer dump
+- Server requests edit buffer when plugin first registers — Rev2 sends all param values
+- Knobs animate from zero to actual patch positions (not defaults)
+- Fix CC broadcast: use MIDI UDP transport instead of audio_streamer socket (works for WireGuard)
+- Default to WireGuard/P2P mode (not LAN)
+- Fixed setStateInformation default for useWireGuard
+
+## v0.3.12 (build 48) — Centralize version/build number (2026-04-03 11:10)
 
 - **Version single source of truth** — version and build number now defined in `plugin/CMakeLists.txt` only
 - CMake passes `ANARACK_VERSION` and `ANARACK_BUILD_NUMBER` as compile definitions

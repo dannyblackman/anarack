@@ -224,6 +224,7 @@ class MidiRouter:
         # Unpack the data (skip F0, header bytes, and trailing F7)
         packed = message[4:-1]
         raw = self._unpack_sysex(packed)
+        print(f"SysEx unpacked: {len(raw)} bytes, {len(self._sysex_offset_to_cc)} mappings")
 
         # Extract patch name (Rev2: 20 ASCII chars at offset 235-254)
         if len(raw) >= 255:
@@ -307,16 +308,8 @@ class MidiRouter:
                 except Exception:
                     dead.add(ws)
             self.midi_ws_clients -= dead
-        # UDP plugin clients (use audio_streamer's client list)
-        if audio_streamer and audio_streamer.udp_clients:
-            encoded = msg.encode()
-            for addr, sock in list(audio_streamer.udp_clients.items()):
-                try:
-                    sock.sendto(encoded, addr)
-                except Exception:
-                    pass
-        # Also send via the UDP transport socket if available
-        elif self._udp_transport and self._udp_clients:
+        # UDP plugin clients — send via the MIDI UDP transport (works for both LAN and WG)
+        if self._udp_transport and self._udp_clients:
             encoded = msg.encode()
             for addr in list(self._udp_clients):
                 try:
@@ -552,6 +545,11 @@ async def udp_server(router: MidiRouter, host: str, port: int, audio_port: int =
             if client_addr not in router._udp_clients:
                 router._udp_clients.add(client_addr)
                 print(f"Registered UDP client for CC broadcast: {client_addr}")
+                # Request edit buffer so new client gets current patch values
+                if router._loop:
+                    router._loop.call_soon_threadsafe(
+                        router._loop.call_later, 0.5, router.request_edit_buffer
+                    )
             # Auto-register this client for audio return
             if audio_streamer and (addr[0], audio_port) not in audio_streamer.udp_clients:
                 audio_streamer.add_udp_client((addr[0], audio_port), audio_sock)

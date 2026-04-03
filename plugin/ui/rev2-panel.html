@@ -515,7 +515,12 @@ if (_juce) {
     if (ctrl) {
       // Scale from 0-127 CC range back to native range if needed
       const nativeVal = ctrl._max > 127 ? Math.round(e.value * ctrl._max / 127) : e.value;
-      ctrl.setValue(nativeVal);
+      // Animate if knobs are at zero (boot), snap otherwise (live knob turns)
+      if (!_booted || ctrl.getValue() === 0) {
+        animateKnob(ctrl, nativeVal, 0);
+      } else {
+        ctrl.setValue(nativeVal);
+      }
     }
   });
 }
@@ -532,24 +537,24 @@ function setAllKnobsToZero() {
 function bootAnimation() {
   if (_booted) return;
   _booted = true;
-  // Update patch screen
+  // Update patch screen — knobs stay at zero until real CC values arrive
+  // from the server's edit buffer request (triggered on client registration)
   screenName.textContent = 'Connected';
-  // Animate each knob to its default value with staggered timing
-  const entries = Object.entries(ccRegistry);
-  entries.forEach(([cc, ctrl], i) => {
-    const targetVal = ctrl._defaultVal !== undefined ? ctrl._defaultVal : Math.round(ctrl._max * 0.5);
-    const delay = 100 + i * 15; // stagger: 15ms between each knob
-    const duration = 400; // animation duration per knob
-    const startVal = 0;
-    const startTime = performance.now() + delay;
-    function animate(now) {
-      const elapsed = now - startTime;
-      if (elapsed < 0) { requestAnimationFrame(animate); return; }
-      const t = Math.min(1, elapsed / duration);
-      // Ease-out cubic
-      const eased = 1 - Math.pow(1 - t, 3);
-      const v = Math.round(startVal + (targetVal - startVal) * eased);
-      ctrl.setValue(v);
+}
+
+// Animate a knob from its current value to a target value (used when CCs arrive)
+function animateKnob(ctrl, targetVal, delay) {
+  const duration = 400;
+  const startVal = ctrl.getValue();
+  if (startVal === targetVal) return;
+  const startTime = performance.now() + (delay || 0);
+  function animate(now) {
+    const elapsed = now - startTime;
+    if (elapsed < 0) { requestAnimationFrame(animate); return; }
+    const t = Math.min(1, elapsed / duration);
+    const eased = 1 - Math.pow(1 - t, 3);
+    const v = Math.round(startVal + (targetVal - startVal) * eased);
+    ctrl.setValue(v);
       if (t < 1) requestAnimationFrame(animate);
     }
     requestAnimationFrame(animate);
