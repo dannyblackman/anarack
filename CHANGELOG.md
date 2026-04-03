@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.3.17 (build 53) — Fix critical audio packet loss bug (2026-04-03)
+
+- **Root cause found:** JSON detection `packetBuf[0] == '{'` false-matched audio packets when the sequence number's low byte was 0x7B (123 = ASCII `{`). This silently dropped 1 audio packet every 256 packets = 7 clicks per 5 seconds.
+- Fix: check `bytesRead != 268` first — audio packets are always exactly 268 bytes, JSON never is.
+- Also: increased UDP receive buffer to 1MB, single UDP audio client, JitterBuffer sequence tracking reorder, debug diagnostics (recv/dup/gap). These didn't fix the issue but are retained.
+- Builds 50-52 were debugging iterations that didn't fix the clicking (attempted: disable duplication, disable MIDI poll, increase recv buffer, reorder sequence tracking).
+
 ## v0.3.14 (build 50) — Fix patch name broadcast, increase edit buffer delay (2026-04-03)
 
 - Fix: patch name broadcast was short-circuiting when no WebSocket clients connected (early return before UDP send)

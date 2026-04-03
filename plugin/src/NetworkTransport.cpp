@@ -62,6 +62,10 @@ void NetworkTransport::connect(const juce::String& host, int midiPort, int audio
         int reuseAddr = 1;
         setsockopt(rawRecvFd, SOL_SOCKET, SO_REUSEADDR, &reuseAddr, sizeof(reuseAddr));
 
+        // Increase receive buffer to prevent packet drops from buffer overflow
+        int rcvBuf = 1024 * 1024; // 1MB (default is often 256KB)
+        setsockopt(rawRecvFd, SOL_SOCKET, SO_RCVBUF, &rcvBuf, sizeof(rcvBuf));
+
         if (::bind(rawRecvFd, (struct sockaddr*)&recvAddr, sizeof(recvAddr)) < 0)
         {
             recvAddr.sin_port = 0;
@@ -269,7 +273,9 @@ void NetworkTransport::run()
             continue;
 
         // JSON messages from server (CC updates, patch names)
-        if (bytesRead > 0 && bytesRead < 512 && packetBuf[0] == '{')
+        // Audio packets are exactly 268 bytes (12-byte header + 256-byte payload).
+        // JSON messages are variable-length and never 268 bytes.
+        if (bytesRead != 268 && bytesRead > 0 && bytesRead < 512 && packetBuf[0] == '{')
         {
             handleJsonPacket(packetBuf, bytesRead);
             continue;
@@ -324,7 +330,9 @@ void NetworkTransport::runWireGuard()
         }
 
         // JSON messages from server (CC updates, patch names)
-        if (bytesRead > 0 && bytesRead < 512 && packetBuf[0] == '{')
+        // Audio packets are exactly 268 bytes (12-byte header + 256-byte payload).
+        // JSON messages are variable-length and never 268 bytes.
+        if (bytesRead != 268 && bytesRead > 0 && bytesRead < 512 && packetBuf[0] == '{')
         {
             handleJsonPacket(packetBuf, bytesRead);
             continue;

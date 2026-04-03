@@ -718,7 +718,13 @@ function updateConnectionStatus(state) {
       if (drops + dups + plc > (window._lastDiagTotal || 0) || !window._loggedFirstDiag) {
         window._loggedFirstDiag = true;
         const buf = state.bufferMs ? state.bufferMs.toFixed(0) : '?';
-        let msg = 'ASRC: ' + drops + 'd ' + dups + 'u | PLC: ' + plc + ' | Buf: ' + buf + 'ms | Lost: ' + lost;
+        const recv = state.pktRecv || 0;
+        const dup = state.pktDup || 0;
+        const dbgSeq = state.dbgLostSeq || 0;
+        const dbgExp = state.dbgLostExp || 0;
+        const dbgD = state.dbgLostDelta || 0;
+        let msg = 'ASRC: ' + drops + 'd ' + dups + 'u | PLC: ' + plc + ' | Buf: ' + buf + 'ms | Lost: ' + lost + ' R:' + recv + ' D:' + dup;
+        if (dbgD > 0) msg += ' | GAP: seq=' + dbgSeq + ' exp=' + dbgExp + ' d=' + dbgD;
         if (state.blockSize && !window._loggedBlockSize) {
           msg += ' | Block: ' + state.blockSize;
           window._loggedBlockSize = true;

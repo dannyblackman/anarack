@@ -215,6 +215,11 @@ void AnarackEditor::timerCallback()
         state->setProperty("asrcDups", processor.asrcDupCount.load(std::memory_order_relaxed));
         state->setProperty("plcSamples", processor.jitterBuffer.getPlcSamples());
         state->setProperty("pktLost", processor.jitterBuffer.getPacketsLost());
+        state->setProperty("dbgLostSeq", (int)processor.jitterBuffer.getLastLostSeq());
+        state->setProperty("dbgLostExp", (int)processor.jitterBuffer.getLastLostExpected());
+        state->setProperty("dbgLostDelta", processor.jitterBuffer.getLastLostDelta());
+        state->setProperty("pktRecv", processor.jitterBuffer.getPacketsReceived());
+        state->setProperty("pktDup", processor.jitterBuffer.getPacketsDuplicate());
         int learnFrom = processor.lastLearnedFrom.exchange(-1);
         int learnTo = processor.lastLearnedTo.exchange(-1);
         if (learnFrom >= 0 && learnTo >= 0)

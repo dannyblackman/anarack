@@ -133,6 +133,21 @@ public:
             }
         }
 
+        // --- Gap detection via sequence numbers (BEFORE offset check) ---
+        uint32_t expSeq = expectedSeq.load(std::memory_order_acquire);
+        int32_t seqDelta = static_cast<int32_t>(seq - expSeq);
+
+        if (seqDelta > 0)
+        {
+            packetsLost.fetch_add(seqDelta, std::memory_order_relaxed);
+            lastLostSeq.store(seq, std::memory_order_relaxed);
+            lastLostExpected.store(expSeq, std::memory_order_relaxed);
+            lastLostDelta.store(seqDelta, std::memory_order_relaxed);
+        }
+
+        if (seqDelta >= 0)
+            expectedSeq.store(seq + 1, std::memory_order_release);
+
         uint32_t wb = writeBase.load(std::memory_order_acquire);
 
         // --- Compute offset from current read position ---
@@ -148,30 +163,14 @@ public:
         // Detect session restart: packet way ahead of expected position
         if (offset > bufferSize * 2)
         {
-            // Treat as new session — reset buffer contents, re-sync.
             writeBase.store(timestamp, std::memory_order_release);
             wb = timestamp;
             offset = 0;
             clearBufferContents();
-            expectedSeq.store(seq, std::memory_order_release);
+            expectedSeq.store(seq + 1, std::memory_order_release);
         }
 
-        // --- Gap detection via sequence numbers ---
-        uint32_t expSeq = expectedSeq.load(std::memory_order_acquire);
-        int32_t seqDelta = static_cast<int32_t>(seq - expSeq);
-
-        if (seqDelta > 0)
-        {
-            // Packets between expectedSeq and this one were lost.
-            packetsLost.fetch_add(seqDelta, std::memory_order_relaxed);
-        }
-        else if (seqDelta < 0)
-        {
-            // Late arrival of a previously-lost packet (recovered),
-            // or a duplicate. We distinguish below during placement.
-        }
-
-        // Advance expected sequence if this packet is at or ahead of it.
+        // Advance expected sequence (already done above).
         if (seqDelta >= 0)
             expectedSeq.store(seq + 1, std::memory_order_release);
 
@@ -240,6 +239,14 @@ public:
             }
         }
 
+        // Sequence tracking BEFORE offset check (same fix as first overload)
+        uint32_t expSeq = expectedSeq.load(std::memory_order_acquire);
+        int32_t seqDelta = static_cast<int32_t>(seq - expSeq);
+        if (seqDelta > 0)
+            packetsLost.fetch_add(seqDelta, std::memory_order_relaxed);
+        if (seqDelta >= 0)
+            expectedSeq.store(seq + 1, std::memory_order_release);
+
         uint32_t wb = writeBase.load(std::memory_order_acquire);
         int32_t offset = static_cast<int32_t>(timestamp - wb);
 
@@ -255,17 +262,8 @@ public:
             wb = timestamp;
             offset = 0;
             clearBufferContents();
-            expectedSeq.store(seq, std::memory_order_release);
-        }
-
-        uint32_t expSeq = expectedSeq.load(std::memory_order_acquire);
-        int32_t seqDelta = static_cast<int32_t>(seq - expSeq);
-
-        if (seqDelta > 0)
-            packetsLost.fetch_add(seqDelta, std::memory_order_relaxed);
-
-        if (seqDelta >= 0)
             expectedSeq.store(seq + 1, std::memory_order_release);
+        }
 
         int rp = readPos.load(std::memory_order_acquire);
         int newSamplesPlaced = 0;
@@ -395,6 +393,9 @@ public:
     int getPacketsReceived() const { return packetsReceived.load(std::memory_order_relaxed); }
     int getPacketsDuplicate() const { return packetsDuplicate.load(std::memory_order_relaxed); }
     int getPlcSamples() const { return plcSamples.load(std::memory_order_relaxed); }
+    uint32_t getLastLostSeq() const { return lastLostSeq.load(std::memory_order_relaxed); }
+    uint32_t getLastLostExpected() const { return lastLostExpected.load(std::memory_order_relaxed); }
+    int getLastLostDelta() const { return lastLostDelta.load(std::memory_order_relaxed); }
 
     // -------------------------------------------------------------------------
     // Reset — call on disconnect. Only safe when no concurrent read/write.
@@ -545,6 +546,11 @@ private:
     std::atomic<int> packetsDuplicate { 0 };
     std::atomic<int> packetsReceived { 0 };
     std::atomic<int> plcSamples { 0 };         // total concealed samples
+
+    // Debug: last loss event
+    std::atomic<uint32_t> lastLostSeq { 0 };
+    std::atomic<uint32_t> lastLostExpected { 0 };
+    std::atomic<int> lastLostDelta { 0 };
 
     // PLC state — only accessed from the audio thread (read()).
     std::vector<float> lastGoodBlock;
