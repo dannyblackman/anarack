@@ -282,19 +282,20 @@ class MidiRouter:
 
     def _broadcast_patch_name(self, name: str):
         """Send a patch name update to all connected clients."""
-        if not self.midi_ws_clients or not self._loop:
-            return
         msg = json.dumps({"type": "patchName", "name": name})
-        for ws in self.midi_ws_clients:
-            try:
-                asyncio.run_coroutine_threadsafe(ws.send(msg), self._loop)
-            except Exception:
-                pass
-        # Also broadcast via UDP to plugin clients
-        if audio_streamer:
-            for addr, sock in audio_streamer.udp_clients.items():
+        # WebSocket clients (browser)
+        if self.midi_ws_clients and self._loop:
+            for ws in self.midi_ws_clients:
                 try:
-                    sock.sendto(msg.encode(), addr)
+                    asyncio.run_coroutine_threadsafe(ws.send(msg), self._loop)
+                except Exception:
+                    pass
+        # UDP plugin clients
+        if self._udp_clients and self._cc_sock:
+            encoded = msg.encode()
+            for addr in list(self._udp_clients):
+                try:
+                    self._cc_sock.sendto(encoded, addr)
                 except Exception:
                     pass
 
@@ -550,7 +551,7 @@ async def udp_server(router: MidiRouter, host: str, port: int, audio_port: int =
                 # Request edit buffer so new client gets current patch values
                 if router._loop:
                     router._loop.call_soon_threadsafe(
-                        router._loop.call_later, 0.5, router.request_edit_buffer
+                        router._loop.call_later, 2.0, router.request_edit_buffer
                     )
             # Auto-register this client for audio return
             if audio_streamer and (addr[0], audio_port) not in audio_streamer.udp_clients:

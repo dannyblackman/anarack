@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.3.14 (build 50) — Fix patch name broadcast, increase edit buffer delay (2026-04-03)
+
+- Fix: patch name broadcast was short-circuiting when no WebSocket clients connected (early return before UDP send)
+- Patch name now broadcasts via UDP socket to plugin clients
+- Increase edit buffer request delay to 2 seconds (was 0.5s — CCs arrived before UI was ready)
+- Known issue: relay mode has ~1.4 packets/sec loss on WiFi, causing clicks. Packet duplication (5ms) doesn't cover WiFi burst losses.
+
 ## v0.3.13 (build 49) — Boot animation with real patch values (2026-04-03)
 
 - On connect, knobs stay at zero until real CC values arrive from Rev2's edit buffer dump
