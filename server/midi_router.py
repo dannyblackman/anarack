@@ -126,6 +126,8 @@ class MidiRouter:
         self._loop: asyncio.AbstractEventLoop | None = None
         self._udp_transport = None  # set by udp_server after startup
         self._udp_clients: set = set()  # {(ip, port)} for CC broadcast
+        import socket as _socket
+        self._cc_sock = _socket.socket(_socket.AF_INET, _socket.SOCK_DGRAM)
 
         # Build SysEx mapping from active synth definition
         self._sysex_offset_to_cc = {}
@@ -308,12 +310,12 @@ class MidiRouter:
                 except Exception:
                     dead.add(ws)
             self.midi_ws_clients -= dead
-        # UDP plugin clients — send via the MIDI UDP transport (works for both LAN and WG)
-        if self._udp_transport and self._udp_clients:
+        # UDP plugin clients
+        if self._udp_clients and self._cc_sock:
             encoded = msg.encode()
             for addr in list(self._udp_clients):
                 try:
-                    self._udp_transport.sendto(encoded, addr)
+                    self._cc_sock.sendto(encoded, addr)
                 except Exception:
                     pass
 

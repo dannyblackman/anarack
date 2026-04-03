@@ -507,6 +507,9 @@ function sendCC(cc, value) {
 const ccRegistry = {};
 function registerCC(cc, ctrl) { if (cc >= 0) ccRegistry[cc] = ctrl; }
 
+// ── Boot animation — synth "comes alive" when connection is established ──
+let _booted = false;
+
 // Listen for param updates pushed from C++ (e.g. controller knobs, program change)
 if (_juce) {
   _juce.addEventListener("paramUpdate", (e) => {
@@ -524,9 +527,6 @@ if (_juce) {
     }
   });
 }
-
-// ── Boot animation — synth "comes alive" when connection is established ──
-let _booted = false;
 function setAllKnobsToZero() {
   for (const cc in ccRegistry) {
     const ctrl = ccRegistry[cc];
@@ -555,10 +555,9 @@ function animateKnob(ctrl, targetVal, delay) {
     const eased = 1 - Math.pow(1 - t, 3);
     const v = Math.round(startVal + (targetVal - startVal) * eased);
     ctrl.setValue(v);
-      if (t < 1) requestAnimationFrame(animate);
-    }
-    requestAnimationFrame(animate);
-  });
+    if (t < 1) requestAnimationFrame(animate);
+  }
+  requestAnimationFrame(animate);
 }
 
 // Start in "off" state — all knobs at zero, screen shows connecting
