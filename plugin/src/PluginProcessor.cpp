@@ -108,9 +108,13 @@ AnarackProcessor::AnarackProcessor()
         int w = ccRingWrite.load(std::memory_order_relaxed);
         ccRing[w % CC_RING_SIZE] = { (uint8_t)cc, (uint8_t)value };
         ccRingWrite.store(w + 1, std::memory_order_release);
-        // Sync DAW parameter
+        // Sync DAW parameter — also update lastAutomationVal to prevent
+        // processBlock from re-sending this CC back to the synth (feedback loop)
         if (auto* p = paramByCC[cc])
+        {
+            lastAutomationVal[cc] = value;
             p->setValueNotifyingHost(p->convertTo0to1((float)value));
+        }
     };
 
     transport.onPatchName = [this](const juce::String& name)

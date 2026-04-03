@@ -12,9 +12,17 @@ done
 pkill -9 -f jackd 2>/dev/null || true
 sleep 2
 
+# Find Scarlett card number (it may not be hw:0)
+CARD=$(aplay -l 2>/dev/null | grep Scarlett | head -1 | sed 's/card \([0-9]*\).*/\1/')
+if [ -z "$CARD" ]; then
+    echo 'Scarlett not found!'
+    exit 1
+fi
+echo "Scarlett is hw:$CARD"
+
 # Start JACK in background
 echo 'Starting JACK...'
-JACK_NO_AUDIO_RESERVATION=1 /usr/bin/jackd -R -d alsa -d hw:0 -r 48000 -p 128 -n 3 &
+JACK_NO_AUDIO_RESERVATION=1 /usr/bin/jackd -R -d alsa -d hw:$CARD -r 48000 -p 128 -n 3 &
 JACK_PID=$!
 
 # Wait for JACK to actually accept connections (not just process alive)
