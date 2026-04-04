@@ -100,10 +100,14 @@
   function connectAudio(host) {
     if (audioWs) { audioWs.close(); audioWs = null; }
     if (!audioCtx) {
-      audioCtx = new (window.AudioContext || window.webkitAudioContext)({
-        sampleRate: 48000,
-        latencyHint: 'interactive'
-      });
+      // Use parent's AudioContext if available (created on user gesture for iOS)
+      try { audioCtx = window.parent.__ANARACK_AUDIO_CTX; } catch(e) {}
+      if (!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)({
+          sampleRate: 48000,
+          latencyHint: 'interactive'
+        });
+      }
     }
     nextPlayTime = 0;
     audioStarted = false;
