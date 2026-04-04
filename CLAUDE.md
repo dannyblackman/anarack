@@ -184,6 +184,17 @@ cp -R build/AnarackRev2_artefacts/Release/AU/"Anarack Rev2.component" ~/Library/
 4. Use patch (Z) for fixes, minor (Y) for features, major (X) for breaking changes
 5. The HTML fallback version in `plugin/ui/rev2-panel.html` should also be updated (shown before initConfig fires)
 
+### Feature Branch Builds (Worktrees)
+When building the plugin from a feature branch worktree, ALWAYS change these in the worktree's `plugin/CMakeLists.txt`:
+1. `PRODUCT_NAME` → `"Anarack Rev2 [branch-name]"` (e.g., `"Anarack Rev2 [preset-browser]"`)
+2. `BUNDLE_ID` → `"com.anarack.rev2.dev"`
+3. `PLUGIN_CODE` → different 4-char code (e.g., `Adv2`)
+
+This lets both main and feature builds coexist in Logic. When merging to main, revert these to production values. After merge, delete the dev component:
+```bash
+rm -rf ~/Library/Audio/Plug-Ins/Components/"Anarack Rev2 [branch-name].component"
+```
+
 ## Key Decisions
 
 - **Embedded WireGuard** via boringtun — no Tailscale, no VPN client, no user setup
