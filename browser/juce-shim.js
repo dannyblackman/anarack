@@ -43,8 +43,8 @@
     midiWs = new WebSocket(url);
 
     midiWs.onopen = () => {
-      connected = true;
-      connState = 2;
+      // Stay in "connecting" state until patch data arrives
+      connState = 1;
       _broadcastStatus();
       // Request edit buffer so knobs populate
       midiWs.send(JSON.stringify({ status: 0xF0, data1: 0, data2: 0, action: 'requestEditBuffer' }));
@@ -56,9 +56,11 @@
         const msg = JSON.parse(e.data);
         if (msg.type === 'cc') {
           _dispatch('paramUpdate', { cc: msg.cc, value: msg.value });
+          // First CC data means patch is loading — go live
+          if (!connected) { connected = true; connState = 2; _broadcastStatus(); }
         } else if (msg.type === 'patchName') {
-          // Will be picked up by connectionStatus
           _lastPatchName = msg.name;
+          if (!connected) { connected = true; connState = 2; _broadcastStatus(); }
         } else if (msg.type === 'programChange') {
           _dispatch('paramUpdate', { cc: 120, value: msg.program });
           if (msg.bank !== undefined)
