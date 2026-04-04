@@ -268,6 +268,39 @@
   .patch-param-name { font-size: 8px; color: rgba(255,255,255,0.4); text-transform: uppercase; }
   .patch-param-val { font-size: 14px; font-weight: 700; color: #fff; text-shadow: 0 0 6px rgba(255,255,255,0.5); }
 
+  /* Preset browser */
+  .preset-browser {
+    position: fixed; top: 80px; left: 50%; transform: translateX(-50%);
+    width: 400px; max-height: 360px;
+    background: #111; border: 1px solid #333; border-radius: 8px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.8);
+    z-index: 100; display: none; flex-direction: column;
+    font-family: 'Space Mono', monospace;
+  }
+  .preset-browser.open { display: flex; }
+  .preset-browser-header {
+    display: flex; gap: 4px; padding: 8px; border-bottom: 1px solid #222;
+    flex-shrink: 0;
+  }
+  .preset-bank-btn {
+    padding: 4px 8px; font-size: 9px; font-weight: 600;
+    background: #1a1a1a; border: 1px solid #333; border-radius: 4px;
+    color: rgba(255,255,255,0.5); cursor: pointer; letter-spacing: 0.5px;
+  }
+  .preset-bank-btn:hover { background: #222; color: #fff; }
+  .preset-bank-btn.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .preset-list {
+    overflow-y: auto; flex: 1; padding: 4px;
+  }
+  .preset-item {
+    padding: 5px 10px; font-size: 10px; color: rgba(255,255,255,0.6);
+    cursor: pointer; border-radius: 3px; display: flex; justify-content: space-between;
+  }
+  .preset-item:hover { background: #222; color: #fff; }
+  .preset-item.active { background: var(--accent); color: #fff; }
+  .preset-item .preset-num { color: rgba(255,255,255,0.3); font-size: 9px; min-width: 24px; }
+  .preset-item .preset-name { flex: 1; margin-left: 8px; }
+
   /* Transpose */
   .transpose-row { display: flex; gap: 2px; align-items: center; justify-content: center; }
   .transpose-label { font-size: 8px; font-weight: 600; color: var(--text); text-transform: uppercase; letter-spacing: 0.5px; text-align: center; margin-top: 4px; }
@@ -526,6 +559,11 @@ if (_juce) {
       }
     }
   });
+  _juce.addEventListener("presetName", (e) => {
+    if (typeof cachePresetName === 'function') {
+      cachePresetName(e.bank, e.program, e.name);
+    }
+  });
 }
 function setAllKnobsToZero() {
   for (const cc in ccRegistry) {
@@ -714,6 +752,10 @@ function updateConnectionStatus(state) {
   if (state.patchName && state.patchName !== window._lastPatchName) {
     window._lastPatchName = state.patchName;
     screenName.textContent = state.patchName;
+    // Cache for preset browser
+    if (typeof cachePresetName === 'function') {
+      cachePresetName(currentBank, currentProgram, state.patchName);
+    }
   }
 
   // ASRC/PLC diagnostics — log every 5 seconds
@@ -1069,8 +1111,131 @@ const screenPName = document.createElement('div'); screenPName.className = 'patc
 const screenPVal = document.createElement('div'); screenPVal.className = 'patch-param-val'; screenPVal.textContent = '62';
 screenParam.appendChild(screenPName); screenParam.appendChild(screenPVal);
 screen.appendChild(screenHeader); screen.appendChild(screenName); screen.appendChild(screenParam);
+screen.style.cursor = 'pointer';
+screen.title = 'Click to browse presets';
 screenWrap.appendChild(screen);
 progLayout.appendChild(screenWrap);
+
+// Preset browser overlay
+const presetBrowser = document.createElement('div');
+presetBrowser.className = 'preset-browser';
+const pbHeader = document.createElement('div');
+pbHeader.className = 'preset-browser-header';
+const pbList = document.createElement('div');
+pbList.className = 'preset-list';
+presetBrowser.appendChild(pbHeader);
+presetBrowser.appendChild(pbList);
+document.body.appendChild(presetBrowser);
+
+// Preset names cache: presetNames[bank][program] = name
+const presetNames = {};
+let pbActiveBank = 0;
+
+function openPresetBrowser() {
+  presetBrowser.classList.toggle('open');
+  if (presetBrowser.classList.contains('open')) {
+    buildBankTabs();
+    showBank(currentBank);
+  }
+}
+
+function closePresetBrowser() {
+  presetBrowser.classList.remove('open');
+}
+
+function buildBankTabs() {
+  pbHeader.innerHTML = '';
+  bankNames.forEach((name, i) => {
+    const b = document.createElement('div');
+    b.className = 'preset-bank-btn' + (i === pbActiveBank ? ' active' : '');
+    b.textContent = name;
+    b.onclick = (e) => { e.stopPropagation(); showBank(i); };
+    pbHeader.appendChild(b);
+  });
+}
+
+function showBank(bankIdx) {
+  pbActiveBank = bankIdx;
+  buildBankTabs();
+  pbList.innerHTML = '';
+  for (let p = 0; p < 128; p++) {
+    const item = document.createElement('div');
+    item.className = 'preset-item' + (bankIdx === currentBank && p === currentProgram ? ' active' : '');
+    const num = document.createElement('span');
+    num.className = 'preset-num';
+    num.textContent = String(p + 1).padStart(3);
+    const name = document.createElement('span');
+    name.className = 'preset-name';
+    name.textContent = (presetNames[bankIdx] && presetNames[bankIdx][p]) || '—';
+    item.appendChild(num);
+    item.appendChild(name);
+    item.onclick = (e) => { e.stopPropagation(); selectPreset(bankIdx, p); };
+    pbList.appendChild(item);
+  }
+  // Scroll to active preset
+  const activeItem = pbList.querySelector('.active');
+  if (activeItem) activeItem.scrollIntoView({ block: 'center' });
+
+  // Request names for this bank if we don't have them
+  if (!presetNames[bankIdx] || Object.keys(presetNames[bankIdx]).length < 128) {
+    if (_juce) _juce.emitEvent("scanBank", { bank: bankIdx });
+  }
+}
+
+function selectPreset(bank, program) {
+  sendCC(121, bank);
+  setTimeout(() => sendCC(120, program), 10);
+  // Update active state in browser — don't close, let user keep browsing
+  pbList.querySelectorAll('.preset-item').forEach((item, i) => {
+    item.className = 'preset-item' + (i === program ? ' active' : '');
+  });
+  // Scroll the active item into view
+  const activeItem = pbList.querySelector('.active');
+  if (activeItem) activeItem.scrollIntoView({ block: 'nearest' });
+}
+
+// Keyboard navigation when browser is open
+document.addEventListener('keydown', (e) => {
+  if (!presetBrowser.classList.contains('open')) return;
+  if (e.key === 'Escape') { closePresetBrowser(); return; }
+  if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+    e.preventDefault();
+    const dir = e.key === 'ArrowDown' ? 1 : -1;
+    const next = Math.max(0, Math.min(127, currentProgram + dir));
+    selectPreset(pbActiveBank, next);
+  }
+  if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
+    e.preventDefault();
+    const dir = e.key === 'ArrowRight' ? 1 : -1;
+    const nextBank = Math.max(0, Math.min(7, pbActiveBank + dir));
+    showBank(nextBank);
+    selectPreset(nextBank, currentProgram);
+  }
+});
+
+screen.onclick = openPresetBrowser;
+
+// Close browser when clicking outside
+document.addEventListener('click', (e) => {
+  if (presetBrowser.classList.contains('open') &&
+      !presetBrowser.contains(e.target) && !screen.contains(e.target)) {
+    closePresetBrowser();
+  }
+});
+
+// Cache preset names as they arrive from program changes
+function cachePresetName(bank, program, name) {
+  if (!presetNames[bank]) presetNames[bank] = {};
+  presetNames[bank][program] = name;
+  // Update the browser list if it's showing this bank
+  if (presetBrowser.classList.contains('open') && pbActiveBank === bank) {
+    const items = pbList.querySelectorAll('.preset-item');
+    if (items[program]) {
+      const nameSpan = items[program].querySelector('.preset-name');
+      if (nameSpan) nameSpan.textContent = name;
+    }
+  }
+}
 
 // Right knobs — Program and Bank use special CC numbers
 // CC 120 = program number, CC 121 = bank number (internal, handled by C++)

@@ -44,9 +44,13 @@ public:
     // Called from audio thread — pushes a MIDI message into the lock-free FIFO.
     void sendMidi(const uint8_t* data, int size);
 
+    // Send a raw UDP packet to the server's MIDI port (for JSON commands)
+    void sendRawUdp(const void* data, int size);
+
     // Callbacks for incoming synth data (called from network thread)
     std::function<void(int cc, int value)> onSynthCC;
     std::function<void(const juce::String& name)> onPatchName;
+    std::function<void(int bank, int program, const juce::String& name)> onPresetName;
 
     // Stats for UI
     int getPacketsReceived() const { return packetsReceived.load(); }

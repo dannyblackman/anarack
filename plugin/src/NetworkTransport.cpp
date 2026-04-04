@@ -174,6 +174,16 @@ void NetworkTransport::sendRegistration()
     }
 }
 
+void NetworkTransport::sendRawUdp(const void* data, int size)
+{
+    if (!connected.load() || size <= 0) return;
+    if (useWireGuard && wgTunnel)
+        wgTunnel->send(data, size, (uint16_t)serverMidiPort);
+    else if (rawSendFd >= 0)
+        sendto(rawSendFd, data, (size_t)size, 0,
+               (struct sockaddr*)&serverAddr, sizeof(serverAddr));
+}
+
 void NetworkTransport::sendMidi(const uint8_t* data, int size)
 {
     if (!connected.load() || size <= 0 || size > 3)
@@ -235,6 +245,13 @@ void NetworkTransport::handleJsonPacket(const uint8_t* data, int size)
     {
         auto name = json.getProperty("name", "").toString();
         if (name.isNotEmpty()) onPatchName(name);
+    }
+    else if (type == "presetName" && onPresetName)
+    {
+        int bank = (int)json.getProperty("bank", -1);
+        int program = (int)json.getProperty("program", -1);
+        auto name = json.getProperty("name", "").toString();
+        if (bank >= 0 && program >= 0) onPresetName(bank, program, name);
     }
 }
 

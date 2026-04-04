@@ -101,6 +101,13 @@ AnarackEditor::AnarackEditor(AnarackProcessor& p)
             int val = (int)payload.getProperty("value", 3);
             processor.encoderSensitivity.store(juce::jlimit(1, 10, val));
         })
+        // Scan bank: request all preset names for a bank
+        .withEventListener("scanBank", [this](const juce::var& payload)
+        {
+            int bank = (int)payload.getProperty("bank", 0);
+            auto cmd = "{\"type\":\"scanBank\",\"bank\":" + juce::String(bank) + "}";
+            processor.getTransport().sendRawUdp(cmd.toRawUTF8(), (int)cmd.length());
+        })
         // Open direct MIDI input device
         .withEventListener("openMidiInput", [this](const juce::var& payload)
         {
@@ -248,6 +255,21 @@ void AnarackEditor::timerCallback()
             r++;
         }
         processor.ccRingRead.store(r, std::memory_order_relaxed);
+
+        // Drain preset name ring buffer
+        int pr = processor.presetNameRead.load(std::memory_order_relaxed);
+        int pw = processor.presetNameWrite.load(std::memory_order_acquire);
+        while (pr < pw)
+        {
+            auto& ev = processor.presetNameRing[pr % AnarackProcessor::PRESET_RING_SIZE];
+            auto nameObj = juce::DynamicObject::Ptr(new juce::DynamicObject());
+            nameObj->setProperty("bank", ev.bank);
+            nameObj->setProperty("program", ev.program);
+            nameObj->setProperty("name", juce::String(ev.name));
+            webView->emitEventIfBrowserIsVisible("presetName", juce::var(nameObj.get()));
+            pr++;
+        }
+        processor.presetNameRead.store(pr, std::memory_order_relaxed);
     }
 }
 

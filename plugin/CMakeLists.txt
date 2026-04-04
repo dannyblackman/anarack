@@ -1,8 +1,8 @@
 cmake_minimum_required(VERSION 3.22)
-project(AnarackRev2 VERSION 0.3.20)
+project(AnarackRev2 VERSION 0.4.0)
 
 # Build number: monotonically increasing, increment on every build
-set(ANARACK_BUILD_NUMBER 56)
+set(ANARACK_BUILD_NUMBER 66)
 
 set(CMAKE_CXX_STANDARD 17)
 
@@ -10,15 +10,15 @@ add_subdirectory(JUCE)
 
 juce_add_plugin(AnarackRev2
     COMPANY_NAME "Anarack"
-    BUNDLE_ID "com.anarack.rev2"
+    BUNDLE_ID "com.anarack.rev2.dev"
     IS_SYNTH TRUE
     NEEDS_MIDI_INPUT TRUE
     NEEDS_MIDI_OUTPUT FALSE
     IS_MIDI_EFFECT FALSE
     PLUGIN_MANUFACTURER_CODE Anak
-    PLUGIN_CODE Arv2
+    PLUGIN_CODE Adv2
     FORMATS AU VST3 Standalone
-    PRODUCT_NAME "Anarack Rev2"
+    PRODUCT_NAME "Anarack Rev2 [preset-browser]"
 )
 
 juce_add_binary_data(AnarackRev2Data
