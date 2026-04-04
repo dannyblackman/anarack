@@ -136,12 +136,12 @@
       src.connect(audioCtx.destination);
 
       const now = audioCtx.currentTime;
-      const BUFFER_AHEAD = 0.15; // 150ms scheduling buffer
+      const BUFFER_AHEAD = 0.05; // 50ms scheduling buffer
       if (!audioStarted || nextPlayTime < now) {
         nextPlayTime = now + BUFFER_AHEAD;
         audioStarted = true;
       }
-      if (nextPlayTime > now + 0.5) nextPlayTime = now + BUFFER_AHEAD;
+      if (nextPlayTime > now + 0.2) nextPlayTime = now + BUFFER_AHEAD;
       src.start(nextPlayTime);
       nextPlayTime += buf.duration;
     };

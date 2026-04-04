@@ -17,6 +17,7 @@ cp "$PROJECT_ROOT/plugin/ui/rev2-panel.html" "$DIST/rev2-panel.html"
 # Copy browser assets
 cp "$SCRIPT_DIR/juce-shim.js" "$DIST/"
 cp "$SCRIPT_DIR/index.html" "$DIST/"
+cp "$SCRIPT_DIR/favicon.svg" "$DIST/"
 
 echo "Built browser demo in $DIST/"
 echo "  To test: cd $DIST && python3 -m http.server 3000"
