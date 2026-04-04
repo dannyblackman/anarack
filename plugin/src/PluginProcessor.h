@@ -53,6 +53,13 @@ public:
     std::atomic<int> lastBlockSize { 0 };        // actual numOutputSamples from processBlock
     juce::String currentPatchName;               // last patch name from Rev2
 
+    // Preset name ring buffer (for bank scan results)
+    static constexpr int PRESET_RING_SIZE = 16;
+    struct PresetNameEvent { int bank; int program; char name[24]; };
+    PresetNameEvent presetNameRing[PRESET_RING_SIZE];
+    std::atomic<int> presetNameWrite { 0 };
+    std::atomic<int> presetNameRead { 0 };
+
     // Ring buffer for mapped CC values to push to UI (audio thread → message thread)
     static constexpr int CC_RING_SIZE = 64;
     struct CCEvent { uint8_t cc; uint8_t val; };

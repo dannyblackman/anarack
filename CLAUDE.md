@@ -21,6 +21,51 @@ Remote hardware synth studio — producers control real synths over the internet
 - **Audio:** JACK at 128 samples / 48kHz, raw PCM over UDP (int16 mono, 128-sample packets with 12-byte header)
 - **Legacy client (Web):** Vanilla HTML/JS demo UI, WebSocket for MIDI (still works for quick testing)
 
+## Development Workflow
+
+### Branching Policy
+
+- **Direct to main** for small, safe changes: config, docs, version bumps, one-file fixes, changelog updates
+- **Feature branch + worktree** for anything risky or multi-file: audio path, protocol changes, networking, anything that could break the build
+
+### Branch Naming
+
+- `feat/description` — new features
+- `fix/description` — bug fixes
+- `chore/description` — maintenance, refactoring
+
+### Worktrees
+
+Use git worktrees for feature branches and parallel agent work. Multiple agents must NEVER work on the same worktree or branch simultaneously.
+
+```bash
+# Create a worktree for a feature branch
+git worktree add worktrees/feat-my-feature -b feat/my-feature
+
+# When done and merged, clean up
+git worktree remove worktrees/feat-my-feature
+```
+
+### Versioning
+
+- Version and build number defined in `plugin/CMakeLists.txt` (single source of truth)
+- `project(AnarackRev2 VERSION X.Y.Z)` — semantic version
+- `set(ANARACK_BUILD_NUMBER N)` — monotonic integer, never resets
+- Piped to C++ as `ANARACK_VERSION` / `ANARACK_BUILD_NUMBER` compile definitions
+- WebView UI receives version via `initConfig` event — never hardcode in HTML
+
+### Changelog
+
+Every build gets a `CHANGELOG.md` entry. Format:
+
+```
+## vX.Y.Z (build N) — Description (YYYY-MM-DD HH:MM)
+```
+
+- Log what changed AND what didn't work
+- Failed attempts are valid: "Attempted X, caused Y — reverted"
+- Never skip a version or silently remove an entry
+
 ## Project Structure
 
 ```
@@ -178,11 +223,7 @@ cp -R build/AnarackRev2_artefacts/Release/AU/"Anarack Rev2.component" ~/Library/
 ```
 
 ### IMPORTANT: On every build
-1. **Bump the version** in `plugin/CMakeLists.txt` — `project(AnarackRev2 VERSION X.Y.Z)`
-2. **Increment the build number** in `plugin/CMakeLists.txt` — `set(ANARACK_BUILD_NUMBER N)`
-3. **Update CHANGELOG.md** — log what changed, including things that didn't work. Format: `## vX.Y.Z (build N) — Description (YYYY-MM-DD)`
-4. Use patch (Z) for fixes, minor (Y) for features, major (X) for breaking changes
-5. The HTML fallback version in `plugin/ui/rev2-panel.html` should also be updated (shown before initConfig fires)
+See **Development Workflow > Versioning & Changelog** above. Also update the HTML fallback version in `plugin/ui/rev2-panel.html` (shown before initConfig fires).
 
 ### Feature Branch Builds (Worktrees)
 When building the plugin from a feature branch worktree, ALWAYS change these in the worktree's `plugin/CMakeLists.txt`:
