@@ -276,6 +276,16 @@
     }
   }, 600);
 
+  // Resume AudioContext on any user interaction (mobile requires gesture)
+  function resumeAudio() {
+    if (audioCtx && audioCtx.state === 'suspended') {
+      audioCtx.resume();
+    }
+  }
+  document.addEventListener('click', resumeAudio);
+  document.addEventListener('touchstart', resumeAudio);
+  document.addEventListener('keydown', resumeAudio);
+
   // Start status broadcast at ~10Hz once connected
   statusInterval = setInterval(() => {
     if (connected) _broadcastStatus();
