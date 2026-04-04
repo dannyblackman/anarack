@@ -193,6 +193,18 @@ class MidiRouter:
                                      [0xF0, 0x01, 0x2F, 0x06, 0xF7])
         self.midi_out.send_message(req)
 
+    async def scan_bank(self, bank: int):
+        """Request all 128 program names for a bank from the synth."""
+        mfr = self._sysex_config.get("manufacturer_id", [0x01])
+        dev = self._sysex_config.get("device_id", 0x2F)
+        print(f"Scanning bank {bank}...")
+        for prog in range(128):
+            # Request program dump: F0 01 2F 05 BB PP F7
+            req = [0xF0] + mfr + [dev, 0x05, bank, prog, 0xF7]
+            self.midi_out.send_message(req)
+            await asyncio.sleep(0.015)  # 15ms between requests
+        print(f"Bank {bank} scan complete")
+
     def _unpack_sysex(self, packed: list[int]) -> list[int]:
         """Unpack DSI 7-bit encoded SysEx data into raw bytes."""
         raw = []
@@ -206,24 +218,36 @@ class MidiRouter:
         return raw
 
     def _handle_sysex(self, message: list[int]):
-        """Parse a SysEx edit buffer dump and broadcast CC values."""
+        """Parse a SysEx dump (edit buffer or program) and broadcast values."""
         if len(message) < 6:
             return
 
         mfr_id = self._sysex_config.get("manufacturer_id", [0x01])
         dev_id = self._sysex_config.get("device_id", 0x2F)
-        resp_cmd = self._sysex_config.get("edit_buffer_response_cmd", 0x03)
+        edit_cmd = self._sysex_config.get("edit_buffer_response_cmd", 0x03)
+        prog_cmd = 0x02  # program dump response
 
-        # Validate header
-        print(f"SysEx: len={len(message)} hdr=[{message[1]:02X},{message[2]:02X},{message[3]:02X}] expect=[{mfr_id[0]:02X},{dev_id:02X},{resp_cmd:02X}]")
         if message[1] != mfr_id[0] or message[2] != dev_id:
-            print(f"SysEx: manufacturer/device mismatch, skipping")
-            return
-        if message[3] != resp_cmd:
-            print(f"SysEx: command mismatch ({message[3]:02X} != {resp_cmd:02X}), skipping")
             return
 
-        # Unpack the data (skip F0, header bytes, and trailing F7)
+        cmd = message[3]
+
+        if cmd == prog_cmd and len(message) > 6:
+            # Program dump: F0 01 2F 02 BB PP [packed data...] F7
+            bank = message[4]
+            program = message[5]
+            packed = message[6:-1]
+            raw = self._unpack_sysex(packed)
+            if len(raw) >= 255:
+                name_bytes = raw[235:255]
+                patch_name = ''.join(chr(b) for b in name_bytes if 32 <= b < 127).strip()
+                self._broadcast_preset_name(bank, program, patch_name)
+            return
+
+        if cmd != edit_cmd:
+            return
+
+        # Edit buffer dump: F0 01 2F 03 [packed data...] F7
         packed = message[4:-1]
         raw = self._unpack_sysex(packed)
         print(f"SysEx unpacked: {len(raw)} bytes, {len(self._sysex_offset_to_cc)} mappings")
@@ -299,6 +323,17 @@ class MidiRouter:
                 except Exception:
                     pass
         # UDP plugin clients
+        if self._udp_clients and self._cc_sock:
+            encoded = msg.encode()
+            for addr in list(self._udp_clients):
+                try:
+                    self._cc_sock.sendto(encoded, addr)
+                except Exception:
+                    pass
+
+    def _broadcast_preset_name(self, bank: int, program: int, name: str):
+        """Send a preset name (with bank/program) to all connected clients."""
+        msg = json.dumps({"type": "presetName", "bank": bank, "program": program, "name": name})
         if self._udp_clients and self._cc_sock:
             encoded = msg.encode()
             for addr in list(self._udp_clients):
@@ -550,6 +585,17 @@ async def udp_server(router: MidiRouter, host: str, port: int, audio_port: int =
             router._udp_transport = transport
 
         def datagram_received(self, data, addr):
+            # Check for JSON commands (scan bank, etc.)
+            if len(data) > 1 and data[0:1] == b'{':
+                try:
+                    cmd = json.loads(data.decode())
+                    if cmd.get("type") == "scanBank":
+                        bank = cmd.get("bank", 0)
+                        if router._loop:
+                            asyncio.ensure_future(router.scan_bank(bank))
+                        return
+                except (json.JSONDecodeError, UnicodeDecodeError):
+                    pass
             router.send_from_udp(data)
             # Register client for CC broadcast on the AUDIO port
             client_addr = (addr[0], audio_port)

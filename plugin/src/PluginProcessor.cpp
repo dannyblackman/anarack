@@ -121,6 +121,17 @@ AnarackProcessor::AnarackProcessor()
     {
         currentPatchName = name;
     };
+
+    transport.onPresetName = [this](int bank, int program, const juce::String& name)
+    {
+        int w = presetNameWrite.load(std::memory_order_relaxed);
+        auto& ev = presetNameRing[w % PRESET_RING_SIZE];
+        ev.bank = bank;
+        ev.program = program;
+        std::strncpy(ev.name, name.toRawUTF8(), 23);
+        ev.name[23] = 0;
+        presetNameWrite.store(w + 1, std::memory_order_release);
+    };
 }
 
 AnarackProcessor::~AnarackProcessor()
