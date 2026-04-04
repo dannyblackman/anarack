@@ -10,15 +10,15 @@ add_subdirectory(JUCE)
 
 juce_add_plugin(AnarackRev2
     COMPANY_NAME "Anarack"
-    BUNDLE_ID "com.anarack.rev2.dev"
+    BUNDLE_ID "com.anarack.rev2"
     IS_SYNTH TRUE
     NEEDS_MIDI_INPUT TRUE
     NEEDS_MIDI_OUTPUT FALSE
     IS_MIDI_EFFECT FALSE
     PLUGIN_MANUFACTURER_CODE Anak
-    PLUGIN_CODE Adv2
+    PLUGIN_CODE Arv2
     FORMATS AU VST3 Standalone
-    PRODUCT_NAME "Anarack Rev2 [preset-browser]"
+    PRODUCT_NAME "Anarack Rev2"
 )
 
 juce_add_binary_data(AnarackRev2Data
