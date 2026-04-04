@@ -67,7 +67,7 @@
 <script>
 (function() {
   const params = new URLSearchParams(location.search);
-  const host = params.get('host') || 'anarack.local:8765';
+  const host = params.get('host') || 'relay.anarack.com';
 
   const gate = document.getElementById('audio-gate');
   const iframe = document.getElementById('panel');
@@ -264,6 +264,19 @@
 
     window.addEventListener('resize', function() { buildKeyboard(); });
 
+    // Hide plugin-only controls in browser mode
+    function hideBrowserUnsupported() {
+      // Hide the entire advanced settings panel and its toggle button
+      var adv = document.getElementById('advanced-panel');
+      if (adv) adv.style.display = 'none';
+      // Hide the settings gear/toggle button
+      var btns = document.querySelectorAll('[onclick*="toggleAdvanced"]');
+      btns.forEach(function(b) { b.style.display = 'none'; });
+      // Hide the connect/disconnect button (shim auto-connects)
+      var connBtn = document.getElementById('connect-btn');
+      if (connBtn) connBtn.style.display = 'none';
+    }
+
     // Insert keyboard into #panel so it scales with the synth UI
     function insertKeyboard() {
       var panel = document.getElementById('panel');
@@ -278,7 +291,10 @@
     }
 
     // Build after a short delay to ensure DOM is ready
-    setTimeout(insertKeyboard, 100);
+    setTimeout(function() {
+      hideBrowserUnsupported();
+      insertKeyboard();
+    }, 100);
   })();
   `;
 

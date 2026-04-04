@@ -9,7 +9,9 @@
   // Set by browser/index.html before this script loads
   const config = window.__ANARACK_CONFIG || {};
   const WS_HOST = config.host || location.hostname + ':8765';
-  const WS_PROTO = location.protocol === 'https:' ? 'wss' : 'ws';
+  // Use wss for remote hosts, ws for local (localhost/LAN IPs)
+  const isLocal = /^(localhost|127\.|192\.168\.|10\.)/.test(WS_HOST);
+  const WS_PROTO = isLocal ? 'ws' : 'wss';
 
   // ── State ──
   let midiWs = null;
@@ -43,11 +45,9 @@
     midiWs = new WebSocket(url);
 
     midiWs.onopen = () => {
-      // Stay in "connecting" state until patch data arrives
+      // Mark as connecting — will go "live" once audio arrives
       connState = 1;
       _broadcastStatus();
-      // Request edit buffer so knobs populate
-      midiWs.send(JSON.stringify({ status: 0xF0, data1: 0, data2: 0, action: 'requestEditBuffer' }));
     };
 
     midiWs.onmessage = (e) => {
@@ -56,7 +56,6 @@
         const msg = JSON.parse(e.data);
         if (msg.type === 'cc') {
           _dispatch('paramUpdate', { cc: msg.cc, value: msg.value });
-          // First CC data means patch is loading — go live
           if (!connected) { connected = true; connState = 2; _broadcastStatus(); }
         } else if (msg.type === 'patchName') {
           _lastPatchName = msg.name;
@@ -113,8 +112,15 @@
     audioWs = new WebSocket(url);
     audioWs.binaryType = 'arraybuffer';
 
+    audioWs.onopen = () => {
+      // Resume AudioContext (may be suspended in iframe)
+      if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+    };
+
     audioWs.onmessage = (e) => {
       if (!(e.data instanceof ArrayBuffer) || !audioCtx) return;
+      // First audio packet = Pi is streaming, go live
+      if (!connected) { connected = true; connState = 2; _broadcastStatus(); }
       const int16 = new Int16Array(e.data);
       const float32 = new Float32Array(int16.length);
       for (let i = 0; i < int16.length; i++) float32[i] = int16[i] / 32768;
