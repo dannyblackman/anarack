@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Anarack — Prophet Rev2 Demo</title>
+<style>
+  * { margin: 0; padding: 0; }
+  html, body { height: 100%; overflow: hidden; background: #1a1a1a; }
+  iframe { width: 100%; height: 100%; border: none; }
+  .audio-gate {
+    position: fixed; inset: 0; z-index: 10000;
+    background: rgba(0,0,0,0.92);
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    font-family: 'Syne', 'Inter', system-ui, sans-serif;
+    color: #e8e4de; cursor: pointer;
+    transition: opacity 0.3s;
+  }
+  .audio-gate.hidden { opacity: 0; pointer-events: none; }
+  .audio-gate h1 {
+    font-size: 42px; font-weight: 800;
+    letter-spacing: 8px; text-transform: uppercase;
+    color: #E53935; margin-bottom: 16px;
+  }
+  .audio-gate p {
+    font-size: 14px; color: rgba(255,255,255,0.5);
+    letter-spacing: 2px; text-transform: uppercase;
+  }
+  .audio-gate .sub {
+    margin-top: 32px; font-size: 11px;
+    color: rgba(255,255,255,0.25); letter-spacing: 1px;
+  }
+  .audio-gate .connect-btn {
+    margin-top: 48px;
+    background: #E53935;
+    color: #fff;
+    border: none;
+    padding: 14px 48px;
+    font-family: 'Syne', system-ui, sans-serif;
+    font-size: 16px;
+    font-weight: 700;
+    letter-spacing: 4px;
+    text-transform: uppercase;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .audio-gate .connect-btn:hover {
+    filter: brightness(1.15);
+    transform: scale(1.02);
+  }
+</style>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&display=swap" rel="stylesheet">
+</head>
+<body>
+
+<div class="audio-gate" id="audio-gate">
+  <h1>Anarack</h1>
+  <div class="sub">Prophet Rev2 — remote hardware synth</div>
+  <button class="connect-btn" id="connect-btn">Connect</button>
+</div>
+
+<iframe id="panel" sandbox="allow-scripts allow-same-origin"></iframe>
+
+<script>
+(function() {
+  const params = new URLSearchParams(location.search);
+  const host = params.get('host') || 'anarack.local:8765';
+
+  const gate = document.getElementById('audio-gate');
+  const iframe = document.getElementById('panel');
+
+  document.getElementById('connect-btn').addEventListener('click', (e) => {
+    e.stopPropagation();
+    gate.classList.add('hidden');
+    loadPanel();
+  });
+
+  // ── Keyboard CSS + HTML + JS to inject into the panel ──
+  const KEYBOARD_CSS = `
+    .keyboard-surface {
+      background: #1a1918;
+      border-top: 1px solid rgba(255,255,255,0.06);
+      padding: 20px 12px 0;
+      z-index: 100;
+      width: 100%;
+      overflow: hidden;
+    }
+    .keyboard-wrap { width: 100%; display: flex; flex-direction: column; }
+    .keyboard {
+      position: relative; user-select: none; -webkit-user-select: none;
+      width: 100%;
+    }
+    .kb-key {
+      position: absolute; cursor: pointer;
+      transition: background 0.04s, box-shadow 0.06s;
+    }
+    .kb-key.white {
+      background: linear-gradient(180deg, #f2f0ec 0%, #e8e6e1 50%, #dfddd8 100%);
+      border: 1px solid rgba(0,0,0,0.15); border-top: none;
+      border-radius: 0 0 4px 4px; z-index: 1;
+    }
+    .kb-key.white:hover {
+      background: linear-gradient(180deg, #f7f5f1 0%, #edebe6 50%, #e4e2dd 100%);
+    }
+    .kb-key.white.active {
+      background: linear-gradient(180deg,
+        color-mix(in srgb, #E53935 15%, #e8e6e1) 0%,
+        color-mix(in srgb, #E53935 10%, #dfddd8) 100%);
+      box-shadow: inset 0 0 12px rgba(229,57,53,0.15), 0 0 8px rgba(229,57,53,0.15);
+    }
+    .kb-key.black {
+      background: linear-gradient(180deg, #2a2928 0%, #1e1d1c 50%, #161514 100%);
+      border: 1px solid #000; border-top: none;
+      border-radius: 0 0 3px 3px; z-index: 2;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.5);
+    }
+    .kb-key.black:hover {
+      background: linear-gradient(180deg, #333231 0%, #262524 50%, #1c1b1a 100%);
+    }
+    .kb-key.black.active {
+      background: linear-gradient(180deg,
+        color-mix(in srgb, #E53935 25%, #2a2928) 0%,
+        color-mix(in srgb, #E53935 15%, #161514) 100%);
+      box-shadow: 0 0 12px rgba(229,57,53,0.15);
+    }
+  `;
+
+  const KEYBOARD_JS = `
+  (function() {
+    var _juce = window.__JUCE__ && window.__JUCE__.backend;
+    var mouseNote = null;
+    var activeNotes = new Set();
+    var KB_H = 300;
+
+    function sendNote(status, note, vel) {
+      if (!_juce) return;
+      // Send as CC-style through the shim's emitEvent
+      // Actually we need raw MIDI — use the shim's internal sendMidiMsg
+      // The shim exposes emitEvent, so we fake a "note" by calling it directly
+      // Notes aren't CC, so we need to extend the shim or send raw
+      // Simplest: call the shim's WebSocket directly
+      if (window.__JUCE__.backend._sendMidi) {
+        window.__JUCE__.backend._sendMidi(status, note, vel);
+      }
+    }
+
+    function noteOn(n) { sendNote(0x90, n, 100); activeNotes.add(n); highlightKey(n, true); }
+    function noteOff(n) { sendNote(0x80, n, 0); activeNotes.delete(n); highlightKey(n, false); }
+    function highlightKey(n, on) {
+      var el = document.querySelector('.kb-key[data-note="' + n + '"]');
+      if (el) el.classList.toggle('active', on);
+    }
+
+    function buildKeyboard() {
+      var kb = document.getElementById('browser-keyboard');
+      if (!kb) return;
+      kb.innerHTML = '';
+      var startNote = 36, octaves = 5;
+      var numWhites = octaves * 7 + 1;
+      var totalWidth = kb.parentElement.clientWidth;
+      var containerH = KB_H - 20;
+      var whiteW = totalWidth / numWhites;
+      var whiteH = Math.max(50, Math.min(containerH, whiteW * 5));
+      var blackW = whiteW * 0.6;
+      var blackH = whiteH * 0.58;
+      var blackPositions = { 1: 1, 3: 2, 6: 4, 8: 5, 10: 6 };
+
+      kb.style.height = whiteH + 'px';
+
+      var whiteIdx = 0;
+      var whites = [0, 2, 4, 5, 7, 9, 11];
+
+      for (var o = 0; o < octaves; o++) {
+        for (var wi = 0; wi < whites.length; wi++) {
+          var w = whites[wi];
+          var note = startNote + o * 12 + w;
+          var key = document.createElement('div');
+          key.className = 'kb-key white';
+          key.dataset.note = note;
+          key.style.left = (whiteIdx * whiteW) + 'px';
+          key.style.width = (whiteW - 1) + 'px';
+          key.style.height = whiteH + 'px';
+          addKeyEvents(key, note);
+          kb.appendChild(key);
+          whiteIdx++;
+        }
+      }
+      var lastNote = startNote + octaves * 12;
+      var lastKey = document.createElement('div');
+      lastKey.className = 'kb-key white'; lastKey.dataset.note = lastNote;
+      lastKey.style.left = (whiteIdx * whiteW) + 'px';
+      lastKey.style.width = (whiteW - 1) + 'px';
+      lastKey.style.height = whiteH + 'px';
+      addKeyEvents(lastKey, lastNote);
+      kb.appendChild(lastKey);
+
+      for (var o2 = 0; o2 < octaves; o2++) {
+        for (var noteInOct in blackPositions) {
+          var i = parseInt(noteInOct);
+          var whitePos = blackPositions[noteInOct];
+          var bnote = startNote + o2 * 12 + i;
+          var x = (o2 * 7 + whitePos) * whiteW - blackW / 2;
+          var bkey = document.createElement('div');
+          bkey.className = 'kb-key black';
+          bkey.dataset.note = bnote;
+          bkey.style.left = x + 'px';
+          bkey.style.width = blackW + 'px';
+          bkey.style.height = blackH + 'px';
+          addKeyEvents(bkey, bnote);
+          kb.appendChild(bkey);
+        }
+      }
+
+      document.addEventListener('mouseup', function() {
+        if (mouseNote !== null) { noteOff(mouseNote); mouseNote = null; }
+      });
+      document.addEventListener('touchend', function() {
+        if (mouseNote !== null) { noteOff(mouseNote); mouseNote = null; }
+      });
+    }
+
+    function addKeyEvents(key, note) {
+      key.addEventListener('mousedown', function(e) { e.preventDefault(); noteOn(note); mouseNote = note; });
+      key.addEventListener('mouseenter', function(e) {
+        if (e.buttons === 1 && mouseNote !== note) {
+          if (mouseNote !== null) noteOff(mouseNote);
+          noteOn(note); mouseNote = note;
+        }
+      });
+      key.addEventListener('touchstart', function(e) { e.preventDefault(); noteOn(note); mouseNote = note; });
+    }
+
+    // Computer keyboard mapping
+    var KEY_MAP = { a:0, w:1, s:2, e:3, d:4, f:5, t:6, g:7, y:8, h:9, u:10, j:11, k:12, o:13, l:14, p:15 };
+    var heldKeys = new Set();
+    document.addEventListener('keydown', function(e) {
+      if (e.repeat || e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return;
+      var off = KEY_MAP[e.key.toLowerCase()]; if (off === undefined) return;
+      var note = 60 + off; if (heldKeys.has(e.key)) return; heldKeys.add(e.key); noteOn(note);
+    });
+    document.addEventListener('keyup', function(e) {
+      var off = KEY_MAP[e.key.toLowerCase()]; if (off === undefined) return;
+      heldKeys.delete(e.key); noteOff(60 + off);
+    });
+
+    // Patch scalePanel — keyboard is inside #panel so scales with it
+    window.scalePanel = function() {
+      var panel = document.getElementById('panel');
+      panel.style.transform = 'none';
+      panel.style.position = 'absolute';
+      panel.style.transformOrigin = '0 0';
+      var pw = panel.offsetWidth;
+      var ph = panel.offsetHeight;
+      var vw = window.innerWidth;
+      var vh = window.innerHeight;
+      var scale = Math.min(vw / pw, vh / ph, 1);
+      panel.style.transform = 'scale(' + scale + ')';
+      panel.style.left = Math.max(0, (vw - pw * scale) / 2) + 'px';
+      panel.style.top = Math.max(0, (vh - ph * scale) / 2) + 'px';
+    };
+
+    window.addEventListener('resize', function() { buildKeyboard(); });
+
+    // Insert keyboard into #panel so it scales with the synth UI
+    function insertKeyboard() {
+      var panel = document.getElementById('panel');
+      if (!panel) return;
+      var surface = document.createElement('div');
+      surface.className = 'keyboard-surface';
+      surface.id = 'keyboard-surface';
+      surface.innerHTML = '<div class="keyboard-wrap"><div class="keyboard" id="browser-keyboard"></div></div>';
+      panel.appendChild(surface);
+      buildKeyboard();
+      window.scalePanel();
+    }
+
+    // Build after a short delay to ensure DOM is ready
+    setTimeout(insertKeyboard, 100);
+  })();
+  `;
+
+  async function loadPanel() {
+    try {
+      const [panelHtml, shimJs] = await Promise.all([
+        fetch('rev2-panel.html').then(r => r.text()),
+        fetch('juce-shim.js').then(r => r.text())
+      ]);
+
+      // Inject shim before the panel's first <script> so _juce is defined
+      const shimBlock = `<script>
+window.__ANARACK_CONFIG = { host: ${JSON.stringify(host)} };
+${shimJs}
+<\/script>`;
+
+      let modified;
+      const idx = panelHtml.indexOf('<script>');
+      if (idx >= 0) {
+        modified = panelHtml.slice(0, idx) + shimBlock + '\n' + panelHtml.slice(idx);
+      } else {
+        modified = panelHtml.replace('</head>', shimBlock + '\n</head>');
+      }
+
+      // Inject keyboard CSS into <head>
+      modified = modified.replace('</style>', `</style>\n<style>${KEYBOARD_CSS}</style>`);
+
+      // Inject keyboard JS before </body> (JS appends keyboard into #panel)
+      modified = modified.replace('</body>',
+        '<script>' + KEYBOARD_JS + '<\/script>\n</body>');
+
+      iframe.srcdoc = modified;
+    } catch (err) {
+      document.body.innerHTML = `<div style="color:#E53935;padding:40px;font-family:monospace">
+        Failed to load panel: ${err.message}<br>
+        Serve from a local server: python3 -m http.server 3000
+      </div>`;
+    }
+  }
+})();
+</script>
+</body>
+</html>
