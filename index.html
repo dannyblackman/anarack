@@ -88,6 +88,11 @@
 
   document.getElementById('connect-btn').addEventListener('click', (e) => {
     e.stopPropagation();
+    // Create AudioContext on user gesture (required for iOS Safari)
+    window.__ANARACK_AUDIO_CTX = new (window.AudioContext || window.webkitAudioContext)({
+      sampleRate: 48000, latencyHint: 'interactive'
+    });
+    window.__ANARACK_AUDIO_CTX.resume();
     gate.classList.add('hidden');
     loadPanel();
   });
