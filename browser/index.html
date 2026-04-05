@@ -4,10 +4,22 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Anarack — Prophet Rev2 Demo</title>
+<meta name="description" content="Play a real Prophet Rev2 synthesizer remotely in your browser. No plugins, no downloads — just connect and play.">
+<meta property="og:title" content="Anarack — Prophet Rev2">
+<meta property="og:description" content="Play a real hardware synth remotely in your browser. Tweak knobs, play keys, hear it live.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://rev2.anarack.com">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Anarack — Prophet Rev2">
+<meta name="twitter:description" content="Play a real hardware synth remotely in your browser.">
 <style>
   * { margin: 0; padding: 0; }
   html, body { height: 100%; overflow: hidden; background: #1a1a1a; }
   iframe { width: 100%; height: 100%; border: none; }
+  @media (max-width: 768px) {
+    html, body { overflow: auto; }
+    iframe { height: 100vh; }
+  }
   .audio-gate {
     position: fixed; inset: 0; z-index: 10000;
     background: rgba(0,0,0,0.92);
@@ -280,12 +292,21 @@
       heldKeys.delete(e.key); noteOff(60 + off);
     });
 
+    var isMobile = window.innerWidth <= 768;
+
     // Patch scalePanel — keyboard is inside #panel so scales with it
     window.scalePanel = function() {
       var panel = document.getElementById('panel');
       panel.style.transform = 'none';
       panel.style.position = 'absolute';
       panel.style.transformOrigin = '0 0';
+      if (isMobile) {
+        // On mobile: no scaling, let the panel overflow and scroll
+        panel.style.position = 'relative';
+        panel.style.left = '0';
+        panel.style.top = '0';
+        return;
+      }
       var pw = panel.offsetWidth;
       var ph = panel.offsetHeight;
       var vw = window.innerWidth;
@@ -297,6 +318,28 @@
     };
 
     window.addEventListener('resize', function() { buildKeyboard(); });
+
+    // Watch for offline state and update the screen text
+    if (window.__JUCE__ && window.__JUCE__.backend) {
+      window.__JUCE__.backend.addEventListener('connectionStatus', function(state) {
+        if (state.connState === 3) {
+          var screen = document.getElementById('screen-name') || document.querySelector('.screen-name');
+          // Find the screen text element
+          var els = document.querySelectorAll('.patch-name, [id*="screen"]');
+          els.forEach(function(el) {
+            if (el.textContent === 'Connecting...') {
+              el.textContent = 'Synth Offline';
+              el.style.opacity = '0.4';
+            }
+          });
+          // Also try the known screenName variable
+          if (typeof screenName !== 'undefined' && screenName && screenName.textContent === 'Connecting...') {
+            screenName.textContent = 'Synth Offline';
+            screenName.style.opacity = '0.4';
+          }
+        }
+      });
+    }
 
     // Hide plugin-only controls in browser mode
     function hideBrowserUnsupported() {
@@ -327,7 +370,8 @@
     // Build after a short delay to ensure DOM is ready
     setTimeout(function() {
       hideBrowserUnsupported();
-      insertKeyboard();
+      if (!isMobile) insertKeyboard();
+      else window.scalePanel();
     }, 100);
   })();
   `;

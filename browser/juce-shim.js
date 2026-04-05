@@ -23,8 +23,9 @@
   let audioStarted = false;
   const listeners = {};
   let connected = false;
-  let connState = 0; // 0=disconnected, 1=connecting, 2=connected
+  let connState = 0; // 0=disconnected, 1=connecting, 2=connected, 3=offline
   let statusInterval = null;
+  let connectTimeout = null;
 
   // ── Event system (matches JUCE backend API) ──
   function addEventListener(event, callback) {
@@ -50,6 +51,14 @@
       // Mark as connecting — will go "live" once audio arrives
       connState = 1;
       _broadcastStatus();
+      // Set timeout: if no audio/data after 10s, show offline
+      if (connectTimeout) clearTimeout(connectTimeout);
+      connectTimeout = setTimeout(() => {
+        if (!connected) {
+          connState = 3; // offline
+          _broadcastStatus();
+        }
+      }, 10000);
     };
 
     midiWs.onmessage = (e) => {
@@ -58,10 +67,10 @@
         const msg = JSON.parse(e.data);
         if (msg.type === 'cc') {
           _dispatch('paramUpdate', { cc: msg.cc, value: msg.value });
-          if (!connected) { connected = true; connState = 2; _broadcastStatus(); }
+          if (!connected) { connected = true; connState = 2; if (connectTimeout) clearTimeout(connectTimeout); _broadcastStatus(); }
         } else if (msg.type === 'patchName') {
           _lastPatchName = msg.name;
-          if (!connected) { connected = true; connState = 2; _broadcastStatus(); }
+          if (!connected) { connected = true; connState = 2; if (connectTimeout) clearTimeout(connectTimeout); _broadcastStatus(); }
         } else if (msg.type === 'programChange') {
           _dispatch('paramUpdate', { cc: 120, value: msg.program });
           if (msg.bank !== undefined)
@@ -79,7 +88,8 @@
 
     midiWs.onerror = () => {
       connected = false;
-      connState = 0;
+      connState = 3; // offline — couldn't reach relay/Pi
+      if (connectTimeout) clearTimeout(connectTimeout);
       _broadcastStatus();
     };
   }
@@ -130,7 +140,7 @@
       if (!(e.data instanceof ArrayBuffer) || !audioCtx) return;
       if (e.data.byteLength < 2 || e.data.byteLength % 2 !== 0) return; // invalid PCM
       // First audio packet = Pi is streaming, go live
-      if (!connected) { connected = true; connState = 2; _broadcastStatus(); }
+      if (!connected) { connected = true; connState = 2; if (connectTimeout) clearTimeout(connectTimeout); _broadcastStatus(); }
       const int16 = new Int16Array(e.data);
       const float32 = new Float32Array(int16.length);
       for (let i = 0; i < int16.length; i++) float32[i] = int16[i] / 32768;
