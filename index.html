@@ -125,7 +125,7 @@
       position: relative; user-select: none; -webkit-user-select: none;
       width: 100%;
     }
-    /* Connection overlay — centered status over dimmed panel */
+    /* Connection overlay — scaled-up version of panel's status pill */
     .conn-overlay {
       position: fixed; inset: 0; z-index: 200;
       display: flex; flex-direction: column;
@@ -134,32 +134,32 @@
       transition: opacity 0.6s ease;
     }
     .conn-overlay.hidden { opacity: 0; }
-    .conn-overlay .conn-dot {
-      width: 14px; height: 14px; border-radius: 50%;
-      background: rgba(255,255,255,0.15);
-      margin-bottom: 16px; transition: all 0.3s;
+    .conn-overlay .status-pill {
+      display: flex; align-items: center; gap: 10px;
+      padding: 8px 20px; border-radius: 20px;
+      background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08);
     }
-    .conn-overlay .conn-dot.connecting {
+    .conn-overlay .status-dot {
+      width: 10px; height: 10px; border-radius: 50%;
+      background: rgba(255,255,255,0.15); transition: all 0.3s;
+    }
+    .conn-overlay .status-dot.connecting {
       background: #E8A849;
-      box-shadow: 0 0 16px rgba(232,168,73,0.5);
+      box-shadow: 0 0 12px rgba(232,168,73,0.5);
       animation: pulse 1.5s infinite;
     }
-    .conn-overlay .conn-dot.offline {
-      background: rgba(255,255,255,0.1);
-      box-shadow: none;
+    .conn-overlay .status-label {
+      font-size: 13px; font-weight: 600;
+      color: rgba(255,255,255,0.3);
+      text-transform: uppercase; letter-spacing: 2px;
     }
-    .conn-overlay .conn-text {
-      font-family: 'Syne', system-ui, sans-serif;
-      font-size: 16px; font-weight: 700;
-      letter-spacing: 5px; text-transform: uppercase;
-      color: rgba(255,255,255,0.4);
-    }
-    .conn-overlay .conn-text.connecting { color: #E8A849; }
+    .conn-overlay .status-pill.connecting .status-label { color: #E8A849; }
     .conn-overlay .conn-sub {
-      margin-top: 10px;
+      margin-top: 16px;
       font-family: 'Inter', system-ui, sans-serif;
-      font-size: 11px; color: rgba(255,255,255,0.15);
-      letter-spacing: 1px;
+      font-size: 11px; color: rgba(255,255,255,0.2);
+      letter-spacing: 0.5px; text-align: center;
+      max-width: 320px; line-height: 1.5;
     }
     @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
 
@@ -376,13 +376,15 @@
 
     window.addEventListener('resize', function() { buildKeyboard(); });
 
-    // Create connection overlay
+    // Create connection overlay (scaled-up version of panel's status pill)
     var overlay = document.createElement('div');
     overlay.className = 'conn-overlay';
     overlay.id = 'conn-overlay';
-    overlay.innerHTML = '<div class="conn-dot connecting" id="conn-dot"></div>'
-      + '<div class="conn-text connecting" id="conn-text">Connecting</div>'
-      + '<div class="conn-sub" id="conn-sub">Reaching the synth...</div>';
+    overlay.innerHTML = '<div class="status-pill connecting" id="ov-pill">'
+      + '<div class="status-dot connecting" id="ov-dot"></div>'
+      + '<span class="status-label" id="ov-label">Connecting</span>'
+      + '</div>'
+      + '<div class="conn-sub" id="ov-sub"></div>';
     document.body.appendChild(overlay);
 
     // Start in "powered off" state
@@ -392,38 +394,35 @@
     if (window.__JUCE__ && window.__JUCE__.backend) {
       window.__JUCE__.backend.addEventListener('connectionStatus', function(state) {
         var ov = document.getElementById('conn-overlay');
-        var dot = document.getElementById('conn-dot');
-        var text = document.getElementById('conn-text');
-        var sub = document.getElementById('conn-sub');
+        var pill = document.getElementById('ov-pill');
+        var dot = document.getElementById('ov-dot');
+        var label = document.getElementById('ov-label');
+        var sub = document.getElementById('ov-sub');
         if (!ov) return;
 
         if (state.connected) {
-          // Power on — hide overlay, remove dimming
           ov.classList.add('hidden');
           document.body.classList.remove('synth-off');
         } else if (state.connState === 3) {
-          // Offline
           ov.classList.remove('hidden');
-          dot.className = 'conn-dot offline';
-          text.className = 'conn-text';
-          text.textContent = 'Offline';
-          sub.textContent = 'The synth is powered off';
+          pill.className = 'status-pill';
+          dot.className = 'status-dot';
+          label.textContent = 'Offline';
+          sub.textContent = 'This is a real Prophet Rev2 synth — it\\'s not currently powered on. Check back later or follow @anarack for session times.';
           document.body.classList.add('synth-off');
         } else if (state.connState === 1) {
-          // Connecting
           ov.classList.remove('hidden');
-          dot.className = 'conn-dot connecting';
-          text.className = 'conn-text connecting';
-          text.textContent = 'Connecting';
-          sub.textContent = 'Reaching the synth...';
+          pill.className = 'status-pill connecting';
+          dot.className = 'status-dot connecting';
+          label.textContent = 'Connecting';
+          sub.textContent = '';
           document.body.classList.add('synth-off');
         } else {
-          // Disconnected
           ov.classList.remove('hidden');
-          dot.className = 'conn-dot offline';
-          text.className = 'conn-text';
-          text.textContent = 'Disconnected';
-          sub.textContent = '';
+          pill.className = 'status-pill';
+          dot.className = 'status-dot';
+          label.textContent = 'Offline';
+          sub.textContent = 'This is a real Prophet Rev2 synth — it\\'s not currently powered on. Check back later or follow @anarack for session times.';
           document.body.classList.add('synth-off');
         }
       });
