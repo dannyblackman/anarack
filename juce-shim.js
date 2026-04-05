@@ -1,6 +1,6 @@
 // juce-shim.js — Drop-in replacement for window.__JUCE__.backend
 // Bridges rev2-panel.html events to the Pi's midi_router.py via WebSocket.
-// Audio comes over a second WebSocket (/audio) and plays via AudioWorklet.
+// Audio plays via WebAudio BufferSource scheduling.
 
 (function () {
   'use strict';
@@ -10,13 +10,15 @@
   const config = window.__ANARACK_CONFIG || {};
   const WS_HOST = config.host || location.hostname + ':8765';
   // Use wss for remote hosts, ws for local (localhost/LAN IPs)
-  const isLocal = /^(localhost|127\.|192\.168\.|10\.)/.test(WS_HOST);
+  const hostname = WS_HOST.split(':')[0];
+  const isLocal = /^(localhost|127\.\d+\.\d+\.\d+|192\.168\.\d+\.\d+|10\.\d+\.\d+\.\d+|::1)$/.test(hostname);
   const WS_PROTO = isLocal ? 'ws' : 'wss';
 
   // ── State ──
   let midiWs = null;
   let audioWs = null;
   let audioCtx = null;
+  let audioGen = 0; // generation counter to invalidate stale audio callbacks
   let nextPlayTime = 0;
   let audioStarted = false;
   const listeners = {};
@@ -99,6 +101,8 @@
   // ── Audio WebSocket + WebAudio playback ──
   function connectAudio(host) {
     if (audioWs) { audioWs.close(); audioWs = null; }
+    const gen = ++audioGen; // invalidate any stale callbacks
+
     if (!audioCtx) {
       // Use parent's AudioContext if available (created on user gesture for iOS)
       try { audioCtx = window.parent.__ANARACK_AUDIO_CTX; } catch(e) {}
@@ -122,7 +126,9 @@
     };
 
     audioWs.onmessage = (e) => {
+      if (gen !== audioGen) return; // stale socket, discard
       if (!(e.data instanceof ArrayBuffer) || !audioCtx) return;
+      if (e.data.byteLength < 2 || e.data.byteLength % 2 !== 0) return; // invalid PCM
       // First audio packet = Pi is streaming, go live
       if (!connected) { connected = true; connState = 2; _broadcastStatus(); }
       const int16 = new Int16Array(e.data);
@@ -141,7 +147,8 @@
         nextPlayTime = now + BUFFER_AHEAD;
         audioStarted = true;
       }
-      if (nextPlayTime > now + 0.2) nextPlayTime = now + BUFFER_AHEAD;
+      // Only clamp on extreme runaway (> 1s buffered)
+      if (nextPlayTime > now + 1.0) nextPlayTime = now + BUFFER_AHEAD;
       src.start(nextPlayTime);
       nextPlayTime += buf.duration;
     };
@@ -151,6 +158,7 @@
 
   function disconnectAudio() {
     if (audioWs) { audioWs.close(); audioWs = null; }
+    audioGen++;
     nextPlayTime = 0;
     audioStarted = false;
   }

@@ -152,17 +152,12 @@
   (function() {
     var _juce = window.__JUCE__ && window.__JUCE__.backend;
     var mouseNote = null;
+    var activeTouches = new Map(); // touch.identifier → note
     var activeNotes = new Set();
     var KB_H = 300;
 
     function sendNote(status, note, vel) {
-      if (!_juce) return;
-      // Send as CC-style through the shim's emitEvent
-      // Actually we need raw MIDI — use the shim's internal sendMidiMsg
-      // The shim exposes emitEvent, so we fake a "note" by calling it directly
-      // Notes aren't CC, so we need to extend the shim or send raw
-      // Simplest: call the shim's WebSocket directly
-      if (window.__JUCE__.backend._sendMidi) {
+      if (window.__JUCE__ && window.__JUCE__.backend._sendMidi) {
         window.__JUCE__.backend._sendMidi(status, note, vel);
       }
     }
@@ -237,8 +232,20 @@
       document.addEventListener('mouseup', function() {
         if (mouseNote !== null) { noteOff(mouseNote); mouseNote = null; }
       });
-      document.addEventListener('touchend', function() {
-        if (mouseNote !== null) { noteOff(mouseNote); mouseNote = null; }
+      // Touch events: track each touch independently to avoid stuck notes
+      document.addEventListener('touchend', function(e) {
+        for (var i = 0; i < e.changedTouches.length; i++) {
+          var id = e.changedTouches[i].identifier;
+          var n = activeTouches.get(id);
+          if (n !== undefined) { noteOff(n); activeTouches.delete(id); }
+        }
+      });
+      document.addEventListener('touchcancel', function(e) {
+        for (var i = 0; i < e.changedTouches.length; i++) {
+          var id = e.changedTouches[i].identifier;
+          var n = activeTouches.get(id);
+          if (n !== undefined) { noteOff(n); activeTouches.delete(id); }
+        }
       });
     }
 
@@ -250,7 +257,14 @@
           noteOn(note); mouseNote = note;
         }
       });
-      key.addEventListener('touchstart', function(e) { e.preventDefault(); noteOn(note); mouseNote = note; });
+      key.addEventListener('touchstart', function(e) {
+        e.preventDefault();
+        for (var i = 0; i < e.changedTouches.length; i++) {
+          var id = e.changedTouches[i].identifier;
+          activeTouches.set(id, note);
+        }
+        noteOn(note);
+      });
     }
 
     // Computer keyboard mapping
