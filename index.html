@@ -125,6 +125,25 @@
       position: relative; user-select: none; -webkit-user-select: none;
       width: 100%;
     }
+    /* Synth "powered off" state */
+    .synth-off .panel {
+      filter: brightness(0.4) saturate(0);
+      transition: filter 0.8s ease;
+    }
+    .synth-off .btn.on, .synth-off .btn-sm.on, .synth-off .lfo-tab.active,
+    .synth-off .shape-led, .synth-off .prog-btn.on {
+      background: #333 !important;
+      box-shadow: none !important;
+      border-color: #444 !important;
+    }
+    .synth-off .status-dot { background: #333 !important; box-shadow: none !important; }
+    .synth-off .logo { opacity: 0.3; }
+    .synth-off canvas { opacity: 0.3; }
+    body:not(.synth-off) .panel {
+      filter: brightness(1) saturate(1);
+      transition: filter 1.2s ease;
+    }
+
     .kb-key {
       position: absolute; cursor: pointer;
       transition: background 0.04s, box-shadow 0.06s;
@@ -319,24 +338,25 @@
 
     window.addEventListener('resize', function() { buildKeyboard(); });
 
-    // Watch for offline state and update the screen text
+    // Start in "powered off" state
+    document.body.classList.add('synth-off');
+
+    // Watch for connection state changes
     if (window.__JUCE__ && window.__JUCE__.backend) {
       window.__JUCE__.backend.addEventListener('connectionStatus', function(state) {
-        if (state.connState === 3) {
-          var screen = document.getElementById('screen-name') || document.querySelector('.screen-name');
-          // Find the screen text element
-          var els = document.querySelectorAll('.patch-name, [id*="screen"]');
-          els.forEach(function(el) {
-            if (el.textContent === 'Connecting...') {
-              el.textContent = 'Synth Offline';
-              el.style.opacity = '0.4';
-            }
-          });
-          // Also try the known screenName variable
-          if (typeof screenName !== 'undefined' && screenName && screenName.textContent === 'Connecting...') {
+        if (state.connected) {
+          // Power on — remove dimming, let boot animation play
+          document.body.classList.remove('synth-off');
+        } else if (state.connState === 3) {
+          // Offline — keep powered off, update screen text
+          document.body.classList.add('synth-off');
+          if (typeof screenName !== 'undefined' && screenName) {
             screenName.textContent = 'Synth Offline';
             screenName.style.opacity = '0.4';
           }
+        } else if (state.connState === 0) {
+          // Disconnected — power off
+          document.body.classList.add('synth-off');
         }
       });
     }
