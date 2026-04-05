@@ -31,9 +31,21 @@ import websockets
 logging.basicConfig(level=logging.INFO, format='%(asctime)s %(message)s')
 log = logging.getLogger('ws-relay')
 
+# Connection limits to protect the Pi
+MAX_CONNECTIONS = 20  # total (each browser tab = 2: midi + audio)
+_active_connections = 0
+
 
 async def relay_handler(browser_ws, pi_host: str, pi_port: int):
     """Relay a single browser WebSocket connection to the Pi."""
+    global _active_connections
+
+    if _active_connections >= MAX_CONNECTIONS:
+        log.warning(f'Connection limit reached ({MAX_CONNECTIONS}), rejecting')
+        await browser_ws.close(1013, 'Server full')
+        return
+
+    _active_connections += 1
     remote = browser_ws.remote_address
 
     # Determine path
@@ -84,7 +96,8 @@ async def relay_handler(browser_ws, pi_host: str, pi_port: int):
         except Exception:
             pass
 
-    log.info(f'{kind} client disconnected: {remote}')
+    _active_connections -= 1
+    log.info(f'{kind} client disconnected: {remote} (active: {_active_connections})')
 
 
 async def main():
