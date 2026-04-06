@@ -208,14 +208,15 @@ void AnarackProcessor::autoConnect()
         juce::Thread::sleep(100);
         if (jitterBuffer.isConfigured() && !jitterBuffer.isPrebuffering())
         {
-            // Audio is flowing
+            // Audio is flowing — truly connected
             connectionState.store((int)ConnState::connected);
             return;
         }
     }
-    connectionState.store(transport.isConnected()
-        ? (int)ConnState::connected
-        : (int)ConnState::disconnected);
+    // Timed out without audio — the socket/tunnel may be up but the Pi
+    // isn't responding (e.g. powered off). Stay in "connecting" state so
+    // the UI shows we haven't actually reached the synth.
+    connectionState.store((int)ConnState::connecting);
 
     // TODO: Auto buffer detection — needs thread-safe buffer resizing.
     // For now, start at 80ms which testing showed is stable on this connection.

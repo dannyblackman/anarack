@@ -1460,27 +1460,27 @@ knob(r, 'Sustain', 64, 127, {cc: 75});                   // ampEnvSustain
 knob(r, 'Release', 64, 127, {cc: 76});                   // ampEnvRelease
 
 // ── Auto-scale panel to fit viewport ──
-// Cache the panel's natural (untransformed) size — only measured once.
+// CSS-based centering (translate -50%) is smoother than JS-computed positions.
 let _panelNaturalW = 0, _panelNaturalH = 0;
 function scalePanel() {
   const panel = document.getElementById('panel');
   if (!_panelNaturalW) {
-    // First call: measure panel at its natural size before any transform
+    // First call: measure the panel at natural size, then set up CSS centering
     panel.style.transform = 'none';
-    panel.style.position = 'absolute';
-    panel.style.transformOrigin = '0 0';
+    panel.style.position = 'fixed';
+    panel.style.top = '50%';
+    panel.style.left = '50%';
+    panel.style.transformOrigin = 'center center';
     _panelNaturalW = panel.offsetWidth;
     _panelNaturalH = panel.offsetHeight;
   }
   const vw = window.innerWidth;
   const vh = window.innerHeight;
   const scale = Math.min(vw / _panelNaturalW, vh / _panelNaturalH, 1);
-  panel.style.transform = `scale(${scale})`;
-  panel.style.left = Math.max(0, (vw - _panelNaturalW * scale) / 2) + 'px';
-  panel.style.top = Math.max(0, (vh - _panelNaturalH * scale) / 2) + 'px';
+  panel.style.transform = `translate(-50%, -50%) scale(${scale})`;
 }
 
-// Throttle resize via requestAnimationFrame to avoid jank
+// Throttle resize via requestAnimationFrame
 let _resizePending = false;
 function onResize() {
   if (_resizePending) return;

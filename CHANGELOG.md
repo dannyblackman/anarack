@@ -1,5 +1,15 @@
 # Changelog
 
+## v0.4.7 (build 73) — CSS centering, fix false "connected" state (2026-04-06)
+
+- scalePanel uses CSS transform with translate(-50%, -50%) centering instead
+  of JS-computed left/top. GPU-accelerated, way smoother during resize.
+- Fix false "connected" state: the WireGuard tunnel reporting "up" doesn't
+  mean the Pi is actually responding. autoConnect now stays in "connecting"
+  if the 15s audio timeout fires, instead of flipping to "connected".
+- Editor's status display now checks processor.connectionState (which
+  requires real audio flow) not just transport.isConnected() (socket only).
+
 ## v0.4.6 (build 72) — Smoother resize, auto-size sentinel (2026-04-06)
 
 - editorWidth/Height default to 0 (sentinel) so auto-size always runs on first launch

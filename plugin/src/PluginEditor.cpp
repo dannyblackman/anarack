@@ -212,7 +212,10 @@ AnarackEditor::~AnarackEditor() { stopTimer(); }
 void AnarackEditor::timerCallback()
 {
     auto& t = processor.getTransport();
-    bool c = t.isConnected();
+    // "Connected" means audio is actually flowing, not just that the
+    // socket/tunnel is up. See PluginProcessor::autoConnect.
+    bool c = (processor.connectionState.load() == (int)AnarackProcessor::ConnState::connected)
+             && t.isConnected();
 
     if (webView)
     {
