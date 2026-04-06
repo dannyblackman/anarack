@@ -1,5 +1,20 @@
 # Changelog
 
+## Browser demo — Public Rev2 demo at rev2.anarack.com (2026-04-06)
+
+- **Browser demo** — same Rev2 panel HTML runs in plugin AND browser via JS shim that replaces JUCE WebView bridge with WebSocket
+- **VPS WebSocket relay** (`server/ws_relay.py`) — bridges public WSS to Pi's WebSocket over WireGuard, with 20-connection cap
+- **GitHub Pages deploy** at https://rev2.anarack.com via `gh-pages` branch + Caddy + Let's Encrypt on VPS
+- 5-octave keyboard injected into the panel for browser play (touch + computer keys A-L)
+- AudioContext created on user gesture in parent page for iOS Safari
+- Audio: 50ms scheduling buffer, generation counter prevents stale callback races, ArrayBuffer validation
+- Connection states: connecting → live (on first audio/CC) → offline (after 10s timeout or WS error)
+- "Powered off" visual: panel desaturates and dims when synth offline, boots back up on connect
+- Centered status overlay (scaled-up panel pill) for connecting/offline states
+- Mobile: skip keyboard, scroll the panel instead of scaling tiny
+- Open Graph + Twitter Card meta tags for link previews
+- Hide plugin-only controls (server, buffer, sensitivity, MIDI input, ping) in browser mode
+
 ## v0.3.20 (build 56) — Boot with real patch values, reconnect fix (2026-04-03)
 
 - Knobs + patch name load from Rev2 on every connect (first load, reconnect, re-add plugin)
