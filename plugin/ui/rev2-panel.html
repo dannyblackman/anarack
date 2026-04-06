@@ -158,11 +158,10 @@
 
   /* Knob control */
   .ctrl { display: flex; flex-direction: column; align-items: center; width: 66px; }
-  /* Button-style dropdown: small square button matching .btn, selected value
-     displayed below in small text (like a screen readout). */
-  .dropdown-btn-outer {
-    display: flex; flex-direction: column; align-items: center; gap: 2px;
-  }
+  /* Disabled control — greyed out, not interactive */
+  .ctrl-disabled { opacity: 0.3; pointer-events: none; filter: saturate(0); }
+
+  /* Button-style dropdown: small square button matching .btn */
   .dropdown-btn-wrap {
     position: relative;
     width: 42px; height: 24px;
@@ -495,12 +494,34 @@ const DPR = window.devicePixelRatio || 1;
 const KS = 50;
 const ACCENT = '#E53935';
 
-// ── Enum lists (from synths/sequential-prophet-rev2.json) ──
-const FX_TYPES = ['Off','Delay Mono','DDL Stereo','BBD Delay','Chorus','Phaser High','Phaser Low','Phaser Mst','Flanger 1','Flanger 2','Reverb','Ring Mod','Distortion','HP Filter'];
-const ARP_MODES = ['Up','Down','Up/Down','Random','Assign'];
-const MOD_DESTS = ['Off','Osc 1 Freq','Osc 2 Freq','Osc All Freq','Osc Mix','Noise','Sub Osc','Osc 1 Shape','Osc 2 Shape','Osc All Shape','Cutoff','Resonance','Audio Mod','VCA Level','Pan','LFO 1 Freq','LFO 2 Freq','LFO 3 Freq','LFO 4 Freq','LFO All Freq','LFO 1 Amt','LFO 2 Amt','LFO 3 Amt','LFO 4 Amt','LFO All Amt','Filter Env Amt','Amp Env Amt','Env 3 Amt','All Env Amt','Filter Env Att','Amp Env Att','Env 3 Att','All Env Att','Filter Env Dec','Amp Env Dec','Env 3 Dec','All Env Dec','Filter Env Rel','Amp Env Rel','Env 3 Rel','All Env Rel','Mod 1 Amt','Mod 2 Amt','Mod 3 Amt','Mod 4 Amt','Mod 5 Amt','Mod 6 Amt','Mod 7 Amt','Mod 8 Amt','Osc Slop','FX Mix','FX Param 1','FX Param 2','Seq Slew'];
-const MOD_SOURCES = ['Off','Seq 1','Seq 2','Seq 3','Seq 4','LFO 1','LFO 2','LFO 3','LFO 4','Filter Env','Amp Env','Env 3','Pitch Bend','Mod Wheel','Pressure','Breath','Foot Pedal','Expression','Velocity','Note Number','Noise','DC','Audio Out'];
-const SEQ_TYPES = ['Gated','Poly'];
+// ==== REV2_PARAMS_BEGIN ====
+// AUTO-GENERATED — do not edit by hand.
+// Run `python3 scripts/gen-rev2-params.py` to regenerate from
+// synths/sequential-prophet-rev2.json.
+const REV2_PARAMS = {"osc1Freq":{"cc":20,"nrpn":0,"min":0,"max":120,"default":36},"osc1FineTune":{"cc":21,"nrpn":1,"min":0,"max":100,"default":50},"osc1Shape":{"cc":22,"nrpn":2,"min":0,"max":4,"default":1},"osc1PulseWidth":{"cc":30,"nrpn":102,"min":0,"max":99,"default":50},"osc1Glide":{"cc":23,"nrpn":3,"min":0,"max":127,"default":0},"osc1KeyTrack":{"cc":null,"nrpn":4,"min":0,"max":1,"default":1},"osc1NoteReset":{"cc":null,"nrpn":99,"min":0,"max":1,"default":0},"osc2Freq":{"cc":24,"nrpn":5,"min":0,"max":120,"default":36},"osc2FineTune":{"cc":25,"nrpn":6,"min":0,"max":100,"default":50},"osc2Shape":{"cc":26,"nrpn":7,"min":0,"max":4,"default":1},"osc2PulseWidth":{"cc":31,"nrpn":103,"min":0,"max":99,"default":50},"osc2Glide":{"cc":27,"nrpn":8,"min":0,"max":127,"default":0},"osc2KeyTrack":{"cc":null,"nrpn":9,"min":0,"max":1,"default":1},"osc2NoteReset":{"cc":null,"nrpn":104,"min":0,"max":1,"default":0},"oscMix":{"cc":28,"nrpn":13,"min":0,"max":127,"default":0},"subOsc":{"cc":8,"nrpn":110,"min":0,"max":127,"default":0},"noiseLevel":{"cc":29,"nrpn":14,"min":0,"max":127,"default":0},"sync":{"cc":null,"nrpn":10,"min":0,"max":1,"default":0},"glideMode":{"cc":5,"nrpn":11,"min":0,"max":3,"default":0},"glideOnOff":{"cc":65,"nrpn":111,"min":0,"max":1,"default":0},"pitchBendRange":{"cc":null,"nrpn":113,"min":0,"max":12,"default":2},"oscSlop":{"cc":9,"nrpn":12,"min":0,"max":127,"default":0},"filterFreq":{"cc":102,"nrpn":15,"min":0,"max":164,"default":164},"filterRes":{"cc":103,"nrpn":16,"min":0,"max":127,"default":0},"filterKeyAmt":{"cc":104,"nrpn":17,"min":0,"max":127,"default":0},"filterAudioMod":{"cc":105,"nrpn":18,"min":0,"max":127,"default":0},"filterPoles":{"cc":null,"nrpn":19,"min":0,"max":1,"default":1},"filterEnvAmt":{"cc":106,"nrpn":20,"min":0,"max":254,"default":127},"filterEnvVel":{"cc":107,"nrpn":21,"min":0,"max":127,"default":0},"filterEnvDelay":{"cc":108,"nrpn":22,"min":0,"max":127,"default":0},"filterEnvAttack":{"cc":109,"nrpn":23,"min":0,"max":127,"default":0},"filterEnvDecay":{"cc":110,"nrpn":24,"min":0,"max":127,"default":64},"filterEnvSustain":{"cc":111,"nrpn":25,"min":0,"max":127,"default":64},"filterEnvRelease":{"cc":112,"nrpn":26,"min":0,"max":127,"default":64},"vcaLevel":{"cc":113,"nrpn":98,"min":0,"max":127,"default":0},"voiceVolume":{"cc":37,"nrpn":29,"min":0,"max":127,"default":127},"panSpread":{"cc":114,"nrpn":28,"min":0,"max":127,"default":0},"panMode":{"cc":10,"nrpn":114,"min":0,"max":1,"default":0},"ampEnvAmt":{"cc":115,"nrpn":30,"min":0,"max":127,"default":127},"ampEnvVel":{"cc":116,"nrpn":31,"min":0,"max":127,"default":0},"ampEnvDelay":{"cc":117,"nrpn":32,"min":0,"max":127,"default":0},"ampEnvAttack":{"cc":118,"nrpn":33,"min":0,"max":127,"default":0},"ampEnvDecay":{"cc":119,"nrpn":34,"min":0,"max":127,"default":64},"ampEnvSustain":{"cc":75,"nrpn":35,"min":0,"max":127,"default":64},"ampEnvRelease":{"cc":76,"nrpn":36,"min":0,"max":127,"default":64},"env3Dest":{"cc":85,"nrpn":57,"min":0,"max":52,"default":0},"env3Repeat":{"cc":null,"nrpn":97,"min":0,"max":1,"default":0},"env3Amt":{"cc":86,"nrpn":58,"min":0,"max":254,"default":127},"env3Vel":{"cc":87,"nrpn":59,"min":0,"max":127,"default":0},"env3Delay":{"cc":88,"nrpn":60,"min":0,"max":127,"default":0},"env3Attack":{"cc":89,"nrpn":61,"min":0,"max":127,"default":0},"env3Decay":{"cc":90,"nrpn":62,"min":0,"max":127,"default":64},"env3Sustain":{"cc":77,"nrpn":63,"min":0,"max":127,"default":64},"env3Release":{"cc":78,"nrpn":64,"min":0,"max":127,"default":64},"lfo1Freq":{"cc":null,"nrpn":37,"min":0,"max":127,"default":30},"lfo1Shape":{"cc":null,"nrpn":38,"min":0,"max":4,"default":0},"lfo1Amt":{"cc":null,"nrpn":39,"min":0,"max":127,"default":0},"lfo1Dest":{"cc":null,"nrpn":40,"min":0,"max":52,"default":0},"lfo1ClockSync":{"cc":null,"nrpn":41,"min":0,"max":1,"default":0},"lfo1KeySync":{"cc":null,"nrpn":105,"min":0,"max":1,"default":0},"lfo2Freq":{"cc":null,"nrpn":42,"min":0,"max":150,"default":30},"lfo2Shape":{"cc":null,"nrpn":43,"min":0,"max":4,"default":0},"lfo2Amt":{"cc":null,"nrpn":44,"min":0,"max":127,"default":0},"lfo2Dest":{"cc":null,"nrpn":45,"min":0,"max":52,"default":0},"lfo2ClockSync":{"cc":null,"nrpn":46,"min":0,"max":1,"default":0},"lfo2KeySync":{"cc":null,"nrpn":106,"min":0,"max":1,"default":0},"lfo3Freq":{"cc":null,"nrpn":47,"min":0,"max":150,"default":30},"lfo3Shape":{"cc":null,"nrpn":48,"min":0,"max":4,"default":0},"lfo3Amt":{"cc":null,"nrpn":49,"min":0,"max":127,"default":0},"lfo3Dest":{"cc":null,"nrpn":50,"min":0,"max":52,"default":0},"lfo3ClockSync":{"cc":null,"nrpn":51,"min":0,"max":1,"default":0},"lfo3KeySync":{"cc":null,"nrpn":107,"min":0,"max":1,"default":0},"lfo4Freq":{"cc":null,"nrpn":52,"min":0,"max":150,"default":30},"lfo4Shape":{"cc":null,"nrpn":53,"min":0,"max":4,"default":0},"lfo4Amt":{"cc":null,"nrpn":54,"min":0,"max":127,"default":0},"lfo4Dest":{"cc":null,"nrpn":55,"min":0,"max":52,"default":0},"lfo4ClockSync":{"cc":null,"nrpn":56,"min":0,"max":1,"default":0},"lfo4KeySync":{"cc":null,"nrpn":108,"min":0,"max":1,"default":0},"mod1Source":{"cc":null,"nrpn":65,"min":0,"max":22,"default":0},"mod1Amt":{"cc":null,"nrpn":66,"min":0,"max":254,"default":127},"mod1Dest":{"cc":null,"nrpn":67,"min":0,"max":52,"default":0},"mod2Source":{"cc":null,"nrpn":68,"min":0,"max":22,"default":0},"mod2Amt":{"cc":null,"nrpn":69,"min":0,"max":254,"default":127},"mod2Dest":{"cc":null,"nrpn":70,"min":0,"max":52,"default":0},"mod3Source":{"cc":null,"nrpn":71,"min":0,"max":22,"default":0},"mod3Amt":{"cc":null,"nrpn":72,"min":0,"max":254,"default":127},"mod3Dest":{"cc":null,"nrpn":73,"min":0,"max":52,"default":0},"mod4Source":{"cc":null,"nrpn":74,"min":0,"max":22,"default":0},"mod4Amt":{"cc":null,"nrpn":75,"min":0,"max":254,"default":127},"mod4Dest":{"cc":null,"nrpn":76,"min":0,"max":52,"default":0},"mod5Source":{"cc":null,"nrpn":77,"min":0,"max":22,"default":0},"mod5Amt":{"cc":null,"nrpn":78,"min":0,"max":254,"default":127},"mod5Dest":{"cc":null,"nrpn":79,"min":0,"max":52,"default":0},"mod6Source":{"cc":null,"nrpn":80,"min":0,"max":22,"default":0},"mod6Amt":{"cc":null,"nrpn":81,"min":0,"max":254,"default":127},"mod6Dest":{"cc":null,"nrpn":82,"min":0,"max":52,"default":0},"mod7Source":{"cc":null,"nrpn":83,"min":0,"max":22,"default":0},"mod7Amt":{"cc":null,"nrpn":84,"min":0,"max":254,"default":127},"mod7Dest":{"cc":null,"nrpn":85,"min":0,"max":52,"default":0},"mod8Source":{"cc":null,"nrpn":86,"min":0,"max":22,"default":0},"mod8Amt":{"cc":null,"nrpn":87,"min":0,"max":254,"default":127},"mod8Dest":{"cc":null,"nrpn":88,"min":0,"max":52,"default":0},"modWheelAmt":{"cc":null,"nrpn":116,"min":0,"max":254,"default":127},"modWheelDest":{"cc":null,"nrpn":117,"min":0,"max":52,"default":0},"pressureAmt":{"cc":null,"nrpn":118,"min":0,"max":254,"default":127},"pressureDest":{"cc":null,"nrpn":119,"min":0,"max":52,"default":0},"breathAmt":{"cc":null,"nrpn":120,"min":0,"max":254,"default":127},"breathDest":{"cc":null,"nrpn":121,"min":0,"max":52,"default":0},"velocityAmt":{"cc":null,"nrpn":122,"min":0,"max":254,"default":127},"velocityDest":{"cc":null,"nrpn":123,"min":0,"max":52,"default":0},"footCtrlAmt":{"cc":null,"nrpn":124,"min":0,"max":254,"default":127},"footCtrlDest":{"cc":null,"nrpn":125,"min":0,"max":52,"default":0},"fxType":{"cc":3,"nrpn":154,"min":0,"max":13,"default":0},"fxOnOff":{"cc":16,"nrpn":153,"min":0,"max":1,"default":0},"fxMix":{"cc":17,"nrpn":155,"min":0,"max":127,"default":64},"fxParam1":{"cc":12,"nrpn":156,"min":0,"max":255,"default":64},"fxParam2":{"cc":13,"nrpn":157,"min":0,"max":127,"default":64},"fxClockSync":{"cc":null,"nrpn":158,"min":0,"max":1,"default":0},"keyMode":{"cc":null,"nrpn":170,"min":0,"max":5,"default":2},"unisonOnOff":{"cc":null,"nrpn":168,"min":0,"max":1,"default":0},"unisonMode":{"cc":null,"nrpn":169,"min":0,"max":16,"default":0},"unisonDetune":{"cc":null,"nrpn":167,"min":0,"max":16,"default":8},"bpmTempo":{"cc":14,"nrpn":179,"min":30,"max":250,"default":120},"clockDivide":{"cc":15,"nrpn":175,"min":0,"max":12,"default":6},"arpMode":{"cc":34,"nrpn":173,"min":0,"max":4,"default":0},"arpRange":{"cc":35,"nrpn":174,"min":0,"max":2,"default":0},"arpRepeats":{"cc":36,"nrpn":177,"min":0,"max":3,"default":0},"arpRelatch":{"cc":null,"nrpn":178,"min":0,"max":1,"default":0},"arpOnOff":{"cc":33,"nrpn":172,"min":0,"max":1,"default":0},"seqType":{"cc":19,"nrpn":183,"min":0,"max":1,"default":0},"seqTrigger":{"cc":null,"nrpn":182,"min":0,"max":4,"default":0},"seq1Dest":{"cc":null,"nrpn":184,"min":0,"max":52,"default":0},"seq2Dest":{"cc":null,"nrpn":185,"min":0,"max":53,"default":0},"seq3Dest":{"cc":null,"nrpn":186,"min":0,"max":52,"default":0},"seq4Dest":{"cc":null,"nrpn":187,"min":0,"max":53,"default":0},"seqTrack1":{"cc":null,"nrpn":null,"min":0,"max":127,"default":0},"seqTrack2":{"cc":null,"nrpn":null,"min":0,"max":126,"default":0},"seqTrack3":{"cc":null,"nrpn":null,"min":0,"max":126,"default":0},"seqTrack4":{"cc":null,"nrpn":null,"min":0,"max":126,"default":0},"polySeqNote1":{"cc":null,"nrpn":null,"min":0,"max":127,"default":60},"polySeqVel1":{"cc":null,"nrpn":null,"min":0,"max":127,"default":100},"polySeqNote2":{"cc":null,"nrpn":null,"min":0,"max":127,"default":60},"polySeqVel2":{"cc":null,"nrpn":null,"min":0,"max":127,"default":100},"polySeqNote3":{"cc":null,"nrpn":null,"min":0,"max":127,"default":60},"polySeqVel3":{"cc":null,"nrpn":null,"min":0,"max":127,"default":100},"polySeqNote4":{"cc":null,"nrpn":null,"min":0,"max":127,"default":60},"polySeqVel4":{"cc":null,"nrpn":null,"min":0,"max":127,"default":100},"polySeqNote5":{"cc":null,"nrpn":null,"min":0,"max":127,"default":60},"polySeqVel5":{"cc":null,"nrpn":null,"min":0,"max":127,"default":100},"polySeqNote6":{"cc":null,"nrpn":null,"min":0,"max":127,"default":60},"polySeqVel6":{"cc":null,"nrpn":null,"min":0,"max":127,"default":100},"abMode":{"cc":18,"nrpn":163,"min":0,"max":2,"default":0},"splitPoint":{"cc":39,"nrpn":171,"min":0,"max":120,"default":36}};
+const REV2_ENUMS = {"oscShape":["Off","Sawtooth","Saw+Tri","Triangle","Pulse"],"lfoShape":["Triangle","Sawtooth","Rev Saw","Square","Random"],"glideMode":["Fixed Rate","Fixed Rate A","Fixed Time","Fixed Time A"],"filterPoles":["2-Pole (12dB)","4-Pole (24dB)"],"keyMode":["Low Note","High Note","Last Note","Low Retrigger","High Retrigger","Last Retrigger"],"panMode":["Alternate","Fixed"],"abMode":["Single Layer","Stacked","Split"],"fxType":["Off","Delay Mono","DDL Stereo","BBD Delay","Chorus","Phaser High","Phaser Low","Phaser Mst","Flanger 1","Flanger 2","Reverb","Ring Mod","Distortion","HP Filter"],"arpMode":["Up","Down","Up/Down","Random","Assign"],"clockDivide":["Half Note","Quarter Note","8th Note","8th Half Swing","8th Full Swing","8th Triplet","16th Note","16th Half Swing","16th Full Swing","16th Triplet","32nd Note","32nd Triplet","64th Triplet"],"seqTrigger":["Normal","No Reset","No Gate","No Gate/Reset","Key Step"],"seqType":["Gated","Poly"],"modSource":["Off","Seq 1","Seq 2","Seq 3","Seq 4","LFO 1","LFO 2","LFO 3","LFO 4","Filter Env","Amp Env","Env 3","Pitch Bend","Mod Wheel","Pressure","Breath","Foot Pedal","Expression","Velocity","Note Number","Noise","DC","Audio Out"],"modDest":["Off","Osc 1 Freq","Osc 2 Freq","Osc All Freq","Osc Mix","Noise","Sub Osc","Osc 1 Shape","Osc 2 Shape","Osc All Shape","Cutoff","Resonance","Audio Mod","VCA Level","Pan","LFO 1 Freq","LFO 2 Freq","LFO 3 Freq","LFO 4 Freq","LFO All Freq","LFO 1 Amt","LFO 2 Amt","LFO 3 Amt","LFO 4 Amt","LFO All Amt","Filter Env Amt","Amp Env Amt","Env 3 Amt","All Env Amt","Filter Env Att","Amp Env Att","Env 3 Att","All Env Att","Filter Env Dec","Amp Env Dec","Env 3 Dec","All Env Dec","Filter Env Rel","Amp Env Rel","Env 3 Rel","All Env Rel","Mod 1 Amt","Mod 2 Amt","Mod 3 Amt","Mod 4 Amt","Mod 5 Amt","Mod 6 Amt","Mod 7 Amt","Mod 8 Amt","Osc Slop","FX Mix","FX Param 1","FX Param 2","Seq Slew"]};
+function param(id) {
+  const p = REV2_PARAMS[id];
+  if (!p) throw new Error('Unknown param id: ' + id);
+  return p;
+}
+function paramOpts(id) {
+  const p = param(id);
+  const opts = {};
+  if (p.cc !== null && p.cc !== undefined) opts.cc = p.cc;
+  else if (p.nrpn !== null && p.nrpn !== undefined) opts.nrpn = p.nrpn;
+  if (p.max !== undefined) opts.max = p.max;
+  return opts;
+}
+function paramEnum(name) {
+  const e = REV2_ENUMS[name];
+  if (!e) throw new Error('Unknown enum: ' + name);
+  return e;
+}
+// ==== REV2_PARAMS_END ====
+
+// Enum lists now come from REV2_ENUMS (auto-generated, see gen-rev2-params.py).
+// Use paramEnum('fxType') etc. instead of hardcoded constants.
 
 // ── Knob Drawing ──
 // center: if provided (0-1 normalized), draws arc from center outward (bipolar)
@@ -578,26 +599,25 @@ function drawKnob(canvas, value, max, center) {
   ctx.fillText(value, cx, cy);
 }
 
-// Draw a plain endless encoder — no tick marks, no indicator line, no arc.
-// Matches the real Rev2's endless encoders used for e.g. Mod Source / FX Select.
+// Draw an endless encoder — identical to drawKnob but without the
+// tick marks, value arc, or indicator line. Just the knob body.
 function drawEncoder(canvas) {
   canvas.width = KS * DPR; canvas.height = KS * DPR;
   canvas.style.width = KS + 'px'; canvas.style.height = KS + 'px';
   const ctx = canvas.getContext('2d');
   ctx.scale(DPR, DPR);
   const cx = KS/2, cy = KS/2, r = KS/2 - 8;
+  const startA = 0.75 * Math.PI;
+  const sweep = 1.5 * Math.PI;
 
-  // Outer rim (subtle)
-  ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2);
-  ctx.strokeStyle = '#1a1a1a'; ctx.lineWidth = 1; ctx.stroke();
+  // Track arc (same as knob, so the dimensions match)
+  ctx.beginPath(); ctx.arc(cx, cy, r, startA, startA + sweep);
+  ctx.strokeStyle = '#383838'; ctx.lineWidth = 2.5; ctx.lineCap = 'round'; ctx.stroke();
 
-  // Knob body with radial gradient for depth
-  const grad = ctx.createRadialGradient(cx, cy - 3, 2, cx, cy + 2, r - 2);
-  grad.addColorStop(0, '#3a3a3a');
-  grad.addColorStop(1, '#1e1e1e');
-  ctx.beginPath(); ctx.arc(cx, cy, r - 2, 0, Math.PI * 2);
-  ctx.fillStyle = grad; ctx.fill();
-  ctx.strokeStyle = '#0a0a0a'; ctx.lineWidth = 0.5; ctx.stroke();
+  // Knob body (same as drawKnob)
+  ctx.beginPath(); ctx.arc(cx, cy, r - 4, 0, Math.PI * 2);
+  ctx.fillStyle = '#2a2a2a'; ctx.fill();
+  ctx.strokeStyle = '#444'; ctx.lineWidth = 0.5; ctx.stroke();
 }
 
 // ── JUCE Bridge ──
@@ -990,10 +1010,10 @@ function knob(parent, label, value, max, opts) {
     if (dy0 === null) return;
     const sensitivity = max > 127 ? 1.0 : 0.7; // higher sensitivity for wider ranges
     const nv = Math.max(0, Math.min(max, Math.round(v0 + (dy0 - e.clientY) * sensitivity)));
-    if (nv !== value) { value = nv; drawKnob(c, value, max, center); emitCC(); }
+    if (nv !== value) { value = nv; drawKnob(c, value, max, center); emitCC(); if (ctrl._onChange) ctrl._onChange(value); }
   });
   window.addEventListener('mouseup', () => { dy0 = null; document.body.style.cursor = ''; });
-  c.onwheel = e => { e.preventDefault(); const nv = Math.max(0, Math.min(max, value + (e.deltaY < 0 ? 1 : -1))); if (nv !== value) { value = nv; drawKnob(c, value, max, center); emitCC(); } };
+  c.onwheel = e => { e.preventDefault(); const nv = Math.max(0, Math.min(max, value + (e.deltaY < 0 ? 1 : -1))); if (nv !== value) { value = nv; drawKnob(c, value, max, center); emitCC(); if (ctrl._onChange) ctrl._onChange(value); } };
   return ctrl;
 }
 
@@ -1030,27 +1050,26 @@ function _buildSelect(value, options) {
   return sel;
 }
 
-// Button-style dropdown — small button matching .btn size, with selected
-// value shown BELOW the button in small text (acts like a screen readout).
-// Used for Mod Source/Dest, Seq Mode/Dest, Arp Mode, Seq Type.
+// Button-style dropdown — small button matching .btn size.
+// Layout: [▼ button] / LABEL / selected value
 function dropdownBtn(parent, label, value, options, opts) {
   const cc = (opts && opts.cc !== undefined) ? opts.cc : -1;
   const nrpn = (opts && opts.nrpn !== undefined) ? opts.nrpn : -1;
   const d = document.createElement('div'); d.className = 'ctrl-btn';
-  const outer = document.createElement('div'); outer.className = 'dropdown-btn-outer';
   const wrap = document.createElement('div'); wrap.className = 'dropdown-btn-wrap';
   const vis = document.createElement('div'); vis.className = 'dropdown-btn-vis';
   vis.textContent = '▼';
   wrap.appendChild(vis);
   const sel = _buildSelect(value, options);
   wrap.appendChild(sel);
+  const l = document.createElement('div'); l.className = 'ctrl-label'; l.textContent = label;
   const valueDisplay = document.createElement('div');
   valueDisplay.className = 'dropdown-btn-value';
   valueDisplay.textContent = options[value] || '—';
-  outer.appendChild(wrap);
-  outer.appendChild(valueDisplay);
-  const l = document.createElement('div'); l.className = 'ctrl-label'; l.textContent = label;
-  d.appendChild(outer); d.appendChild(l); parent.appendChild(d);
+  d.appendChild(wrap);
+  d.appendChild(l);
+  d.appendChild(valueDisplay);
+  parent.appendChild(d);
   const ctrl = {
     el: d,
     _max: options.length - 1,
@@ -1072,9 +1091,8 @@ function dropdownBtn(parent, label, value, options, opts) {
   return ctrl;
 }
 
-// Endless-encoder-style dropdown — looks like a knob but clicking opens
-// a native select. The canvas shows an arc indicating the current position
-// in the enum list. Used for FX Select, Aux Env Destination, LFO Destination.
+// Endless-encoder-style dropdown — plain knob + invisible <select>.
+// Layout: [knob] / LABEL / selected value
 function dropdownKnob(parent, label, value, options, opts) {
   const cc = (opts && opts.cc !== undefined) ? opts.cc : -1;
   const nrpn = (opts && opts.nrpn !== undefined) ? opts.nrpn : -1;
@@ -1085,7 +1103,13 @@ function dropdownKnob(parent, label, value, options, opts) {
   const sel = _buildSelect(value, options);
   wrap.appendChild(sel);
   const l = document.createElement('div'); l.className = 'ctrl-label'; l.textContent = label;
-  d.appendChild(wrap); d.appendChild(l); parent.appendChild(d);
+  const valueDisplay = document.createElement('div');
+  valueDisplay.className = 'dropdown-btn-value';
+  valueDisplay.textContent = options[value] || '—';
+  d.appendChild(wrap);
+  d.appendChild(l);
+  d.appendChild(valueDisplay);
+  parent.appendChild(d);
   // Endless encoder: plain knob, no ticks/pointer (matches real Rev2)
   const maxVal = options.length - 1;
   drawEncoder(canvas);
@@ -1097,11 +1121,13 @@ function dropdownKnob(parent, label, value, options, opts) {
     setValue(v) {
       value = v;
       sel.value = v;
+      valueDisplay.textContent = options[v] || '—';
     }
   };
   registerCC(cc, ctrl);
   sel.onchange = () => {
     value = parseInt(sel.value);
+    valueDisplay.textContent = options[value] || '—';
     if (cc >= 0) sendCC(cc, value);
     else if (ctrl._nrpn >= 0) sendNRPN(ctrl._nrpn, value);
   };
@@ -1166,15 +1192,22 @@ knob(miscCol, 'Master Vol', 127, 127, {cc: 37}); // voiceVolume
 
 const miscRow1 = document.createElement('div');
 miscRow1.style.cssText = 'display:flex;align-items:flex-start;gap:0;';
-knob(miscRow1, 'Rate/Time', 64, 127);
+const glideRate = knob(miscRow1, 'Glide Rate', 0, 127, {cc: 66}); // glideRate CC 5 or 66
 btn(miscRow1, 'Glide', 0, null, {cc: 65}); // glideOnOff
 miscCol.appendChild(miscRow1);
 
 const miscRow2 = document.createElement('div');
 miscRow2.style.cssText = 'display:flex;align-items:flex-start;gap:0;';
-btn(miscRow2, 'Unison', 0);
-btn(miscRow2, 'Hold', 0);
+btn(miscRow2, 'Unison', 0, null, {nrpn: param('unisonOnOff').nrpn});
+btn(miscRow2, 'Hold', 0).el.classList.add('ctrl-disabled');  // no NRPN
 miscCol.appendChild(miscRow2);
+
+// Unison mode + detune
+const miscRow3 = document.createElement('div');
+miscRow3.style.cssText = 'display:flex;align-items:flex-start;gap:0;';
+knob(miscRow3, 'Uni Mode', param('unisonMode').default, param('unisonMode').max, {nrpn: param('unisonMode').nrpn});
+knob(miscRow3, 'Detune', param('unisonDetune').default, param('unisonDetune').max, {nrpn: param('unisonDetune').nrpn});
+miscCol.appendChild(miscRow3);
 
 // Transpose
 const trWrap = document.createElement('div');
@@ -1199,15 +1232,59 @@ miscCol.appendChild(trWrap);
 // ROW 1: MODULATION | CLOCK | ARP | SEQUENCER | PROGRAMS | EFFECT | AUX ENV
 // ═══════════════════════════════════════════════════════
 
-// MODULATION (no CCs — mod matrix is NRPN-only on Rev2)
+// MODULATION — 8-slot mod matrix. Uses REV2_PARAMS (auto-generated from JSON)
+// to look up NRPN numbers, so everything stays in sync with the synth def.
 s = section(row1, 'Modulation');
 rows = srows(s);
 r = srow(rows);
-dropdownBtn(r, 'Source', 0, MOD_SOURCES);
-knob(r, 'Select', 0, 7);  // 8 mod slots
+const modSource = dropdownBtn(r, 'Source', 0, paramEnum('modSource'));
+const modSlotSelect = knob(r, 'Select', 1, 8);  // 1-8 mod slots (UI only)
 r = srow(rows);
-dropdownBtn(r, 'Destination', 0, MOD_DESTS);
-knob(r, 'Amount', 0, 127);
+const modDest = dropdownBtn(r, 'Destination', 0, paramEnum('modDest'));
+const modAmount = knob(r, 'Amount', 127, 254, {center: 127/254}); // bipolar
+
+// Local state for each of the 8 mod slots
+const modMatrix = [];
+for (let i = 0; i < 8; i++) modMatrix.push({source: 0, amount: 127, dest: 0});
+
+// Resolve NRPNs for the active slot via the central param table
+function updateModSlotNRPNs() {
+  const slot = modSlotSelect.getValue();
+  modSource._nrpn = param('mod' + slot + 'Source').nrpn;
+  modDest._nrpn = param('mod' + slot + 'Dest').nrpn;
+  modAmount._nrpn = param('mod' + slot + 'Amt').nrpn;
+}
+
+function saveModSlot(slot) {
+  if (slot < 1 || slot > 8) return;
+  modMatrix[slot - 1].source = modSource.getValue();
+  modMatrix[slot - 1].dest = modDest.getValue();
+  modMatrix[slot - 1].amount = modAmount.getValue();
+}
+
+function loadModSlot() {
+  const slot = modSlotSelect.getValue();
+  if (slot < 1 || slot > 8) return;
+  const st = modMatrix[slot - 1];
+  modSource.setValue(st.source);
+  modDest.setValue(st.dest);
+  modAmount.setValue(st.amount);
+  updateModSlotNRPNs();
+}
+
+// Save current state before dragging to a new slot, load the new one after
+let _modSlotBeforeDrag = 1;
+modSlotSelect.el.querySelector('canvas').addEventListener('mousedown', () => {
+  _modSlotBeforeDrag = modSlotSelect.getValue();
+});
+modSlotSelect._onChange = () => {
+  if (_modSlotBeforeDrag !== modSlotSelect.getValue()) {
+    saveModSlot(_modSlotBeforeDrag);
+    _modSlotBeforeDrag = modSlotSelect.getValue();
+    loadModSlot();
+  }
+};
+updateModSlotNRPNs(); // initialise for slot 1
 
 // CLOCK
 s = section(row1, 'Clock');
@@ -1218,7 +1295,8 @@ knob(r, 'Divide', 6, 12, {cc: 15});         // clockDivide max=12
 r = srow(rows);
 const tapSpacer = document.createElement('div'); tapSpacer.style.cssText = 'flex:1;';
 r.appendChild(tapSpacer);
-btn(r, 'Tap Tempo', 0);
+const tapTempo = btn(r, 'Tap Tempo', 0);
+tapTempo.el.classList.add('ctrl-disabled'); // no MIDI equivalent on Rev2
 const tapSpacer2 = document.createElement('div'); tapSpacer2.style.cssText = 'flex:1;';
 r.appendChild(tapSpacer2);
 
@@ -1226,21 +1304,27 @@ r.appendChild(tapSpacer2);
 s = section(row1, 'Arp');
 rows = srows(s);
 r = srow(rows);
-dropdownBtn(r, 'Mode', 0, ARP_MODES, {cc: 34});   // arpMode
+dropdownBtn(r, 'Mode', 0, paramEnum('arpMode'), {cc: param('arpMode').cc});
 r = srow(rows);
 btn(r, 'On/Off', 0, null, {cc: 33});        // arpOnOff
 
-// SEQUENCER
+// SEQUENCER — only Type is hooked up. Mode/Track/Play/Destination/Record
+// all require sequencer programming which isn't practical via MIDI.
 s = section(row1, 'Sequencer');
 rows = srows(s);
 r = srow(rows);
-dropdownBtn(r, 'Type', 0, SEQ_TYPES, {cc: 19});  // seqType: 0=Gated, 1=Poly
-dropdownBtn(r, 'Mode', 0, ['Normal','Stop','Pause','Repeat']);
-knob(r, 'Track', 0, 5);
+dropdownBtn(r, 'Type', 0, paramEnum('seqType'), {cc: param('seqType').cc});
+const seqMode = dropdownBtn(r, 'Mode', 0, ['Normal','Stop','Pause','Repeat']);
+seqMode.el.classList.add('ctrl-disabled');
+const seqTrack = knob(r, 'Track', 0, 5);
+seqTrack.el.classList.add('ctrl-disabled');
 r = srow(rows);
-btn(r, 'Play', 0);
-dropdownBtn(r, 'Destination', 0, MOD_DESTS);
-knob(r, 'Record', 0, 1);
+const seqPlay = btn(r, 'Play', 0);
+seqPlay.el.classList.add('ctrl-disabled');
+const seqDest = dropdownBtn(r, 'Destination', 0, paramEnum('modDest'));
+seqDest.el.classList.add('ctrl-disabled');
+const seqRecord = knob(r, 'Record', 0, 1);
+seqRecord.el.classList.add('ctrl-disabled');
 
 // PROGRAMS — two standard rows with screen spanning both
 s = section(row1, null);
@@ -1251,12 +1335,14 @@ const progLayout = document.createElement('div');
 progLayout.style.cssText = 'display:flex;align-items:stretch;gap:8px;';
 s.appendChild(progLayout);
 
-// Left knobs in standard rows
+// Left knobs in standard rows — Parameter/Value are hardware nav only, greyed
 const progLeftRows = srows(progLayout);
 r = srow(progLeftRows);
-knob(r, 'Parameter', 0, 127);
+const progParam = knob(r, 'Parameter', 0, 127);
+progParam.el.classList.add('ctrl-disabled');
 r = srow(progLeftRows);
-knob(r, 'Value', 0, 127);
+const progValue = knob(r, 'Value', 0, 127);
+progValue.el.classList.add('ctrl-disabled');
 
 // Screen — vertically centered, spans both rows
 const screenWrap = document.createElement('div');
@@ -1436,8 +1522,38 @@ const pgWrap = document.createElement('div');
 pgWrap.style.cssText = 'display:flex;align-items:center;';
 const pgGrid = document.createElement('div');
 pgGrid.className = 'prog-grid';
-['Global','Split A|B','Write','Stack A+B','Compare','Edit Layer B'].forEach(name => {
-  btn(pgGrid, name, 0);
+// Layer mode buttons use NRPN 163 (A/B Mode: 0=Single, 1=Stacked, 2=Split).
+// Global/Write/Compare are SysEx-only operations — not hooked up, greyed out.
+const layerModeState = { current: 0 }; // 0=single, 1=stacked, 2=split
+const layerBtns = {};
+const layerButtonDefs = [
+  { name: 'Global', disabled: true },
+  { name: 'Split A|B', layerMode: 2 },
+  { name: 'Write', disabled: true },
+  { name: 'Stack A+B', layerMode: 1 },
+  { name: 'Compare', disabled: true },
+  { name: 'Edit Layer B', disabled: true },  // needs layerBOffset support
+];
+layerButtonDefs.forEach(def => {
+  const b = btn(pgGrid, def.name, 0);
+  if (def.disabled) {
+    b.el.classList.add('ctrl-disabled');
+    return;
+  }
+  if (def.layerMode !== undefined) {
+    layerBtns[def.layerMode] = b;
+    // Override click: toggle between single(0) and this mode
+    const btnEl = b.el.querySelector('.btn');
+    btnEl.onclick = () => {
+      const newMode = (layerModeState.current === def.layerMode) ? 0 : def.layerMode;
+      layerModeState.current = newMode;
+      // Update all layer buttons to reflect active state
+      Object.keys(layerBtns).forEach(k => {
+        layerBtns[k].setValue(parseInt(k) === newMode ? 1 : 0);
+      });
+      sendNRPN(param('abMode').nrpn, newMode);
+    };
+  }
 });
 pgWrap.appendChild(pgGrid);
 progLayout.appendChild(pgWrap);
@@ -1447,10 +1563,10 @@ s = section(row1, 'Effect');
 rows = srows(s);
 r = srow(rows);
 btn(r, 'On/Off', 0, null, {cc: 16});        // fxOnOff
-dropdownKnob(r, 'FX Type', 0, FX_TYPES, {cc: 3});   // fxType max=13
+dropdownKnob(r, 'FX Type', 0, paramEnum('fxType'), {cc: param('fxType').cc});
 knob(r, 'Mix', 64, 127, {cc: 17});          // fxMix
 r = srow(rows);
-btn(r, 'Clk Sync', 0);
+btn(r, 'Clk Sync', 0, null, {nrpn: param('fxClockSync').nrpn});
 knob(r, 'Param 1', 64, 255, {cc: 12});      // fxParam1 max=255
 knob(r, 'Param 2', 64, 127, {cc: 13});      // fxParam2
 
@@ -1458,7 +1574,7 @@ knob(r, 'Param 2', 64, 127, {cc: 13});      // fxParam2
 s = section(row1, 'Auxiliary Envelope');
 rows = srows(s);
 r = srow(rows);
-dropdownKnob(r, 'Destination', 0, MOD_DESTS, {cc: 85});  // env3Dest
+dropdownKnob(r, 'Destination', 0, paramEnum('modDest'), {cc: param('env3Dest').cc});
 knob(r, 'Env Amount', 127, 254, {cc: 86, center: 127/254}); // env3Amt bipolar
 knob(r, 'Velocity', 0, 127, {cc: 87});      // env3Vel
 knob(r, 'Delay', 0, 127, {cc: 88});         // env3Delay
@@ -1527,7 +1643,7 @@ const lfoNRPNs = [
 const lfoShape = shapeSel(shapeWrap, 0, lfoShapes);
 const lfoDestRow = document.createElement('div');
 lfoDestRow.style.cssText = 'display:flex;align-items:flex-start;min-height:68px;';
-const lfoDest = dropdownKnob(lfoDestRow, 'Destination', 0, MOD_DESTS);
+const lfoDest = dropdownKnob(lfoDestRow, 'Destination', 0, paramEnum('modDest'));
 shapeWrap.appendChild(lfoDestRow);
 lfoLeft.appendChild(shapeWrap);
 

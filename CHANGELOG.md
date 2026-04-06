@@ -1,5 +1,40 @@
 # Changelog
 
+## v0.6.0 (build 82) — Centralised NRPN table + mod matrix + more hookups (2026-04-06)
+
+**Foolproof NRPN sync:**
+- New `scripts/gen-rev2-params.py` extracts all CC/NRPN mappings from
+  `synths/sequential-prophet-rev2.json` and splices them into the HTML
+  between `// ==== REV2_PARAMS_BEGIN/END ====` markers
+- Panel now has `param(id)`, `paramOpts(id)`, `paramEnum(name)` helpers
+- `param('unknownId')` throws — typos fail loudly instead of silently
+  sending the wrong NRPN
+- All new controls use `param()` lookup instead of hardcoded numbers
+- Hardcoded enum constants (FX_TYPES, MOD_DESTS etc.) replaced with `paramEnum()`
+- When JSON changes: `python3 scripts/gen-rev2-params.py`, then rebuild
+
+**Newly hooked up:**
+- **Mod Matrix** — 8-slot with Source/Dest dropdowns + Amount knob.
+  Select knob (1-8) switches between slots, preserving state per slot.
+  NRPNs resolved dynamically via `param('modNSource' etc.)`.
+- **Unison On/Off** (NRPN 168) + **Unison Mode** (NRPN 169) + **Unison Detune** (NRPN 167)
+- **Layer Mode** — Split A|B / Stack A+B buttons now toggle `abMode` (NRPN 163)
+- **FX Clk Sync** (NRPN 158)
+
+**Greyed out (no MIDI equivalent):**
+- Global / Write / Compare buttons (SysEx-only, future work)
+- Edit Layer B (needs layerBOffset support)
+- Tap Tempo (no MIDI)
+- Programme Parameter/Value (hardware nav only)
+- Sequencer Mode/Track/Play/Destination/Record (not practical via MIDI)
+- Hold (no NRPN)
+
+**Styling fixes:**
+- Endless encoder now matches regular knob style minus ticks and pointer
+- Dropdown buttons are 42px wide (same as regular buttons) with a ▼ chevron
+- Selected value shown below the control label in small text
+- New `.ctrl-disabled` style for unhooked controls (dimmed, non-interactive)
+
 ## v0.5.2 (build 81) — Match real Rev2 style for dropdowns (2026-04-06)
 
 - **dropdownKnob**: now uses new `drawEncoder()` — plain gradient knob with no
