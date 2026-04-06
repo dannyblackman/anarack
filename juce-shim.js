@@ -27,6 +27,16 @@
   let statusInterval = null;
   let connectTimeout = null;
 
+  // ── Latency measurement state ──
+  let latencyMeasuring = false;
+  let latencySendTime = 0;
+  let latencyResults = [];
+  let latencyDoneCallback = null;
+  const LATENCY_PEAK_THRESHOLD = 800; // int16 amplitude — synth attack
+  const LATENCY_TEST_COUNT = 5;
+  const LATENCY_TIMEOUT_MS = 1000;
+  const LATENCY_GAP_MS = 350;
+
   // ── Event system (matches JUCE backend API) ──
   function addEventListener(event, callback) {
     if (!listeners[event]) listeners[event] = [];
@@ -142,6 +152,22 @@
       // First audio packet = Pi is streaming, go live
       if (!connected) { connected = true; connState = 2; if (connectTimeout) clearTimeout(connectTimeout); _broadcastStatus(); }
       const int16 = new Int16Array(e.data);
+
+      // Latency measurement: detect synth attack peak
+      if (latencyMeasuring) {
+        let peak = 0;
+        for (let i = 0; i < int16.length; i++) {
+          const a = Math.abs(int16[i]);
+          if (a > peak) peak = a;
+        }
+        if (peak > LATENCY_PEAK_THRESHOLD) {
+          const ms = performance.now() - latencySendTime;
+          latencyMeasuring = false;
+          latencyResults.push(ms);
+          if (latencyDoneCallback) latencyDoneCallback({ type: 'progress', n: latencyResults.length, ms });
+          setTimeout(() => _runLatencyStep(), LATENCY_GAP_MS);
+        }
+      }
       const float32 = new Float32Array(int16.length);
       for (let i = 0; i < int16.length; i++) float32[i] = int16[i] / 32768;
 
@@ -164,6 +190,51 @@
     };
 
     audioWs.onclose = () => { audioWs = null; };
+  }
+
+  // ── Latency test ──
+  function measureLatency(callback) {
+    if (!connected || !midiWs || midiWs.readyState !== WebSocket.OPEN) {
+      if (callback) callback({ type: 'error', msg: 'Not connected' });
+      return;
+    }
+    latencyResults = [];
+    latencyDoneCallback = callback;
+    if (callback) callback({ type: 'start' });
+    _runLatencyStep();
+  }
+
+  function _runLatencyStep() {
+    if (latencyResults.length >= LATENCY_TEST_COUNT) {
+      const sum = latencyResults.reduce((a, b) => a + b, 0);
+      const avg = sum / latencyResults.length;
+      const min = Math.min.apply(null, latencyResults);
+      const max = Math.max.apply(null, latencyResults);
+      if (latencyDoneCallback) {
+        latencyDoneCallback({
+          type: 'done',
+          avg, min, max,
+          results: latencyResults.slice()
+        });
+      }
+      return;
+    }
+    latencyMeasuring = true;
+    latencySendTime = performance.now();
+    // Note On C4 at velocity 127
+    sendMidiMsg(0x90, 60, 127);
+    setTimeout(() => sendMidiMsg(0x80, 60, 0), 100);
+    // Timeout: if no peak detected, count as failed and move on
+    setTimeout(() => {
+      if (latencyMeasuring) {
+        latencyMeasuring = false;
+        if (latencyDoneCallback) {
+          latencyDoneCallback({ type: 'progress', n: latencyResults.length + 1, ms: null, failed: true });
+        }
+        latencyResults.push(LATENCY_TIMEOUT_MS); // worst case
+        setTimeout(() => _runLatencyStep(), LATENCY_GAP_MS);
+      }
+    }, LATENCY_TIMEOUT_MS);
   }
 
   function disconnectAudio() {
@@ -265,7 +336,8 @@
       // Exposed for keyboard and index.html
       _listeners: listeners,
       _dispatch,
-      _sendMidi: sendMidiMsg
+      _sendMidi: sendMidiMsg,
+      _measureLatency: measureLatency
     },
     initialisationData: {
       config: {
