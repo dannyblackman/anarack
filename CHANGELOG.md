@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.5.2 (build 81) — Match real Rev2 style for dropdowns (2026-04-06)
+
+- **dropdownKnob**: now uses new `drawEncoder()` — plain gradient knob with no
+  tick marks, no pointer line, no value arc. Matches real Rev2 endless encoders.
+- **dropdownBtn**: small 42px button (same width as regular buttons) with a ▼
+  chevron icon, and the selected value displayed BELOW the button in small text
+  above the label, acting like a mini screen readout.
+
 ## v0.5.1 (build 80) — Two dropdown styles: button + endless encoder (2026-04-06)
 
 - `dropdownBtn` — button-style dropdown matching `.btn` look, shows selected label

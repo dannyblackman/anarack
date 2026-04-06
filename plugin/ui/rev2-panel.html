@@ -158,22 +158,27 @@
 
   /* Knob control */
   .ctrl { display: flex; flex-direction: column; align-items: center; width: 66px; }
-  /* Button-style dropdown: matches .btn visuals, shows selected label */
+  /* Button-style dropdown: small square button matching .btn, selected value
+     displayed below in small text (like a screen readout). */
+  .dropdown-btn-outer {
+    display: flex; flex-direction: column; align-items: center; gap: 2px;
+  }
   .dropdown-btn-wrap {
     position: relative;
-    width: 62px; height: 24px;
+    width: 42px; height: 24px;
   }
   .dropdown-btn-vis {
     width: 100%; height: 100%;
     background: var(--btn-off); border: 1px solid var(--btn-border);
     border-radius: 3px;
     display: flex; align-items: center; justify-content: center;
-    font-size: 7.5px; font-weight: 700; color: rgba(255,255,255,0.6);
-    text-transform: uppercase; letter-spacing: 0.3px;
-    padding: 0 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    font-size: 9px; font-weight: 700; color: rgba(255,255,255,0.5);
     user-select: none; pointer-events: none;
   }
-  .dropdown-btn-wrap:hover .dropdown-btn-vis { background: #3a3a3a; color: #fff; }
+  .dropdown-btn-wrap:hover .dropdown-btn-vis {
+    background: #3a3a3a; color: #fff;
+    border-color: rgba(255,255,255,0.3);
+  }
   .dropdown-btn-wrap select {
     position: absolute; inset: 0;
     width: 100%; height: 100%;
@@ -184,6 +189,16 @@
   .dropdown-btn-wrap select option {
     background: #1a1a1a; color: #fff; font-size: 11px;
     font-family: 'Inter', sans-serif;
+  }
+  .dropdown-btn-value {
+    font-family: 'Inter', monospace;
+    font-size: 8px; font-weight: 600;
+    color: rgba(255,255,255,0.7);
+    letter-spacing: 0.3px;
+    text-align: center;
+    max-width: 70px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    line-height: 1.1;
   }
 
   /* Knob-style dropdown: endless encoder visual with invisible select overlay */
@@ -561,6 +576,28 @@ function drawKnob(canvas, value, max, center) {
   ctx.font = '500 9px Inter, sans-serif';
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
   ctx.fillText(value, cx, cy);
+}
+
+// Draw a plain endless encoder — no tick marks, no indicator line, no arc.
+// Matches the real Rev2's endless encoders used for e.g. Mod Source / FX Select.
+function drawEncoder(canvas) {
+  canvas.width = KS * DPR; canvas.height = KS * DPR;
+  canvas.style.width = KS + 'px'; canvas.style.height = KS + 'px';
+  const ctx = canvas.getContext('2d');
+  ctx.scale(DPR, DPR);
+  const cx = KS/2, cy = KS/2, r = KS/2 - 8;
+
+  // Outer rim (subtle)
+  ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2);
+  ctx.strokeStyle = '#1a1a1a'; ctx.lineWidth = 1; ctx.stroke();
+
+  // Knob body with radial gradient for depth
+  const grad = ctx.createRadialGradient(cx, cy - 3, 2, cx, cy + 2, r - 2);
+  grad.addColorStop(0, '#3a3a3a');
+  grad.addColorStop(1, '#1e1e1e');
+  ctx.beginPath(); ctx.arc(cx, cy, r - 2, 0, Math.PI * 2);
+  ctx.fillStyle = grad; ctx.fill();
+  ctx.strokeStyle = '#0a0a0a'; ctx.lineWidth = 0.5; ctx.stroke();
 }
 
 // ── JUCE Bridge ──
@@ -993,31 +1030,42 @@ function _buildSelect(value, options) {
   return sel;
 }
 
-// Button-style dropdown — matches .btn visuals, shows the selected
-// option's label. Used for things like Mod Source/Destination, Seq Mode.
+// Button-style dropdown — small button matching .btn size, with selected
+// value shown BELOW the button in small text (acts like a screen readout).
+// Used for Mod Source/Dest, Seq Mode/Dest, Arp Mode, Seq Type.
 function dropdownBtn(parent, label, value, options, opts) {
   const cc = (opts && opts.cc !== undefined) ? opts.cc : -1;
   const nrpn = (opts && opts.nrpn !== undefined) ? opts.nrpn : -1;
   const d = document.createElement('div'); d.className = 'ctrl-btn';
+  const outer = document.createElement('div'); outer.className = 'dropdown-btn-outer';
   const wrap = document.createElement('div'); wrap.className = 'dropdown-btn-wrap';
   const vis = document.createElement('div'); vis.className = 'dropdown-btn-vis';
-  vis.textContent = options[value] || '—';
+  vis.textContent = '▼';
   wrap.appendChild(vis);
   const sel = _buildSelect(value, options);
   wrap.appendChild(sel);
+  const valueDisplay = document.createElement('div');
+  valueDisplay.className = 'dropdown-btn-value';
+  valueDisplay.textContent = options[value] || '—';
+  outer.appendChild(wrap);
+  outer.appendChild(valueDisplay);
   const l = document.createElement('div'); l.className = 'ctrl-label'; l.textContent = label;
-  d.appendChild(wrap); d.appendChild(l); parent.appendChild(d);
+  d.appendChild(outer); d.appendChild(l); parent.appendChild(d);
   const ctrl = {
     el: d,
     _max: options.length - 1,
     _nrpn: nrpn,
     getValue() { return parseInt(sel.value); },
-    setValue(v) { value = v; sel.value = v; vis.textContent = options[v] || '—'; }
+    setValue(v) {
+      value = v;
+      sel.value = v;
+      valueDisplay.textContent = options[v] || '—';
+    }
   };
   registerCC(cc, ctrl);
   sel.onchange = () => {
     value = parseInt(sel.value);
-    vis.textContent = options[value] || '—';
+    valueDisplay.textContent = options[value] || '—';
     if (cc >= 0) sendCC(cc, value);
     else if (ctrl._nrpn >= 0) sendNRPN(ctrl._nrpn, value);
   };
@@ -1038,9 +1086,9 @@ function dropdownKnob(parent, label, value, options, opts) {
   wrap.appendChild(sel);
   const l = document.createElement('div'); l.className = 'ctrl-label'; l.textContent = label;
   d.appendChild(wrap); d.appendChild(l); parent.appendChild(d);
-  // Draw the knob with the value shown as position in the enum
+  // Endless encoder: plain knob, no ticks/pointer (matches real Rev2)
   const maxVal = options.length - 1;
-  drawKnob(canvas, value, maxVal);
+  drawEncoder(canvas);
   const ctrl = {
     el: d,
     _max: maxVal,
@@ -1049,13 +1097,11 @@ function dropdownKnob(parent, label, value, options, opts) {
     setValue(v) {
       value = v;
       sel.value = v;
-      drawKnob(canvas, value, maxVal);
     }
   };
   registerCC(cc, ctrl);
   sel.onchange = () => {
     value = parseInt(sel.value);
-    drawKnob(canvas, value, maxVal);
     if (cc >= 0) sendCC(cc, value);
     else if (ctrl._nrpn >= 0) sendNRPN(ctrl._nrpn, value);
   };
