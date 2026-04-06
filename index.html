@@ -139,35 +139,40 @@
       padding: 8px 20px; border-radius: 20px;
       background: rgba(26,26,26,0.9); border: 1px solid rgba(255,255,255,0.08);
     }
-    .conn-overlay .status-dot {
-      width: 10px; height: 10px; border-radius: 50%;
-      background: rgba(255,255,255,0.15); transition: all 0.3s;
+    .conn-overlay .status-pill .status-dot {
+      width: 12px !important; height: 12px !important; border-radius: 50%;
+      background: rgba(255,255,255,0.4) !important;
+      box-shadow: none;
+      transition: all 0.3s;
     }
-    .conn-overlay .status-dot.connecting {
-      background: #E8A849;
-      box-shadow: 0 0 12px rgba(232,168,73,0.5);
+    .conn-overlay .status-pill.connecting .status-dot {
+      background: #E8A849 !important;
+      box-shadow: 0 0 12px rgba(232,168,73,0.7) !important;
       animation: pulse 1.5s infinite;
     }
-    .conn-overlay .status-label {
-      font-size: 13px; font-weight: 600;
-      color: rgba(255,255,255,0.3);
-      text-transform: uppercase; letter-spacing: 2px;
+    .conn-overlay .status-pill .status-label {
+      font-size: 15px !important; font-weight: 700 !important;
+      color: rgba(255,255,255,0.85) !important;
+      text-transform: uppercase; letter-spacing: 2.5px;
     }
-    .conn-overlay .status-pill.connecting .status-label { color: #E8A849; }
+    .conn-overlay .status-pill.connecting .status-label {
+      color: #E8A849 !important;
+    }
     .conn-overlay .conn-sub {
-      margin-top: 16px;
+      margin-top: 18px;
       font-family: 'Inter', system-ui, sans-serif;
-      font-size: 11px; color: rgba(255,255,255,0.7);
-      letter-spacing: 0.5px; text-align: center;
-      max-width: 320px; line-height: 1.5;
+      font-size: 14px; color: rgba(255,255,255,0.85);
+      letter-spacing: 0.3px; text-align: center;
+      max-width: 360px; line-height: 1.5;
     }
     @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
 
-    /* Synth "powered off" state */
+    /* Synth "powered off" state — only dims the panel, not the overlay */
     .synth-off .panel {
       filter: brightness(0.4) saturate(0);
       transition: filter 0.8s ease;
     }
+    .conn-overlay { filter: none !important; }
     .synth-off .btn.on, .synth-off .btn-sm.on, .synth-off .lfo-tab.active,
     .synth-off .shape-led, .synth-off .prog-btn.on {
       background: #333 !important;
@@ -408,7 +413,7 @@
           pill.className = 'status-pill';
           dot.className = 'status-dot';
           label.textContent = 'Offline';
-          sub.textContent = 'This is a real Prophet Rev2 synth — it\\'s not currently powered on. Check back later or follow @anarack for session times.';
+          sub.textContent = 'Rev2 currently offline. Check back later.';
           document.body.classList.add('synth-off');
         } else if (state.connState === 1) {
           ov.classList.remove('hidden');
@@ -422,7 +427,7 @@
           pill.className = 'status-pill';
           dot.className = 'status-dot';
           label.textContent = 'Offline';
-          sub.textContent = 'This is a real Prophet Rev2 synth — it\\'s not currently powered on. Check back later or follow @anarack for session times.';
+          sub.textContent = 'Rev2 currently offline. Check back later.';
           document.body.classList.add('synth-off');
         }
       });
