@@ -1061,7 +1061,6 @@ knob(r, 'Value', 0, 127);
 // PROGRAMS — two standard rows with screen spanning both
 s = section(row1, null);
 s.style.border = 'none';
-s.style.padding = '12px 4px';  // no label → no top padding needed
 
 // Use a flex layout: left knobs col | screen | right knobs col | buttons
 const progLayout = document.createElement('div');
@@ -1430,6 +1429,7 @@ knob(r, 'Osc Slop', 0, 127, {cc: 9});                   // oscSlop
 // LOW-PASS FILTER
 s = section(row2, 'Low-Pass Filter');
 s.style.flex = '1';
+s.style.minWidth = '560px';  // extra width so AMP right edge aligns with row 1
 rows = srows(s);
 r = srow(rows);
 r.style.justifyContent = 'space-between';

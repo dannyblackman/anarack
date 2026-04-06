@@ -55,10 +55,14 @@ AnarackEditor::AnarackEditor(AnarackProcessor& p)
                     processor.getTransport().sendMidi(msg, 3);
                 }
                 processor.ccValues[cc] = value;
-                // Sync DAW parameter so automation records correctly
+                // Sync DAW parameter so automation records correctly.
+                // Wrap in begin/end gestures so Latch/Write modes detect the
+                // parameter as "touched" and record the change.
                 if (auto* p = processor.paramByCC[cc])
                 {
+                    p->beginChangeGesture();
                     p->setValueNotifyingHost(p->convertTo0to1((float)value));
+                    p->endChangeGesture();
                     processor.lastAutomationVal[cc] = value; // prevent automation fighting back
                 }
             }

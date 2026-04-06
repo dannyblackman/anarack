@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.4.11 (build 77) — Logic Latch automation + row 2 alignment (2026-04-06)
+
+- **Latch/Write automation now records knob movements**: wrap setValueNotifyingHost
+  in beginChangeGesture/endChangeGesture so Logic detects the parameter as touched
+- LPF section gets min-width 560px so AMP right edge aligns with AUX ENV (row 1)
+- Reverted programme section padding change (didn't actually help alignment)
+
 ## v0.4.9 (build 75) — Drop resize, fix programme section padding (2026-04-06)
 
 - Drop drag-to-resize (setResizable false) — janky with WebBrowserComponent
