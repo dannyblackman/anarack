@@ -446,6 +446,84 @@
       if (connBtn) connBtn.style.display = 'none';
     }
 
+    // Add latency test button + display to the panel header
+    function addLatencyUI() {
+      var header = document.querySelector('.panel .header');
+      if (!header) return;
+
+      var style = document.createElement('style');
+      style.textContent = '.lat-group { display: flex; align-items: center; gap: 6px; cursor: pointer; padding: 4px 10px; border-radius: 12px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); transition: all 0.15s; user-select: none; }'
+        + '.lat-group:hover { background: rgba(255,255,255,0.08); border-color: rgba(232,168,73,0.4); }'
+        + '.lat-group .lat-label { font-size: 9px; font-weight: 600; color: rgba(255,255,255,0.4); text-transform: uppercase; letter-spacing: 1.5px; }'
+        + '.lat-group .lat-val { font-family: Inter, sans-serif; font-size: 10px; font-weight: 700; color: #5BDB7E; letter-spacing: 0.5px; }'
+        + '.lat-group .lat-val.measuring { color: #E8A849; }'
+        + '.lat-group .lat-val.dim { color: rgba(255,255,255,0.3); }'
+        + '.lat-detail { position: absolute; top: 56px; right: 24px; z-index: 60; background: rgba(0,0,0,0.95); border: 1px solid rgba(255,255,255,0.1); border-radius: 6px; padding: 14px 18px; backdrop-filter: blur(8px); font-family: Inter, sans-serif; min-width: 240px; }'
+        + '.lat-detail.hidden { display: none; }'
+        + '.lat-detail h4 { font-size: 9px; font-weight: 700; color: rgba(255,255,255,0.4); text-transform: uppercase; letter-spacing: 2px; margin-bottom: 8px; }'
+        + '.lat-detail .lat-row { display: flex; justify-content: space-between; align-items: baseline; padding: 4px 0; font-size: 11px; color: rgba(255,255,255,0.8); }'
+        + '.lat-detail .lat-row .v { font-weight: 700; color: #5BDB7E; }'
+        + '.lat-detail .lat-info { font-size: 10px; color: rgba(255,255,255,0.4); margin-top: 8px; padding-top: 8px; border-top: 1px solid rgba(255,255,255,0.06); line-height: 1.5; }';
+      document.head.appendChild(style);
+
+      var group = document.createElement('div');
+      group.className = 'lat-group';
+      group.id = 'lat-group';
+      group.title = 'Click to test latency';
+      group.innerHTML = '<span class="lat-label">Latency</span>'
+        + '<span class="lat-val dim" id="lat-val">—</span>'
+        + '<span class="lat-label" style="color:rgba(255,255,255,0.2);">ms</span>';
+
+      var detail = document.createElement('div');
+      detail.className = 'lat-detail hidden';
+      detail.id = 'lat-detail';
+      detail.innerHTML = '<h4>Latency Test</h4>'
+        + '<div class="lat-row"><span>Average</span><span class="v" id="lat-avg">—</span></div>'
+        + '<div class="lat-row"><span>Best</span><span class="v" id="lat-min">—</span></div>'
+        + '<div class="lat-row"><span>Worst</span><span class="v" id="lat-max">—</span></div>'
+        + '<div class="lat-info">End-to-end: keypress → relay → Pi → synth → audio → back. Measures real perceptual latency.</div>';
+      header.appendChild(detail);
+
+      // Insert before topbar-controls
+      var topbar = header.querySelector('.topbar-controls');
+      if (topbar) header.insertBefore(group, topbar);
+      else header.appendChild(group);
+
+      group.addEventListener('click', function() {
+        if (!window.__JUCE__ || !window.__JUCE__.backend._measureLatency) return;
+        var val = document.getElementById('lat-val');
+        var det = document.getElementById('lat-detail');
+        det.classList.remove('hidden');
+        val.classList.remove('dim');
+        val.classList.add('measuring');
+        val.textContent = '...';
+        window.__JUCE__.backend._measureLatency(function(ev) {
+          if (ev.type === 'progress') {
+            val.textContent = ev.failed ? 'X' : Math.round(ev.ms);
+          } else if (ev.type === 'done') {
+            val.classList.remove('measuring');
+            val.textContent = Math.round(ev.avg);
+            document.getElementById('lat-avg').textContent = Math.round(ev.avg) + ' ms';
+            document.getElementById('lat-min').textContent = Math.round(ev.min) + ' ms';
+            document.getElementById('lat-max').textContent = Math.round(ev.max) + ' ms';
+          } else if (ev.type === 'error') {
+            val.classList.remove('measuring');
+            val.classList.add('dim');
+            val.textContent = '—';
+          }
+        });
+      });
+
+      // Click outside to close detail
+      document.addEventListener('click', function(e) {
+        var det = document.getElementById('lat-detail');
+        var grp = document.getElementById('lat-group');
+        if (det && grp && !det.contains(e.target) && !grp.contains(e.target)) {
+          det.classList.add('hidden');
+        }
+      });
+    }
+
     // Insert keyboard into #panel so it scales with the synth UI
     function insertKeyboard() {
       var panel = document.getElementById('panel');
@@ -462,6 +540,7 @@
     // Build after a short delay to ensure DOM is ready
     setTimeout(function() {
       hideBrowserUnsupported();
+      addLatencyUI();
       if (!isMobile) insertKeyboard();
       else window.scalePanel();
     }, 100);
