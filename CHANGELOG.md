@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.4.2 (build 68) — Header cleanup, latency button (2026-04-06)
+
+- Latency is now a proper "Test Latency" button next to Connect (not a clickable text label)
+- Removed RTT, buffer, MIDI in, mapped from header (cluttered, mostly debug info)
+- Latency value pill remains in header to show last test result
+- Reduces header to: status • mode • version • latency • [Test latency] [Connect] [⚙]
+
 ## v0.4.1 (build 67) — End-to-end latency test (2026-04-06)
 
 - Click "ms latency" pill in panel header to run a 5x latency test

@@ -354,27 +354,12 @@
     </div>
     <span class="conn-mode" id="conn-mode"></span>
     <span class="stat-unit" id="version-label">v0.3.12</span>
-    <div class="stat-group" id="rtt-group" style="display:none">
-      <span class="stat-val" id="rtt-val">—</span>
-      <span class="stat-unit">ms RTT</span>
-    </div>
-    <div class="stat-group" id="buf-group" style="display:none">
-      <span class="stat-val dim" id="buf-val">—</span>
-      <span class="stat-unit">ms buf</span>
-    </div>
-    <div class="stat-group" id="lat-group" style="display:flex;cursor:pointer;" onclick="onLatencyTest()" title="Click to test end-to-end latency">
+    <div class="stat-group" id="lat-group" style="display:flex" title="End-to-end latency (keypress → audio)">
       <span class="stat-val dim" id="lat-val">—</span>
       <span class="stat-unit">ms latency</span>
     </div>
-    <div class="stat-group" id="midi-in-group" style="display:none">
-      <span class="stat-val dim" id="midi-in-val">0</span>
-      <span class="stat-unit">MIDI in</span>
-    </div>
-    <div class="stat-group" id="mapped-group" style="display:none">
-      <span class="stat-val dim" id="mapped-val">0</span>
-      <span class="stat-unit">mapped</span>
-    </div>
     <div class="topbar-controls">
+      <button class="conn-btn secondary" id="latency-btn" onclick="onLatencyTest()" title="Test end-to-end latency">Test latency</button>
       <button class="conn-btn" id="connect-btn" onclick="toggleConnect()">Connect</button>
       <button class="conn-btn secondary" id="advanced-toggle" onclick="toggleAdvanced()">&#9881;</button>
     </div>
@@ -676,10 +661,6 @@ function updateConnectionStatus(state) {
   const label = document.getElementById('status-label');
   const pill = document.getElementById('status-pill');
   const mode = document.getElementById('conn-mode');
-  const rttGroup = document.getElementById('rtt-group');
-  const rttVal = document.getElementById('rtt-val');
-  const bufGroup = document.getElementById('buf-group');
-  const bufVal = document.getElementById('buf-val');
   const btn = document.getElementById('connect-btn');
 
   const wasConnected = _connected;
@@ -732,34 +713,7 @@ function updateConnectionStatus(state) {
   btn.textContent = _connected ? 'Disconnect' : (isConnecting ? 'Connecting...' : 'Connect');
   btn.className = 'conn-btn' + (_connected ? ' disconnect' : '');
 
-  if (_connected && state.rtt > 0) {
-    rttGroup.style.display = 'flex';
-    rttVal.textContent = state.rtt;
-    rttVal.className = 'stat-val';
-  } else {
-    rttGroup.style.display = 'none';
-  }
-
-  if (_connected && state.bufferMs >= 0) {
-    bufGroup.style.display = 'flex';
-    // Show actual / target if in fixed mode
-    if (state.bufferTarget > 0) {
-      bufVal.textContent = state.bufferMs.toFixed(0) + '/' + state.bufferTarget;
-    } else {
-      bufVal.textContent = state.bufferMs.toFixed(0);
-    }
-  } else {
-    bufGroup.style.display = 'none';
-  }
-
-  // Show total latency (reported to DAW for PDC)
-  if (_connected && state.totalLatency > 0) {
-    rttGroup.style.display = 'flex';
-    rttVal.textContent = state.rtt;
-    rttVal.className = 'stat-val';
-    // Append total latency info
-    document.getElementById('rtt-group').title = 'Total latency reported to DAW: ' + state.totalLatency + 'ms (buffer + RTT)';
-  }
+  // RTT and buf groups removed from header — now in advanced panel only
 
   // Patch name from Rev2
   if (state.patchName && state.patchName !== window._lastPatchName) {
@@ -823,20 +777,7 @@ function updateConnectionStatus(state) {
     }
   }
 
-  // MIDI input counter from DAW
-  const midiInGroup = document.getElementById('midi-in-group');
-  const midiInVal = document.getElementById('midi-in-val');
-  const mappedGroup = document.getElementById('mapped-group');
-  const mappedVal = document.getElementById('mapped-val');
-  if (_connected) {
-    midiInGroup.style.display = 'flex';
-    midiInVal.textContent = state.midiIn !== undefined ? state.midiIn : '—';
-    mappedGroup.style.display = 'flex';
-    mappedVal.textContent = state.mappedSends !== undefined ? state.mappedSends : '0';
-  } else {
-    midiInGroup.style.display = 'none';
-    mappedGroup.style.display = 'none';
-  }
+  // MIDI in/mapped counters removed from header
 }
 
 // Listen for initial config (server host, WG state) from C++
