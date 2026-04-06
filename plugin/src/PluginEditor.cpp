@@ -200,8 +200,9 @@ AnarackEditor::AnarackEditor(AnarackProcessor& p)
             savedH = 380;
         }
     }
-    setResizable(true, true);
-    setResizeLimits(600, 200, 2400, 900);
+    // No resize — the panel auto-fits the screen on open. Dragging to
+    // resize a WebBrowserComponent is janky due to native view redraw lag.
+    setResizable(false, false);
     setSize(savedW, savedH);
 
     startTimerHz(10);
@@ -315,25 +316,7 @@ void AnarackEditor::paint(juce::Graphics& g)
 
 void AnarackEditor::resized()
 {
-    auto bounds = getLocalBounds();
-    // Leave a 16x16 corner clear so the resize grabber is clickable
-    // (WebBrowserComponent is a heavyweight native view that intercepts
-    //  all mouse events in its area).
-    constexpr int CORNER = 16;
-    auto webBounds = bounds;
-    webBounds.removeFromBottom(CORNER);
-    if (webView) webView->setBounds(webBounds);
-
-    // Position the corner resizer in the bottom-right
-    for (int i = 0; i < getNumChildComponents(); ++i)
-    {
-        if (auto* corner = dynamic_cast<juce::ResizableCornerComponent*>(getChildComponent(i)))
-        {
-            corner->setBounds(bounds.getWidth() - CORNER, bounds.getHeight() - CORNER, CORNER, CORNER);
-            corner->toFront(false);
-        }
-    }
-
+    if (webView) webView->setBounds(getLocalBounds());
     // Persist size so it survives reopening the editor
     processor.editorWidth.store(getWidth());
     processor.editorHeight.store(getHeight());

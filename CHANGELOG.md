@@ -1,5 +1,20 @@
 # Changelog
 
+## v0.4.9 (build 75) — Drop resize, fix programme section padding (2026-04-06)
+
+- Drop drag-to-resize (setResizable false) — janky with WebBrowserComponent
+- Auto-fit to 98% of screen on open is enough for all screen sizes
+- Programme section now has reduced padding (12px 4px) since it has no
+  border/label, so the default 22px top padding was wasted space
+
+## v0.4.8 (build 74) — Offline state with Connect retry button (2026-04-06)
+
+- New ConnState::offline (value 3) for when autoConnect times out without audio
+- autoConnect disconnects the transport on timeout so reconnect() works cleanly
+- Panel shows "Offline" with a "Connect" button when connState === 3
+- Screen text shows "Synth Offline" when in offline state
+- Clicking Connect triggers reconnect() which restarts the connect thread
+
 ## v0.4.7 (build 73) — CSS centering, fix false "connected" state (2026-04-06)
 
 - scalePanel uses CSS transform with translate(-50%, -50%) centering instead

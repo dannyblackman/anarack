@@ -665,8 +665,9 @@ function updateConnectionStatus(state) {
 
   const wasConnected = _connected;
   _connected = state.connected;
-  const connState = state.connState; // 0=disconnected, 1=connecting, 2=connected
+  const connState = state.connState; // 0=disconnected, 1=connecting, 2=connected, 3=offline
   const isConnecting = connState === 1 && !_connected;
+  const isOffline = connState === 3;
 
   if (_connected && !wasConnected) {
     log('Connected via ' + (state.mode || 'unknown'));
@@ -682,6 +683,9 @@ function updateConnectionStatus(state) {
     window._loggedAutoBuffer = false;
     window._lastPatchName = null;
     screenName.textContent = 'Connecting...';
+  }
+  if (isOffline && screenName.textContent !== 'Synth Offline') {
+    screenName.textContent = 'Synth Offline';
   }
 
   // Log auto-detected buffer size once
@@ -1057,6 +1061,7 @@ knob(r, 'Value', 0, 127);
 // PROGRAMS — two standard rows with screen spanning both
 s = section(row1, null);
 s.style.border = 'none';
+s.style.padding = '12px 4px';  // no label → no top padding needed
 
 // Use a flex layout: left knobs col | screen | right knobs col | buttons
 const progLayout = document.createElement('div');

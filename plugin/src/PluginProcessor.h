@@ -108,7 +108,7 @@ public:
     bool useSessionApi = true;  // try session API first, fall back to static keys
 
     // Connection state (readable from UI)
-    enum class ConnState { disconnected, connecting, connected };
+    enum class ConnState { disconnected, connecting, connected, offline };
     std::atomic<int> connectionState { (int)ConnState::disconnected };
     ConnState getConnState() const { return (ConnState)connectionState.load(); }
 

@@ -214,9 +214,10 @@ void AnarackProcessor::autoConnect()
         }
     }
     // Timed out without audio — the socket/tunnel may be up but the Pi
-    // isn't responding (e.g. powered off). Stay in "connecting" state so
-    // the UI shows we haven't actually reached the synth.
-    connectionState.store((int)ConnState::connecting);
+    // isn't responding (e.g. powered off). Mark as offline and close the
+    // transport so the user can click "Connect" to retry.
+    connectionState.store((int)ConnState::offline);
+    transport.disconnect();
 
     // TODO: Auto buffer detection — needs thread-safe buffer resizing.
     // For now, start at 80ms which testing showed is stable on this connection.
