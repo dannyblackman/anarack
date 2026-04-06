@@ -699,8 +699,8 @@ void AnarackProcessor::setStateInformation(const void* data, int sizeInBytes)
         serverHost = state.getProperty("serverHost", "anarack.local").toString();
         fixedBufferMs.store((int)state.getProperty("fixedBufferMs", 300));
         useWireGuard = (bool)state.getProperty("useWireGuard", true);
-        editorWidth.store((int)state.getProperty("editorWidth", 1400));
-        editorHeight.store((int)state.getProperty("editorHeight", 380));
+        editorWidth.store((int)state.getProperty("editorWidth", 0));
+        editorHeight.store((int)state.getProperty("editorHeight", 0));
     }
 }
 

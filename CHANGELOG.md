@@ -1,5 +1,15 @@
 # Changelog
 
+## v0.4.6 (build 72) — Smoother resize, auto-size sentinel (2026-04-06)
+
+- editorWidth/Height default to 0 (sentinel) so auto-size always runs on first launch
+- Auto-size now 98% of screen width (was 90%)
+- scalePanel: cache panel's natural size, only measure once instead of every resize
+- Throttle resize via requestAnimationFrame to reduce jank during drag
+- Removed `transform = 'none'` flash that caused jumpy redraws
+
+## v0.4.5 (build 71) — Auto-size fix (skipped, html not included)
+
 ## v0.4.4 (build 70) — Auto-fit screen + draggable corner resizer (2026-04-06)
 
 - Editor opens at 90% of screen width on first launch (sized to fit your display)

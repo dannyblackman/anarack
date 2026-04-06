@@ -1460,22 +1460,38 @@ knob(r, 'Sustain', 64, 127, {cc: 75});                   // ampEnvSustain
 knob(r, 'Release', 64, 127, {cc: 76});                   // ampEnvRelease
 
 // ── Auto-scale panel to fit viewport ──
+// Cache the panel's natural (untransformed) size — only measured once.
+let _panelNaturalW = 0, _panelNaturalH = 0;
 function scalePanel() {
   const panel = document.getElementById('panel');
-  panel.style.transform = 'none';
-  panel.style.position = 'absolute';
-  panel.style.transformOrigin = '0 0';
-  const pw = panel.offsetWidth;
-  const ph = panel.offsetHeight;
+  if (!_panelNaturalW) {
+    // First call: measure panel at its natural size before any transform
+    panel.style.transform = 'none';
+    panel.style.position = 'absolute';
+    panel.style.transformOrigin = '0 0';
+    _panelNaturalW = panel.offsetWidth;
+    _panelNaturalH = panel.offsetHeight;
+  }
   const vw = window.innerWidth;
   const vh = window.innerHeight;
-  const scale = Math.min(vw / pw, vh / ph, 1);
+  const scale = Math.min(vw / _panelNaturalW, vh / _panelNaturalH, 1);
   panel.style.transform = `scale(${scale})`;
-  panel.style.left = Math.max(0, (vw - pw * scale) / 2) + 'px';
-  panel.style.top = Math.max(0, (vh - ph * scale) / 2) + 'px';
+  panel.style.left = Math.max(0, (vw - _panelNaturalW * scale) / 2) + 'px';
+  panel.style.top = Math.max(0, (vh - _panelNaturalH * scale) / 2) + 'px';
+}
+
+// Throttle resize via requestAnimationFrame to avoid jank
+let _resizePending = false;
+function onResize() {
+  if (_resizePending) return;
+  _resizePending = true;
+  requestAnimationFrame(() => {
+    _resizePending = false;
+    scalePanel();
+  });
 }
 scalePanel();
-window.addEventListener('resize', scalePanel);
+window.addEventListener('resize', onResize);
 
 </script>
 </body>

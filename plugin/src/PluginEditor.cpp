@@ -190,7 +190,7 @@ AnarackEditor::AnarackEditor(AnarackProcessor& p)
         if (display)
         {
             auto area = display->userArea;
-            savedW = juce::jlimit(800, 2400, (int)(area.getWidth() * 0.9));
+            savedW = juce::jlimit(800, 2400, (int)(area.getWidth() * 0.98));
             // Original aspect ratio was 1900:516 ≈ 3.68
             savedH = juce::jlimit(280, 800, (int)(savedW / 3.68));
         }
