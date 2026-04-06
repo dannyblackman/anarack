@@ -158,28 +158,51 @@
 
   /* Knob control */
   .ctrl { display: flex; flex-direction: column; align-items: center; width: 66px; }
-  .dropdown-sel {
-    width: 66px;
-    height: 50px;
-    background: #1a1a1a;
-    color: #fff;
-    border: 1px solid rgba(255,255,255,0.15);
-    border-radius: 4px;
-    font-family: 'Inter', sans-serif;
-    font-size: 9px;
-    font-weight: 600;
-    padding: 2px 4px;
-    text-align: center;
-    text-align-last: center;
-    cursor: pointer;
-    outline: none;
-    appearance: none;
-    -webkit-appearance: none;
-    box-shadow: inset 0 1px 2px rgba(0,0,0,0.4);
+  /* Button-style dropdown: matches .btn visuals, shows selected label */
+  .dropdown-btn-wrap {
+    position: relative;
+    width: 62px; height: 24px;
   }
-  .dropdown-sel:hover { border-color: rgba(255,255,255,0.3); }
-  .dropdown-sel:focus { border-color: #E53935; }
-  .dropdown-sel option { background: #1a1a1a; color: #fff; font-size: 11px; }
+  .dropdown-btn-vis {
+    width: 100%; height: 100%;
+    background: var(--btn-off); border: 1px solid var(--btn-border);
+    border-radius: 3px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 7.5px; font-weight: 700; color: rgba(255,255,255,0.6);
+    text-transform: uppercase; letter-spacing: 0.3px;
+    padding: 0 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    user-select: none; pointer-events: none;
+  }
+  .dropdown-btn-wrap:hover .dropdown-btn-vis { background: #3a3a3a; color: #fff; }
+  .dropdown-btn-wrap select {
+    position: absolute; inset: 0;
+    width: 100%; height: 100%;
+    opacity: 0; cursor: pointer;
+    appearance: none; -webkit-appearance: none;
+    border: none; background: transparent;
+  }
+  .dropdown-btn-wrap select option {
+    background: #1a1a1a; color: #fff; font-size: 11px;
+    font-family: 'Inter', sans-serif;
+  }
+
+  /* Knob-style dropdown: endless encoder visual with invisible select overlay */
+  .dropdown-knob-wrap {
+    position: relative;
+    width: 50px; height: 50px;
+  }
+  .dropdown-knob-wrap canvas { display: block; cursor: pointer; }
+  .dropdown-knob-wrap select {
+    position: absolute; inset: 0;
+    width: 100%; height: 100%;
+    opacity: 0; cursor: pointer;
+    appearance: none; -webkit-appearance: none;
+    border: none; background: transparent;
+  }
+  .dropdown-knob-wrap select option {
+    background: #1a1a1a; color: #fff; font-size: 11px;
+    font-family: 'Inter', sans-serif;
+  }
   .ctrl canvas { cursor: grab; }
   .ctrl canvas:active { cursor: grabbing; }
   .ctrl-label {
@@ -461,6 +484,7 @@ const ACCENT = '#E53935';
 const FX_TYPES = ['Off','Delay Mono','DDL Stereo','BBD Delay','Chorus','Phaser High','Phaser Low','Phaser Mst','Flanger 1','Flanger 2','Reverb','Ring Mod','Distortion','HP Filter'];
 const ARP_MODES = ['Up','Down','Up/Down','Random','Assign'];
 const MOD_DESTS = ['Off','Osc 1 Freq','Osc 2 Freq','Osc All Freq','Osc Mix','Noise','Sub Osc','Osc 1 Shape','Osc 2 Shape','Osc All Shape','Cutoff','Resonance','Audio Mod','VCA Level','Pan','LFO 1 Freq','LFO 2 Freq','LFO 3 Freq','LFO 4 Freq','LFO All Freq','LFO 1 Amt','LFO 2 Amt','LFO 3 Amt','LFO 4 Amt','LFO All Amt','Filter Env Amt','Amp Env Amt','Env 3 Amt','All Env Amt','Filter Env Att','Amp Env Att','Env 3 Att','All Env Att','Filter Env Dec','Amp Env Dec','Env 3 Dec','All Env Dec','Filter Env Rel','Amp Env Rel','Env 3 Rel','All Env Rel','Mod 1 Amt','Mod 2 Amt','Mod 3 Amt','Mod 4 Amt','Mod 5 Amt','Mod 6 Amt','Mod 7 Amt','Mod 8 Amt','Osc Slop','FX Mix','FX Param 1','FX Param 2','Seq Slew'];
+const MOD_SOURCES = ['Off','Seq 1','Seq 2','Seq 3','Seq 4','LFO 1','LFO 2','LFO 3','LFO 4','Filter Env','Amp Env','Env 3','Pitch Bend','Mod Wheel','Pressure','Breath','Foot Pedal','Expression','Velocity','Note Number','Noise','DC','Audio Out'];
 const SEQ_TYPES = ['Gated','Poly'];
 
 // ── Knob Drawing ──
@@ -956,14 +980,9 @@ function btn(parent, label, value, text, opts) {
   return ctrl;
 }
 
-// Native <select> dropdown matching the knob width. Used for enum-style
-// parameters (FX type, Arp mode, Mod destinations, etc) where a knob
-// scrubbing through 50+ values is unusable.
-function dropdown(parent, label, value, options, opts) {
-  const cc = (opts && opts.cc !== undefined) ? opts.cc : -1;
-  const nrpn = (opts && opts.nrpn !== undefined) ? opts.nrpn : -1;
-  const d = document.createElement('div'); d.className = 'ctrl';
-  const sel = document.createElement('select'); sel.className = 'dropdown-sel';
+// Helper to build a <select> and option list
+function _buildSelect(value, options) {
+  const sel = document.createElement('select');
   options.forEach((name, i) => {
     const opt = document.createElement('option');
     opt.value = i;
@@ -971,23 +990,80 @@ function dropdown(parent, label, value, options, opts) {
     sel.appendChild(opt);
   });
   sel.value = value;
+  return sel;
+}
+
+// Button-style dropdown — matches .btn visuals, shows the selected
+// option's label. Used for things like Mod Source/Destination, Seq Mode.
+function dropdownBtn(parent, label, value, options, opts) {
+  const cc = (opts && opts.cc !== undefined) ? opts.cc : -1;
+  const nrpn = (opts && opts.nrpn !== undefined) ? opts.nrpn : -1;
+  const d = document.createElement('div'); d.className = 'ctrl-btn';
+  const wrap = document.createElement('div'); wrap.className = 'dropdown-btn-wrap';
+  const vis = document.createElement('div'); vis.className = 'dropdown-btn-vis';
+  vis.textContent = options[value] || '—';
+  wrap.appendChild(vis);
+  const sel = _buildSelect(value, options);
+  wrap.appendChild(sel);
   const l = document.createElement('div'); l.className = 'ctrl-label'; l.textContent = label;
-  d.appendChild(sel); d.appendChild(l); parent.appendChild(d);
+  d.appendChild(wrap); d.appendChild(l); parent.appendChild(d);
   const ctrl = {
     el: d,
     _max: options.length - 1,
     _nrpn: nrpn,
     getValue() { return parseInt(sel.value); },
-    setValue(v) { value = v; sel.value = v; }
+    setValue(v) { value = v; sel.value = v; vis.textContent = options[v] || '—'; }
   };
   registerCC(cc, ctrl);
   sel.onchange = () => {
     value = parseInt(sel.value);
+    vis.textContent = options[value] || '—';
     if (cc >= 0) sendCC(cc, value);
     else if (ctrl._nrpn >= 0) sendNRPN(ctrl._nrpn, value);
   };
   return ctrl;
 }
+
+// Endless-encoder-style dropdown — looks like a knob but clicking opens
+// a native select. The canvas shows an arc indicating the current position
+// in the enum list. Used for FX Select, Aux Env Destination, LFO Destination.
+function dropdownKnob(parent, label, value, options, opts) {
+  const cc = (opts && opts.cc !== undefined) ? opts.cc : -1;
+  const nrpn = (opts && opts.nrpn !== undefined) ? opts.nrpn : -1;
+  const d = document.createElement('div'); d.className = 'ctrl';
+  const wrap = document.createElement('div'); wrap.className = 'dropdown-knob-wrap';
+  const canvas = document.createElement('canvas');
+  wrap.appendChild(canvas);
+  const sel = _buildSelect(value, options);
+  wrap.appendChild(sel);
+  const l = document.createElement('div'); l.className = 'ctrl-label'; l.textContent = label;
+  d.appendChild(wrap); d.appendChild(l); parent.appendChild(d);
+  // Draw the knob with the value shown as position in the enum
+  const maxVal = options.length - 1;
+  drawKnob(canvas, value, maxVal);
+  const ctrl = {
+    el: d,
+    _max: maxVal,
+    _nrpn: nrpn,
+    getValue() { return value; },
+    setValue(v) {
+      value = v;
+      sel.value = v;
+      drawKnob(canvas, value, maxVal);
+    }
+  };
+  registerCC(cc, ctrl);
+  sel.onchange = () => {
+    value = parseInt(sel.value);
+    drawKnob(canvas, value, maxVal);
+    if (cc >= 0) sendCC(cc, value);
+    else if (ctrl._nrpn >= 0) sendNRPN(ctrl._nrpn, value);
+  };
+  return ctrl;
+}
+
+// Legacy alias — keep `dropdown` pointing to the button-style
+const dropdown = dropdownBtn;
 
 function shapeSel(parent, value, shapes, opts) {
   const cc = (opts && opts.cc !== undefined) ? opts.cc : -1;
@@ -1081,10 +1157,10 @@ miscCol.appendChild(trWrap);
 s = section(row1, 'Modulation');
 rows = srows(s);
 r = srow(rows);
-knob(r, 'Source', 0, 127);
-knob(r, 'Select', 0, 127);
+dropdownBtn(r, 'Source', 0, MOD_SOURCES);
+knob(r, 'Select', 0, 7);  // 8 mod slots
 r = srow(rows);
-knob(r, 'Destination', 0, 127);
+dropdownBtn(r, 'Destination', 0, MOD_DESTS);
 knob(r, 'Amount', 0, 127);
 
 // CLOCK
@@ -1104,7 +1180,7 @@ r.appendChild(tapSpacer2);
 s = section(row1, 'Arp');
 rows = srows(s);
 r = srow(rows);
-dropdown(r, 'Mode', 0, ARP_MODES, {cc: 34});   // arpMode
+dropdownBtn(r, 'Mode', 0, ARP_MODES, {cc: 34});   // arpMode
 r = srow(rows);
 btn(r, 'On/Off', 0, null, {cc: 33});        // arpOnOff
 
@@ -1112,14 +1188,13 @@ btn(r, 'On/Off', 0, null, {cc: 33});        // arpOnOff
 s = section(row1, 'Sequencer');
 rows = srows(s);
 r = srow(rows);
-dropdown(r, 'Type', 0, SEQ_TYPES, {cc: 19});  // seqType: 0=Gated, 1=Poly
-knob(r, 'Mode', 0, 4);
+dropdownBtn(r, 'Type', 0, SEQ_TYPES, {cc: 19});  // seqType: 0=Gated, 1=Poly
+dropdownBtn(r, 'Mode', 0, ['Normal','Stop','Pause','Repeat']);
 knob(r, 'Track', 0, 5);
 r = srow(rows);
 btn(r, 'Play', 0);
-knob(r, 'Destination', 0, 127);
+dropdownBtn(r, 'Destination', 0, MOD_DESTS);
 knob(r, 'Record', 0, 1);
-knob(r, 'Value', 0, 127);
 
 // PROGRAMS — two standard rows with screen spanning both
 s = section(row1, null);
@@ -1326,7 +1401,7 @@ s = section(row1, 'Effect');
 rows = srows(s);
 r = srow(rows);
 btn(r, 'On/Off', 0, null, {cc: 16});        // fxOnOff
-dropdown(r, 'FX Type', 0, FX_TYPES, {cc: 3});   // fxType max=13
+dropdownKnob(r, 'FX Type', 0, FX_TYPES, {cc: 3});   // fxType max=13
 knob(r, 'Mix', 64, 127, {cc: 17});          // fxMix
 r = srow(rows);
 btn(r, 'Clk Sync', 0);
@@ -1337,7 +1412,7 @@ knob(r, 'Param 2', 64, 127, {cc: 13});      // fxParam2
 s = section(row1, 'Auxiliary Envelope');
 rows = srows(s);
 r = srow(rows);
-dropdown(r, 'Destination', 0, MOD_DESTS, {cc: 85});  // env3Dest
+dropdownKnob(r, 'Destination', 0, MOD_DESTS, {cc: 85});  // env3Dest
 knob(r, 'Env Amount', 127, 254, {cc: 86, center: 127/254}); // env3Amt bipolar
 knob(r, 'Velocity', 0, 127, {cc: 87});      // env3Vel
 knob(r, 'Delay', 0, 127, {cc: 88});         // env3Delay
@@ -1406,7 +1481,7 @@ const lfoNRPNs = [
 const lfoShape = shapeSel(shapeWrap, 0, lfoShapes);
 const lfoDestRow = document.createElement('div');
 lfoDestRow.style.cssText = 'display:flex;align-items:flex-start;min-height:68px;';
-const lfoDest = dropdown(lfoDestRow, 'Destination', 0, MOD_DESTS);
+const lfoDest = dropdownKnob(lfoDestRow, 'Destination', 0, MOD_DESTS);
 shapeWrap.appendChild(lfoDestRow);
 lfoLeft.appendChild(shapeWrap);
 

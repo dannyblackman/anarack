@@ -1,5 +1,19 @@
 # Changelog
 
+## v0.5.1 (build 80) — Two dropdown styles: button + endless encoder (2026-04-06)
+
+- `dropdownBtn` — button-style dropdown matching `.btn` look, shows selected label
+- `dropdownKnob` — endless-encoder-style, canvas drawn like a knob with arc
+  indicating position, invisible `<select>` overlay opens native dropdown on click
+- Applied:
+  - **Modulation Source + Destination** → dropdownBtn (new MOD_SOURCES enum)
+  - **Sequencer Mode + Destination** → dropdownBtn; removed unused Value knob
+  - **Arp Mode** → dropdownBtn (was generic dropdown)
+  - **Sequencer Type** → dropdownBtn
+  - **FX Select** → dropdownKnob (endless encoder style)
+  - **Aux Env Destination** → dropdownKnob
+  - **LFO Destination** → dropdownKnob
+
 ## v0.5.0 (build 79) — Dropdowns for enum parameters (2026-04-06)
 
 Replace knobs with native `<select>` dropdowns for parameters that have
