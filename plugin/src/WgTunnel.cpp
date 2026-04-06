@@ -113,6 +113,10 @@ bool WgTunnel::connect(const juce::String& myPrivkeyB64,
     tv.tv_usec = 1000; // 1ms (was 50ms — added up to 50ms jitter per packet)
     setsockopt(udpFd, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
 
+    // Increase receive buffer to prevent packet drops
+    int rcvBuf = 1024 * 1024; // 1MB
+    setsockopt(udpFd, SOL_SOCKET, SO_RCVBUF, &rcvBuf, sizeof(rcvBuf));
+
     connected = true;
 
     // Reset recv queue
