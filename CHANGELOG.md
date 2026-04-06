@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.4.3 (build 69) — Resizable editor with persisted size (2026-04-06)
+
+- Editor now opens at 1400×380 (fits 16" MacBook screen) instead of 1900×516
+- setResizeLimits: 600×200 min, 2400×800 max — drag any corner to resize
+- Editor size persists in plugin state (saved per project, restored on reload)
+- The HTML panel's existing scalePanel() handles inner content scaling automatically
+
 ## v0.4.2 (build 68) — Header cleanup, latency button (2026-04-06)
 
 - Latency is now a proper "Test Latency" button next to Connect (not a clickable text label)

@@ -90,6 +90,10 @@ public:
     std::atomic<int> fixedBufferMs { 300 };
     void setFixedBuffer(int ms);
 
+    // Editor size — persisted in plugin state
+    std::atomic<int> editorWidth { 1400 };
+    std::atomic<int> editorHeight { 380 };
+
     juce::String serverHost { "192.168.1.131" };
     juce::String wgEndpoint { "66.245.195.65" };
     juce::String wgServerPubkey { "uX4s7vVGT+B2tJl7+4plM3vO+LceS/LKe+8A8IPH934=" };

@@ -180,8 +180,14 @@ AnarackEditor::AnarackEditor(AnarackProcessor& p)
         // No auto-connect here — the processor connects on prepareToPlay
     });
 
-    setSize(1900, 516);
+    // Restore saved size from processor state, or use a sensible default
+    // that fits a 16" MacBook screen (1728px usable width).
+    int savedW = processor.editorWidth.load();
+    int savedH = processor.editorHeight.load();
+    if (savedW < 600 || savedH < 200) { savedW = 1400; savedH = 380; }
+    setSize(savedW, savedH);
     setResizable(true, true);
+    setResizeLimits(600, 200, 2400, 800);
     startTimerHz(10);
 }
 
@@ -291,4 +297,7 @@ void AnarackEditor::paint(juce::Graphics& g)
 void AnarackEditor::resized()
 {
     if (webView) webView->setBounds(getLocalBounds());
+    // Persist size so it survives reopening the editor
+    processor.editorWidth.store(getWidth());
+    processor.editorHeight.store(getHeight());
 }

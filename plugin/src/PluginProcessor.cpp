@@ -685,6 +685,8 @@ void AnarackProcessor::getStateInformation(juce::MemoryBlock& destData)
     state.setProperty("serverHost", serverHost, nullptr);
     state.setProperty("fixedBufferMs", fixedBufferMs.load(), nullptr);
     state.setProperty("useWireGuard", useWireGuard, nullptr);
+    state.setProperty("editorWidth", editorWidth.load(), nullptr);
+    state.setProperty("editorHeight", editorHeight.load(), nullptr);
     juce::MemoryOutputStream stream(destData, false);
     state.writeToStream(stream);
 }
@@ -697,6 +699,8 @@ void AnarackProcessor::setStateInformation(const void* data, int sizeInBytes)
         serverHost = state.getProperty("serverHost", "anarack.local").toString();
         fixedBufferMs.store((int)state.getProperty("fixedBufferMs", 300));
         useWireGuard = (bool)state.getProperty("useWireGuard", true);
+        editorWidth.store((int)state.getProperty("editorWidth", 1400));
+        editorHeight.store((int)state.getProperty("editorHeight", 380));
     }
 }
 
