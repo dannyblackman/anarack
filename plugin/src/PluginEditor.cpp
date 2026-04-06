@@ -180,14 +180,30 @@ AnarackEditor::AnarackEditor(AnarackProcessor& p)
         // No auto-connect here — the processor connects on prepareToPlay
     });
 
-    // Restore saved size from processor state, or use a sensible default
-    // that fits a 16" MacBook screen (1728px usable width).
+    // Restore saved size from processor state, or auto-size to screen
     int savedW = processor.editorWidth.load();
     int savedH = processor.editorHeight.load();
-    if (savedW < 600 || savedH < 200) { savedW = 1400; savedH = 380; }
-    setSize(savedW, savedH);
+    if (savedW < 600 || savedH < 200)
+    {
+        // No saved size — fill ~90% of screen width, keep aspect ratio
+        auto display = juce::Desktop::getInstance().getDisplays().getPrimaryDisplay();
+        if (display)
+        {
+            auto area = display->userArea;
+            savedW = juce::jlimit(800, 2400, (int)(area.getWidth() * 0.9));
+            // Original aspect ratio was 1900:516 ≈ 3.68
+            savedH = juce::jlimit(280, 800, (int)(savedW / 3.68));
+        }
+        else
+        {
+            savedW = 1400;
+            savedH = 380;
+        }
+    }
     setResizable(true, true);
-    setResizeLimits(600, 200, 2400, 800);
+    setResizeLimits(600, 200, 2400, 900);
+    setSize(savedW, savedH);
+
     startTimerHz(10);
 }
 
@@ -296,7 +312,25 @@ void AnarackEditor::paint(juce::Graphics& g)
 
 void AnarackEditor::resized()
 {
-    if (webView) webView->setBounds(getLocalBounds());
+    auto bounds = getLocalBounds();
+    // Leave a 16x16 corner clear so the resize grabber is clickable
+    // (WebBrowserComponent is a heavyweight native view that intercepts
+    //  all mouse events in its area).
+    constexpr int CORNER = 16;
+    auto webBounds = bounds;
+    webBounds.removeFromBottom(CORNER);
+    if (webView) webView->setBounds(webBounds);
+
+    // Position the corner resizer in the bottom-right
+    for (int i = 0; i < getNumChildComponents(); ++i)
+    {
+        if (auto* corner = dynamic_cast<juce::ResizableCornerComponent*>(getChildComponent(i)))
+        {
+            corner->setBounds(bounds.getWidth() - CORNER, bounds.getHeight() - CORNER, CORNER, CORNER);
+            corner->toFront(false);
+        }
+    }
+
     // Persist size so it survives reopening the editor
     processor.editorWidth.store(getWidth());
     processor.editorHeight.store(getHeight());

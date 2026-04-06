@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.4.4 (build 70) — Auto-fit screen + draggable corner resizer (2026-04-06)
+
+- Editor opens at 90% of screen width on first launch (sized to fit your display)
+- Inset WebView 16px at the bottom so the corner resizer is clickable
+  (WebBrowserComponent is a heavyweight native view that intercepts mouse events
+  in its area, hiding JUCE's lightweight resize grabber)
+- ResizableCornerComponent now positioned in the uncovered bottom-right corner
+
 ## v0.4.3 (build 69) — Resizable editor with persisted size (2026-04-06)
 
 - Editor now opens at 1400×380 (fits 16" MacBook screen) instead of 1900×516
