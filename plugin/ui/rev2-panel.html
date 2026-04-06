@@ -158,6 +158,28 @@
 
   /* Knob control */
   .ctrl { display: flex; flex-direction: column; align-items: center; width: 66px; }
+  .dropdown-sel {
+    width: 66px;
+    height: 50px;
+    background: #1a1a1a;
+    color: #fff;
+    border: 1px solid rgba(255,255,255,0.15);
+    border-radius: 4px;
+    font-family: 'Inter', sans-serif;
+    font-size: 9px;
+    font-weight: 600;
+    padding: 2px 4px;
+    text-align: center;
+    text-align-last: center;
+    cursor: pointer;
+    outline: none;
+    appearance: none;
+    -webkit-appearance: none;
+    box-shadow: inset 0 1px 2px rgba(0,0,0,0.4);
+  }
+  .dropdown-sel:hover { border-color: rgba(255,255,255,0.3); }
+  .dropdown-sel:focus { border-color: #E53935; }
+  .dropdown-sel option { background: #1a1a1a; color: #fff; font-size: 11px; }
   .ctrl canvas { cursor: grab; }
   .ctrl canvas:active { cursor: grabbing; }
   .ctrl-label {
@@ -435,6 +457,12 @@ const DPR = window.devicePixelRatio || 1;
 const KS = 50;
 const ACCENT = '#E53935';
 
+// ── Enum lists (from synths/sequential-prophet-rev2.json) ──
+const FX_TYPES = ['Off','Delay Mono','DDL Stereo','BBD Delay','Chorus','Phaser High','Phaser Low','Phaser Mst','Flanger 1','Flanger 2','Reverb','Ring Mod','Distortion','HP Filter'];
+const ARP_MODES = ['Up','Down','Up/Down','Random','Assign'];
+const MOD_DESTS = ['Off','Osc 1 Freq','Osc 2 Freq','Osc All Freq','Osc Mix','Noise','Sub Osc','Osc 1 Shape','Osc 2 Shape','Osc All Shape','Cutoff','Resonance','Audio Mod','VCA Level','Pan','LFO 1 Freq','LFO 2 Freq','LFO 3 Freq','LFO 4 Freq','LFO All Freq','LFO 1 Amt','LFO 2 Amt','LFO 3 Amt','LFO 4 Amt','LFO All Amt','Filter Env Amt','Amp Env Amt','Env 3 Amt','All Env Amt','Filter Env Att','Amp Env Att','Env 3 Att','All Env Att','Filter Env Dec','Amp Env Dec','Env 3 Dec','All Env Dec','Filter Env Rel','Amp Env Rel','Env 3 Rel','All Env Rel','Mod 1 Amt','Mod 2 Amt','Mod 3 Amt','Mod 4 Amt','Mod 5 Amt','Mod 6 Amt','Mod 7 Amt','Mod 8 Amt','Osc Slop','FX Mix','FX Param 1','FX Param 2','Seq Slew'];
+const SEQ_TYPES = ['Gated','Poly'];
+
 // ── Knob Drawing ──
 // center: if provided (0-1 normalized), draws arc from center outward (bipolar)
 function drawKnob(canvas, value, max, center) {
@@ -541,8 +569,11 @@ if (_juce) {
     if (ctrl) {
       // Scale from 0-127 CC range back to native range if needed
       const nativeVal = ctrl._max > 127 ? Math.round(e.value * ctrl._max / 127) : e.value;
-      // Animate if knobs are at zero (boot), snap otherwise (live knob turns)
-      if (!_booted || ctrl.getValue() === 0) {
+      // Dropdowns (<select>) don't animate — snap to value
+      const isDropdown = ctrl.el && ctrl.el.querySelector && ctrl.el.querySelector('select');
+      if (isDropdown) {
+        ctrl.setValue(nativeVal);
+      } else if (!_booted || ctrl.getValue() === 0) {
         animateKnob(ctrl, nativeVal, 0);
       } else {
         ctrl.setValue(nativeVal);
@@ -925,6 +956,39 @@ function btn(parent, label, value, text, opts) {
   return ctrl;
 }
 
+// Native <select> dropdown matching the knob width. Used for enum-style
+// parameters (FX type, Arp mode, Mod destinations, etc) where a knob
+// scrubbing through 50+ values is unusable.
+function dropdown(parent, label, value, options, opts) {
+  const cc = (opts && opts.cc !== undefined) ? opts.cc : -1;
+  const nrpn = (opts && opts.nrpn !== undefined) ? opts.nrpn : -1;
+  const d = document.createElement('div'); d.className = 'ctrl';
+  const sel = document.createElement('select'); sel.className = 'dropdown-sel';
+  options.forEach((name, i) => {
+    const opt = document.createElement('option');
+    opt.value = i;
+    opt.textContent = name;
+    sel.appendChild(opt);
+  });
+  sel.value = value;
+  const l = document.createElement('div'); l.className = 'ctrl-label'; l.textContent = label;
+  d.appendChild(sel); d.appendChild(l); parent.appendChild(d);
+  const ctrl = {
+    el: d,
+    _max: options.length - 1,
+    _nrpn: nrpn,
+    getValue() { return parseInt(sel.value); },
+    setValue(v) { value = v; sel.value = v; }
+  };
+  registerCC(cc, ctrl);
+  sel.onchange = () => {
+    value = parseInt(sel.value);
+    if (cc >= 0) sendCC(cc, value);
+    else if (ctrl._nrpn >= 0) sendNRPN(ctrl._nrpn, value);
+  };
+  return ctrl;
+}
+
 function shapeSel(parent, value, shapes, opts) {
   const cc = (opts && opts.cc !== undefined) ? opts.cc : -1;
   const nrpn = (opts && opts.nrpn !== undefined) ? opts.nrpn : -1;
@@ -1040,7 +1104,7 @@ r.appendChild(tapSpacer2);
 s = section(row1, 'Arp');
 rows = srows(s);
 r = srow(rows);
-knob(r, 'Mode', 0, 4, {cc: 34});            // arpMode
+dropdown(r, 'Mode', 0, ARP_MODES, {cc: 34});   // arpMode
 r = srow(rows);
 btn(r, 'On/Off', 0, null, {cc: 33});        // arpOnOff
 
@@ -1048,8 +1112,7 @@ btn(r, 'On/Off', 0, null, {cc: 33});        // arpOnOff
 s = section(row1, 'Sequencer');
 rows = srows(s);
 r = srow(rows);
-btn(r, 'Gated', 0, null, {cc: 19});  // seqType: 0=Gated, 1=Poly
-btn(r, 'Poly', 0);
+dropdown(r, 'Type', 0, SEQ_TYPES, {cc: 19});  // seqType: 0=Gated, 1=Poly
 knob(r, 'Mode', 0, 4);
 knob(r, 'Track', 0, 5);
 r = srow(rows);
@@ -1263,7 +1326,7 @@ s = section(row1, 'Effect');
 rows = srows(s);
 r = srow(rows);
 btn(r, 'On/Off', 0, null, {cc: 16});        // fxOnOff
-knob(r, 'Select', 0, 13, {cc: 3});          // fxType max=13
+dropdown(r, 'FX Type', 0, FX_TYPES, {cc: 3});   // fxType max=13
 knob(r, 'Mix', 64, 127, {cc: 17});          // fxMix
 r = srow(rows);
 btn(r, 'Clk Sync', 0);
@@ -1274,7 +1337,7 @@ knob(r, 'Param 2', 64, 127, {cc: 13});      // fxParam2
 s = section(row1, 'Auxiliary Envelope');
 rows = srows(s);
 r = srow(rows);
-knob(r, 'Destination', 0, 52, {cc: 85});    // env3Dest max=52
+dropdown(r, 'Destination', 0, MOD_DESTS, {cc: 85});  // env3Dest
 knob(r, 'Env Amount', 127, 254, {cc: 86, center: 127/254}); // env3Amt bipolar
 knob(r, 'Velocity', 0, 127, {cc: 87});      // env3Vel
 knob(r, 'Delay', 0, 127, {cc: 88});         // env3Delay
@@ -1343,7 +1406,7 @@ const lfoNRPNs = [
 const lfoShape = shapeSel(shapeWrap, 0, lfoShapes);
 const lfoDestRow = document.createElement('div');
 lfoDestRow.style.cssText = 'display:flex;align-items:flex-start;min-height:68px;';
-const lfoDest = knob(lfoDestRow, 'Destination', 0, 52);
+const lfoDest = dropdown(lfoDestRow, 'Destination', 0, MOD_DESTS);
 shapeWrap.appendChild(lfoDestRow);
 lfoLeft.appendChild(shapeWrap);
 

@@ -1,5 +1,20 @@
 # Changelog
 
+## v0.5.0 (build 79) — Dropdowns for enum parameters (2026-04-06)
+
+Replace knobs with native `<select>` dropdowns for parameters that have
+enumerated values (where scrubbing through a knob is unusable):
+
+- **FX Select** (CC 3) — 14 FX types: Delay Mono, DDL Stereo, BBD Delay,
+  Chorus, Phaser High/Low/Mst, Flanger 1/2, Reverb, Ring Mod, Distortion, HP Filter
+- **Arp Mode** (CC 34) — Up / Down / Up/Down / Random / Assign
+- **Aux Env Destination** (CC 85) — 53 modulation destinations
+- **LFO Destination** (NRPN 40/45/50/55) — 53 modulation destinations
+- **Sequencer Type** (CC 19) — Gated / Poly (replaces two separate buttons)
+
+New `dropdown(parent, label, value, options, opts)` helper with matching
+knob-style visuals. Inbound paramUpdate snaps dropdowns instead of animating.
+
 ## v0.4.11 (build 77) — Logic Latch automation + row 2 alignment (2026-04-06)
 
 - **Latch/Write automation now records knob movements**: wrap setValueNotifyingHost
