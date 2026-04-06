@@ -106,6 +106,7 @@
     font-size: 9px; font-weight: 500; color: rgba(255,255,255,0.25);
   }
   .stat-val.dim { color: rgba(255,255,255,0.15); }
+  .stat-val.measuring { color: #E8A849; }
   .conn-mode {
     font-size: 9px; font-weight: 600; color: rgba(255,255,255,0.3);
     text-transform: uppercase; letter-spacing: 1.5px;
@@ -360,6 +361,10 @@
     <div class="stat-group" id="buf-group" style="display:none">
       <span class="stat-val dim" id="buf-val">—</span>
       <span class="stat-unit">ms buf</span>
+    </div>
+    <div class="stat-group" id="lat-group" style="display:flex;cursor:pointer;" onclick="onLatencyTest()" title="Click to test end-to-end latency">
+      <span class="stat-val dim" id="lat-val">—</span>
+      <span class="stat-unit">ms latency</span>
     </div>
     <div class="stat-group" id="midi-in-group" style="display:none">
       <span class="stat-val dim" id="midi-in-val">0</span>
@@ -653,8 +658,16 @@ function toggleConnect() {
 }
 
 function doPing() {
-  log('Measuring latency...');
+  log('Measuring RTT...');
   if (_juce) _juce.emitEvent("doPing", {});
+}
+
+function onLatencyTest() {
+  if (!_connected) return;
+  log('Running latency test...');
+  const v = document.getElementById('lat-val');
+  if (v) { v.textContent = '...'; v.classList.add('measuring'); v.classList.remove('dim'); }
+  if (_juce) _juce.emitEvent("doLatencyTest", {});
 }
 
 // ── Connection status updates from C++ ──
@@ -789,6 +802,25 @@ function updateConnectionStatus(state) {
   // MIDI Learn completion
   if (state.learnedFrom !== undefined && state.learnedTo !== undefined) {
     onLearnComplete(state.learnedFrom, state.learnedTo);
+  }
+
+  // Latency test display
+  const latVal = document.getElementById('lat-val');
+  if (latVal && state.latRunning !== undefined) {
+    if (state.latRunning) {
+      latVal.classList.remove('dim');
+      latVal.classList.add('measuring');
+      latVal.textContent = state.latProgress > 0 ? state.latProgress + '/5' : '...';
+    } else if (state.latAvg > 0) {
+      latVal.classList.remove('measuring', 'dim');
+      latVal.textContent = state.latAvg;
+      latVal.title = 'Avg ' + state.latAvg + 'ms (min ' + state.latMin + ', max ' + state.latMax + ')';
+      // Log only once per completed test
+      if (!window._lastLatAvg || window._lastLatAvg !== state.latAvg) {
+        window._lastLatAvg = state.latAvg;
+        log('Latency: avg ' + state.latAvg + 'ms | min ' + state.latMin + 'ms | max ' + state.latMax + 'ms');
+      }
+    }
   }
 
   // MIDI input counter from DAW

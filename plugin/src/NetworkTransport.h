@@ -58,6 +58,13 @@ public:
     int getEstimatedRtt() const;
     int getLastPacketSize() const { return lastPacketSize.load(); }
 
+    // ── Latency test ──
+    // When active, the receive thread scans audio packets for peaks above
+    // threshold and fires onAudioPeak when one is found.
+    std::atomic<bool> latencyTestActive { false };
+    std::atomic<int> latencyPeakThreshold { 800 };  // int16 amplitude
+    std::function<void()> onAudioPeak;  // called from network thread
+
 private:
     void run() override; // Receive thread (raw UDP mode)
     void runWireGuard();  // Receive loop (WireGuard mode)

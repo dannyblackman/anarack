@@ -706,6 +706,81 @@ void AnarackProcessor::setFixedBuffer(int ms)
     updatePrebuffer();
 }
 
+// ── Latency test ──
+// Sends a note-on, listens for the first audio packet with a peak above
+// threshold, computes elapsed ms. Repeats LATENCY_TEST_COUNT times and
+// reports min/max/avg.
+
+void AnarackProcessor::startLatencyTest()
+{
+    if (latencyTestRunning.load()) return;
+    if (!transport.isConnected()) return;
+
+    latencyTestRunning.store(true);
+    latencyTestResults.store(0);
+    latencyTestTimes.clear();
+
+    // Wire the peak callback (called from network thread)
+    transport.onAudioPeak = [this]() {
+        auto now = juce::Time::currentTimeMillis();
+        int elapsed = (int)(now - latencyTestSendMs);
+        latencyTestTimes.push_back(elapsed);
+        latencyTestResults.store((int)latencyTestTimes.size());
+        // Schedule next step on the message thread
+        juce::MessageManager::callAsync([this]() {
+            juce::Timer::callAfterDelay(LATENCY_GAP_MS, [this]() {
+                runLatencyTestStep();
+            });
+        });
+    };
+
+    runLatencyTestStep();
+}
+
+void AnarackProcessor::runLatencyTestStep()
+{
+    if ((int)latencyTestTimes.size() >= LATENCY_TEST_COUNT) {
+        // Done — compute stats
+        int sum = 0, mn = INT_MAX, mx = 0;
+        for (int t : latencyTestTimes) {
+            sum += t;
+            if (t < mn) mn = t;
+            if (t > mx) mx = t;
+        }
+        latencyAvgMs.store(sum / (int)latencyTestTimes.size());
+        latencyMinMs.store(mn);
+        latencyMaxMs.store(mx);
+        latencyTestRunning.store(false);
+        transport.latencyTestActive.store(false);
+        transport.onAudioPeak = nullptr;
+        return;
+    }
+
+    // Send note-on, mark timestamp, arm the peak detector
+    latencyTestSendMs = juce::Time::currentTimeMillis();
+    transport.latencyTestActive.store(true);
+    const uint8_t noteOn[3]  = { 0x90, 60, 127 };
+    const uint8_t noteOff[3] = { 0x80, 60, 0 };
+    transport.sendMidi(noteOn, 3);
+
+    // Note-off after 100ms
+    juce::Timer::callAfterDelay(100, [this, noteOff]() {
+        transport.sendMidi(noteOff, 3);
+    });
+
+    // Timeout: if no peak after LATENCY_TIMEOUT_MS, mark as failed
+    juce::Timer::callAfterDelay(LATENCY_TIMEOUT_MS, [this]() {
+        if (transport.latencyTestActive.load()) {
+            transport.latencyTestActive.store(false);
+            latencyTestTimes.push_back(LATENCY_TIMEOUT_MS); // worst case
+            latencyTestResults.store((int)latencyTestTimes.size());
+            juce::Timer::callAfterDelay(LATENCY_GAP_MS, [this]() {
+                runLatencyTestStep();
+            });
+        }
+    });
+}
+
 void AnarackProcessor::updatePrebuffer()
 {
     int fixed = fixedBufferMs.load();

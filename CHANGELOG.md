@@ -1,5 +1,14 @@
 # Changelog
 
+## v0.4.1 (build 67) — End-to-end latency test (2026-04-06)
+
+- Click "ms latency" pill in panel header to run a 5x latency test
+- Sends note-on, scans incoming audio packets for peak above threshold (800)
+- Measures real perceptual round-trip: keypress → MIDI → synth → audio capture → packet → audio thread
+- Reports avg/min/max in the pill (hover for details, log shows full breakdown)
+- Implementation: NetworkTransport scans int16 payloads when latencyTestActive, fires onAudioPeak callback to PluginProcessor; processor schedules note-on/off via Timer::callAfterDelay, handles 5 iterations with 350ms gaps and 1s per-test timeout
+- Untested with hardware (built away from rig)
+
 ## Browser demo — Public Rev2 demo at rev2.anarack.com (2026-04-06)
 
 - **Browser demo** — same Rev2 panel HTML runs in plugin AND browser via JS shim that replaces JUCE WebView bridge with WebSocket

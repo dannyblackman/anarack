@@ -114,7 +114,27 @@ public:
     void disconnectAndCleanup();
     std::atomic<int> autoDetectedBufferMs { 0 }; // result of auto buffer detection (0 = not yet detected)
 
+    // ── Latency test (end-to-end keypress → audio peak) ──
+    void startLatencyTest();           // begins a 5-test run
+    bool isLatencyTestRunning() const { return latencyTestRunning.load(); }
+    int getLatencyTestProgress() const { return latencyTestResults.load(); }
+    int getLatencyAvg() const { return latencyAvgMs.load(); }
+    int getLatencyMin() const { return latencyMinMs.load(); }
+    int getLatencyMax() const { return latencyMaxMs.load(); }
+
 private:
+    void runLatencyTestStep();
+    static constexpr int LATENCY_TEST_COUNT = 5;
+    static constexpr int LATENCY_TIMEOUT_MS = 1000;
+    static constexpr int LATENCY_GAP_MS = 350;
+    std::atomic<bool> latencyTestRunning { false };
+    std::atomic<int> latencyTestResults { 0 };
+    std::atomic<int> latencyAvgMs { 0 };
+    std::atomic<int> latencyMinMs { 0 };
+    std::atomic<int> latencyMaxMs { 0 };
+    int64_t latencyTestSendMs = 0;
+    std::vector<int> latencyTestTimes;
+
     std::unique_ptr<juce::Thread> connectThread;
     static constexpr double SERVER_SAMPLE_RATE = 48000.0;
 

@@ -114,10 +114,9 @@ AnarackEditor::AnarackEditor(AnarackProcessor& p)
             auto name = payload.getProperty("name", "").toString();
             processor.openDirectMidiInput(name);
         })
-        // Ping button
+        // Ping button — RTT
         .withEventListener("doPing", [this](const juce::var&)
         {
-            // RTT is already measured by the transport; just log it
             auto rtt = processor.getTransport().getEstimatedRtt();
             if (webView)
             {
@@ -125,6 +124,11 @@ AnarackEditor::AnarackEditor(AnarackProcessor& p)
                 obj->setProperty("msg", "RTT: " + juce::String(rtt) + "ms");
                 webView->emitEventIfBrowserIsVisible("logMessage", juce::var(obj.get()));
             }
+        })
+        // Latency test — end-to-end keypress → audio peak
+        .withEventListener("doLatencyTest", [this](const juce::var&)
+        {
+            processor.startLatencyTest();
         })
         // Serve the HTML panel
         .withResourceProvider([](const juce::String& url) -> std::optional<juce::WebBrowserComponent::Resource>
@@ -227,6 +231,12 @@ void AnarackEditor::timerCallback()
         state->setProperty("dbgLostDelta", processor.jitterBuffer.getLastLostDelta());
         state->setProperty("pktRecv", processor.jitterBuffer.getPacketsReceived());
         state->setProperty("pktDup", processor.jitterBuffer.getPacketsDuplicate());
+        // Latency test state
+        state->setProperty("latRunning", processor.isLatencyTestRunning());
+        state->setProperty("latProgress", processor.getLatencyTestProgress());
+        state->setProperty("latAvg", processor.getLatencyAvg());
+        state->setProperty("latMin", processor.getLatencyMin());
+        state->setProperty("latMax", processor.getLatencyMax());
         int learnFrom = processor.lastLearnedFrom.exchange(-1);
         int learnTo = processor.lastLearnedTo.exchange(-1);
         if (learnFrom >= 0 && learnTo >= 0)

@@ -298,6 +298,22 @@ void NetworkTransport::run()
             continue;
         }
 
+        // Latency test: scan int16 payload for peak above threshold
+        if (latencyTestActive.load(std::memory_order_acquire) && bytesRead >= 268)
+        {
+            const int16_t* samples = reinterpret_cast<const int16_t*>(packetBuf + 12);
+            int n = (bytesRead - 12) / 2;
+            int peak = 0;
+            for (int i = 0; i < n; ++i) {
+                int a = std::abs((int)samples[i]);
+                if (a > peak) peak = a;
+            }
+            if (peak > latencyPeakThreshold.load(std::memory_order_relaxed)) {
+                latencyTestActive.store(false, std::memory_order_release);
+                if (onAudioPeak) onAudioPeak();
+            }
+        }
+
         if (bytesRead == 268 && jitterBuffer.isConfigured())
         {
             // Header packet → JitterBuffer (timestamp-indexed placement)
@@ -358,6 +374,22 @@ void NetworkTransport::runWireGuard()
         // Audio packets come from the server's audio port
         if (srcPort == (uint16_t)serverAudioPort || bytesRead >= 128)
         {
+            // Latency test: scan int16 payload for peak above threshold
+            if (latencyTestActive.load(std::memory_order_acquire) && bytesRead >= 268)
+            {
+                const int16_t* samples = reinterpret_cast<const int16_t*>(packetBuf + 12);
+                int n = (bytesRead - 12) / 2;
+                int peak = 0;
+                for (int i = 0; i < n; ++i) {
+                    int a = std::abs((int)samples[i]);
+                    if (a > peak) peak = a;
+                }
+                if (peak > latencyPeakThreshold.load(std::memory_order_relaxed)) {
+                    latencyTestActive.store(false, std::memory_order_release);
+                    if (onAudioPeak) onAudioPeak();
+                }
+            }
+
             if (bytesRead == 268 && jitterBuffer.isConfigured())
             {
                 jitterBuffer.writePacket(packetBuf, bytesRead);
