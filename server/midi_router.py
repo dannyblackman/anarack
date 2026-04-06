@@ -131,6 +131,7 @@ class MidiRouter:
 
         # Build SysEx mapping from active synth definition
         self._sysex_offset_to_cc = {}
+        self._sysex_offset_to_nrpn = {}
         self._sysex_config = {}
         self._load_synth_config()
 
@@ -140,9 +141,12 @@ class MidiRouter:
             return
         defn = self.synth_manager.active_synth
         self._sysex_offset_to_cc = defn.get_sysex_offset_to_cc_map()
+        self._sysex_offset_to_nrpn = defn.get_sysex_offset_to_nrpn_map()
         self._sysex_config = defn.sysex
         if self._sysex_offset_to_cc:
             print(f"Loaded {len(self._sysex_offset_to_cc)} SysEx→CC mappings from {defn.name}")
+        if self._sysex_offset_to_nrpn:
+            print(f"Loaded {len(self._sysex_offset_to_nrpn)} SysEx→NRPN mappings (NRPN-only params)")
 
     def send(self, message: list[int]):
         """Send a MIDI message to the hardware synth."""
@@ -267,6 +271,12 @@ class MidiRouter:
                     value = round(raw[offset] * 127 / native_max)
                 self._broadcast_cc(cc, value)
 
+        # Broadcast NRPN-only parameters (mod matrix, sync, unison, etc.)
+        # Native value is sent as-is — clients are responsible for any scaling.
+        for offset, (nrpn, native_max) in self._sysex_offset_to_nrpn.items():
+            if offset < len(raw):
+                self._broadcast_nrpn(nrpn, raw[offset])
+
     def _is_echo(self, cc: int) -> bool:
         """Check if a received CC is likely an echo of one we just sent."""
         sent_time = self._last_sent.get(cc)
@@ -344,7 +354,15 @@ class MidiRouter:
 
     def _broadcast_cc(self, cc: int, value: int):
         """Send a CC update to all connected clients (WebSocket + UDP plugin)."""
-        msg = json.dumps({"type": "cc", "cc": cc, "value": value})
+        self._broadcast_json({"type": "cc", "cc": cc, "value": value})
+
+    def _broadcast_nrpn(self, nrpn: int, value: int):
+        """Send an NRPN update to all connected clients (WebSocket + UDP plugin)."""
+        self._broadcast_json({"type": "nrpn", "nrpn": nrpn, "value": value})
+
+    def _broadcast_json(self, payload: dict):
+        """Generic JSON broadcast to all WebSocket + UDP clients."""
+        msg = json.dumps(payload)
         # WebSocket clients (browser)
         if self.midi_ws_clients and self._loop:
             dead = set()

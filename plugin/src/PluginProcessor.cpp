@@ -117,6 +117,15 @@ AnarackProcessor::AnarackProcessor()
         }
     };
 
+    // NRPN-only parameters from the synth (mod matrix, sync, unison, etc.)
+    transport.onSynthNRPN = [this](int nrpn, int value)
+    {
+        if (nrpn < 0 || nrpn > 16383) return;
+        int w = nrpnRingWrite.load(std::memory_order_relaxed);
+        nrpnRing[w % NRPN_RING_SIZE] = { (uint16_t)nrpn, (uint16_t)value };
+        nrpnRingWrite.store(w + 1, std::memory_order_release);
+    };
+
     transport.onPatchName = [this](const juce::String& name)
     {
         currentPatchName = name;

@@ -296,6 +296,20 @@ void AnarackEditor::timerCallback()
         }
         processor.ccRingRead.store(r, std::memory_order_relaxed);
 
+        // Drain NRPN ring buffer and push as nrpnUpdate events
+        int nr = processor.nrpnRingRead.load(std::memory_order_relaxed);
+        int nw = processor.nrpnRingWrite.load(std::memory_order_acquire);
+        while (nr < nw)
+        {
+            auto& ev = processor.nrpnRing[nr % AnarackProcessor::NRPN_RING_SIZE];
+            auto nrpnObj = juce::DynamicObject::Ptr(new juce::DynamicObject());
+            nrpnObj->setProperty("nrpn", (int)ev.nrpn);
+            nrpnObj->setProperty("value", (int)ev.val);
+            webView->emitEventIfBrowserIsVisible("nrpnUpdate", juce::var(nrpnObj.get()));
+            nr++;
+        }
+        processor.nrpnRingRead.store(nr, std::memory_order_relaxed);
+
         // Drain preset name ring buffer
         int pr = processor.presetNameRead.load(std::memory_order_relaxed);
         int pw = processor.presetNameWrite.load(std::memory_order_acquire);

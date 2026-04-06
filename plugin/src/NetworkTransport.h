@@ -49,6 +49,7 @@ public:
 
     // Callbacks for incoming synth data (called from network thread)
     std::function<void(int cc, int value)> onSynthCC;
+    std::function<void(int nrpn, int value)> onSynthNRPN;
     std::function<void(const juce::String& name)> onPatchName;
     std::function<void(int bank, int program, const juce::String& name)> onPresetName;
 

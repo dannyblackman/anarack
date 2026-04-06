@@ -241,6 +241,12 @@ void NetworkTransport::handleJsonPacket(const uint8_t* data, int size)
         int value = (int)json.getProperty("value", 0);
         if (cc >= 0) onSynthCC(cc, value);
     }
+    else if (type == "nrpn" && onSynthNRPN)
+    {
+        int nrpn = (int)json.getProperty("nrpn", -1);
+        int value = (int)json.getProperty("value", 0);
+        if (nrpn >= 0) onSynthNRPN(nrpn, value);
+    }
     else if (type == "patchName" && onPatchName)
     {
         auto name = json.getProperty("name", "").toString();

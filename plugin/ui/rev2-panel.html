@@ -635,9 +635,19 @@ function sendCC(cc, value) {
   if (_juce) _juce.emitEvent("ccChange", { cc, value: v });
 }
 
-// Registry of controls by CC for inbound param updates
+// Registry of controls by CC for inbound CC updates
 const ccRegistry = {};
-function registerCC(cc, ctrl) { if (cc >= 0) ccRegistry[cc] = ctrl; }
+// Registry of controls by NRPN for inbound NRPN updates (mod matrix is dynamic)
+const nrpnRegistry = {};
+// Registry of ALL controls (for setAllKnobsToZero etc.)
+const allCtrls = [];
+function registerCC(cc, ctrl) {
+  if (cc >= 0) ccRegistry[cc] = ctrl;
+  allCtrls.push(ctrl);
+}
+function registerNRPN(nrpn, ctrl) {
+  if (nrpn >= 0) nrpnRegistry[nrpn] = ctrl;
+}
 
 // ── Boot animation — synth "comes alive" when connection is established ──
 let _booted = false;
@@ -666,12 +676,33 @@ if (_juce) {
       cachePresetName(e.bank, e.program, e.name);
     }
   });
+  // NRPN updates from synth (mod matrix, sync, unison, etc.)
+  // Pi sends native values — controls store at native range, no scaling needed.
+  _juce.addEventListener("nrpnUpdate", (e) => {
+    // Mod matrix: store value into modMatrix state at the right slot (each
+    // mod NRPN belongs to a specific slot/field). Update visible controls
+    // only if the slot is currently displayed.
+    if (typeof handleModMatrixNRPN === 'function' && handleModMatrixNRPN(e.nrpn, e.value)) return;
+    const ctrl = nrpnRegistry[e.nrpn];
+    if (ctrl && ctrl.setValue) {
+      const isDropdown = ctrl.el && ctrl.el.querySelector && ctrl.el.querySelector('select');
+      if (isDropdown || !_booted || ctrl.getValue() === 0) {
+        ctrl.setValue(e.value);
+      } else {
+        animateKnob(ctrl, e.value, 0);
+      }
+    }
+  });
 }
 function setAllKnobsToZero() {
-  for (const cc in ccRegistry) {
-    const ctrl = ccRegistry[cc];
-    if (ctrl && ctrl.setValue) ctrl.setValue(0);
-  }
+  // Bipolar knobs go to their centre (12 o'clock); unipolar to 0; buttons OFF.
+  // Iterates allCtrls so NRPN-only controls (Sync, Unison, mod matrix etc.)
+  // also get reset.
+  allCtrls.forEach(ctrl => {
+    if (!ctrl || !ctrl.setValue) return;
+    const rest = (ctrl._restValue !== undefined) ? ctrl._restValue : 0;
+    ctrl.setValue(rest);
+  });
 }
 
 function bootAnimation() {
@@ -988,11 +1019,14 @@ function knob(parent, label, value, max, opts) {
   const ctrl = {
     el: d,
     _max: max,
+    _center: center,            // 0..1 center position for bipolar knobs
+    _restValue: center !== undefined ? Math.round(center * max) : 0,
     getValue() { return value; },
     setValue(v) { value = v; drawKnob(c, value, max, center); }
   };
   const nrpn = (opts && opts.nrpn !== undefined) ? opts.nrpn : -1;
   registerCC(cc, ctrl);
+  registerNRPN(nrpn, ctrl);
   ctrl._learnLabel = l;
   ctrl._mapLabel = ml;
   // Double-click to enter MIDI learn mode
@@ -1032,6 +1066,7 @@ function btn(parent, label, value, text, opts) {
     setValue(v) { value = v; b.className = 'btn' + (value ? ' on' : ''); if (!text) b.textContent = value ? 'ON' : 'OFF'; }
   };
   registerCC(cc, ctrl);
+  registerNRPN(nrpn, ctrl);
   ctrl._nrpn = nrpn;
   b.onclick = () => { ctrl.setValue(value ? 0 : 1); if (cc >= 0) sendCC(cc, value); else if (ctrl._nrpn >= 0) sendNRPN(ctrl._nrpn, value); };
   return ctrl;
@@ -1082,6 +1117,7 @@ function dropdownBtn(parent, label, value, options, opts) {
     }
   };
   registerCC(cc, ctrl);
+  registerNRPN(nrpn, ctrl);
   sel.onchange = () => {
     value = parseInt(sel.value);
     valueDisplay.textContent = options[value] || '—';
@@ -1125,6 +1161,7 @@ function dropdownKnob(parent, label, value, options, opts) {
     }
   };
   registerCC(cc, ctrl);
+  registerNRPN(nrpn, ctrl);
   sel.onchange = () => {
     value = parseInt(sel.value);
     valueDisplay.textContent = options[value] || '—';
@@ -1209,9 +1246,10 @@ knob(miscRow3, 'Uni Mode', param('unisonMode').default, param('unisonMode').max,
 knob(miscRow3, 'Detune', param('unisonDetune').default, param('unisonDetune').max, {nrpn: param('unisonDetune').nrpn});
 miscCol.appendChild(miscRow3);
 
-// Transpose
+// Transpose — hardware-only on Rev2, no MIDI mapping. Greyed out.
 const trWrap = document.createElement('div');
 trWrap.style.cssText = 'display:flex;flex-direction:column;align-items:center;';
+trWrap.classList.add('ctrl-disabled');
 const trRow = document.createElement('div'); trRow.className = 'transpose-row';
 [-2,-1,0,1,2].forEach(v => {
   const b = document.createElement('div');
@@ -1238,7 +1276,11 @@ s = section(row1, 'Modulation');
 rows = srows(s);
 r = srow(rows);
 const modSource = dropdownBtn(r, 'Source', 0, paramEnum('modSource'));
-const modSlotSelect = knob(r, 'Select', 1, 8);  // 1-8 mod slots (UI only)
+// Mod slot selector — dropdown 1-8 (UI only, no MIDI)
+const modSlotOptions = ['1','2','3','4','5','6','7','8'];
+const modSlotSelect = dropdownBtn(r, 'Select', 0, modSlotOptions);
+// Translate: dropdown index (0-7) → slot number (1-8)
+modSlotSelect.getSlot = () => modSlotSelect.getValue() + 1;
 r = srow(rows);
 const modDest = dropdownBtn(r, 'Destination', 0, paramEnum('modDest'));
 const modAmount = knob(r, 'Amount', 127, 254, {center: 127/254}); // bipolar
@@ -1249,7 +1291,7 @@ for (let i = 0; i < 8; i++) modMatrix.push({source: 0, amount: 127, dest: 0});
 
 // Resolve NRPNs for the active slot via the central param table
 function updateModSlotNRPNs() {
-  const slot = modSlotSelect.getValue();
+  const slot = modSlotSelect.getSlot();
   modSource._nrpn = param('mod' + slot + 'Source').nrpn;
   modDest._nrpn = param('mod' + slot + 'Dest').nrpn;
   modAmount._nrpn = param('mod' + slot + 'Amt').nrpn;
@@ -1263,8 +1305,7 @@ function saveModSlot(slot) {
 }
 
 function loadModSlot() {
-  const slot = modSlotSelect.getValue();
-  if (slot < 1 || slot > 8) return;
+  const slot = modSlotSelect.getSlot();
   const st = modMatrix[slot - 1];
   modSource.setValue(st.source);
   modDest.setValue(st.dest);
@@ -1272,19 +1313,41 @@ function loadModSlot() {
   updateModSlotNRPNs();
 }
 
-// Save current state before dragging to a new slot, load the new one after
-let _modSlotBeforeDrag = 1;
-modSlotSelect.el.querySelector('canvas').addEventListener('mousedown', () => {
-  _modSlotBeforeDrag = modSlotSelect.getValue();
+// Save current state before changing slot, load the new one after
+let _modSlotBeforeChange = 1;
+const _modSelectEl = modSlotSelect.el.querySelector('select');
+_modSelectEl.addEventListener('mousedown', () => {
+  _modSlotBeforeChange = modSlotSelect.getSlot();
 });
-modSlotSelect._onChange = () => {
-  if (_modSlotBeforeDrag !== modSlotSelect.getValue()) {
-    saveModSlot(_modSlotBeforeDrag);
-    _modSlotBeforeDrag = modSlotSelect.getValue();
-    loadModSlot();
-  }
-};
+_modSelectEl.addEventListener('change', () => {
+  saveModSlot(_modSlotBeforeChange);
+  _modSlotBeforeChange = modSlotSelect.getSlot();
+  loadModSlot();
+});
 updateModSlotNRPNs(); // initialise for slot 1
+
+// Build a reverse lookup: NRPN → {slot, field} for the mod matrix.
+// This lets incoming NRPN updates land in the right slot of modMatrix
+// even when a different slot is currently displayed.
+const modNrpnLookup = {};
+for (let s = 1; s <= 8; s++) {
+  modNrpnLookup[param('mod' + s + 'Source').nrpn] = { slot: s, field: 'source' };
+  modNrpnLookup[param('mod' + s + 'Amt').nrpn] = { slot: s, field: 'amount' };
+  modNrpnLookup[param('mod' + s + 'Dest').nrpn] = { slot: s, field: 'dest' };
+}
+// Returns true if the NRPN belongs to the mod matrix (and was handled).
+window.handleModMatrixNRPN = function(nrpn, value) {
+  const m = modNrpnLookup[nrpn];
+  if (!m) return false;
+  modMatrix[m.slot - 1][m.field] = value;
+  // If this slot is currently displayed, update the visible control too
+  if (modSlotSelect.getSlot() === m.slot) {
+    if (m.field === 'source') modSource.setValue(value);
+    else if (m.field === 'dest') modDest.setValue(value);
+    else if (m.field === 'amount') modAmount.setValue(value);
+  }
+  return true;
+};
 
 // CLOCK
 s = section(row1, 'Clock');
@@ -1308,27 +1371,26 @@ dropdownBtn(r, 'Mode', 0, paramEnum('arpMode'), {cc: param('arpMode').cc});
 r = srow(rows);
 btn(r, 'On/Off', 0, null, {cc: 33});        // arpOnOff
 
-// SEQUENCER — only Type is hooked up. Mode/Track/Play/Destination/Record
-// all require sequencer programming which isn't practical via MIDI.
+// SEQUENCER — entire section disabled. Sequencer programming isn't
+// practical via MIDI; for the demo we leave it visible but inert.
 s = section(row1, 'Sequencer');
+s.classList.add('ctrl-disabled');
 rows = srows(s);
 r = srow(rows);
-dropdownBtn(r, 'Type', 0, paramEnum('seqType'), {cc: param('seqType').cc});
-const seqMode = dropdownBtn(r, 'Mode', 0, ['Normal','Stop','Pause','Repeat']);
-seqMode.el.classList.add('ctrl-disabled');
-const seqTrack = knob(r, 'Track', 0, 5);
-seqTrack.el.classList.add('ctrl-disabled');
+dropdownBtn(r, 'Type', 0, paramEnum('seqType'));
+dropdownBtn(r, 'Mode', 0, ['Normal','Stop','Pause','Repeat']);
+knob(r, 'Track', 0, 5);
 r = srow(rows);
-const seqPlay = btn(r, 'Play', 0);
-seqPlay.el.classList.add('ctrl-disabled');
-const seqDest = dropdownBtn(r, 'Destination', 0, paramEnum('modDest'));
-seqDest.el.classList.add('ctrl-disabled');
-const seqRecord = knob(r, 'Record', 0, 1);
-seqRecord.el.classList.add('ctrl-disabled');
+btn(r, 'Play', 0);
+dropdownBtn(r, 'Destination', 0, paramEnum('modDest'));
+knob(r, 'Record', 0, 1);
 
 // PROGRAMS — two standard rows with screen spanning both
 s = section(row1, null);
 s.style.border = 'none';
+s.style.padding = '22px 0 12px';
+s.style.marginLeft = '-8px';
+s.style.marginRight = '-8px';
 
 // Use a flex layout: left knobs col | screen | right knobs col | buttons
 const progLayout = document.createElement('div');
@@ -1699,9 +1761,18 @@ s.style.flex = '1';
 const oscRows = srows(s);
 const oscShapes = ['Sawtooth', 'Saw+Tri', 'Triangle', 'Square'];
 
+// Helper: spacer div with the same width as the Sync button area
+function syncSpacer(parent) {
+  const sp = document.createElement('div');
+  sp.style.cssText = 'width:50px;flex-shrink:0;';
+  parent.appendChild(sp);
+  return sp;
+}
+
 r = srow(oscRows);
 r.style.justifyContent = 'space-between';
 knob(r, 'Osc 1 Freq', 36, 120, {cc: 20});              // osc1Freq max=120 def=36
+syncSpacer(r);
 knob(r, 'Fine Tune', 50, 100, {cc: 21, center: 0.5});   // osc1FineTune center=50
 shapeSel(r, 1, oscShapes, {cc: 22});                      // osc1Shape CC 22
 knob(r, 'Shape Mod', 50, 99, {cc: 30, center: 0.5});    // osc1PulseWidth max=99 def=50
@@ -1709,16 +1780,17 @@ vdiv(r);
 knob(r, 'Sub Octave', 0, 127, {cc: 8});                 // subOsc
 knob(r, 'Noise', 0, 127, {cc: 29});                     // noiseLevel
 
-// Sync button — positioned between osc rows
+// Sync button — positioned in the spacer column between the osc rows
 oscRows.style.position = 'relative';
 const syncWrap = document.createElement('div');
-syncWrap.style.cssText = 'position:absolute;left:78px;top:53%;transform:translate(-50%,-50%);z-index:1;';
-btn(syncWrap, 'Sync', 0, null, {nrpn: 10});
+syncWrap.style.cssText = 'position:absolute;left:91px;top:50%;transform:translate(-50%,-50%);z-index:1;';
+btn(syncWrap, 'Sync', 0, null, {nrpn: param('sync').nrpn});
 oscRows.appendChild(syncWrap);
 
 r = srow(oscRows);
 r.style.justifyContent = 'space-between';
 knob(r, 'Osc 2 Freq', 36, 120, {cc: 24});              // osc2Freq max=120 def=36
+syncSpacer(r);
 knob(r, 'Fine Tune', 50, 100, {cc: 25, center: 0.5});   // osc2FineTune
 shapeSel(r, 1, oscShapes, {cc: 26});                      // osc2Shape CC 26
 knob(r, 'Shape Mod', 50, 99, {cc: 31, center: 0.5});    // osc2PulseWidth max=99 def=50
@@ -1729,7 +1801,6 @@ knob(r, 'Osc Slop', 0, 127, {cc: 9});                   // oscSlop
 // LOW-PASS FILTER
 s = section(row2, 'Low-Pass Filter');
 s.style.flex = '1';
-s.style.minWidth = '620px';  // extra width so AMP right edge aligns with row 1
 rows = srows(s);
 r = srow(rows);
 r.style.justifyContent = 'space-between';

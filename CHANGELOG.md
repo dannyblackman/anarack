@@ -1,5 +1,31 @@
 # Changelog
 
+## v0.6.1 (build 83) — UI polish + NRPN sync from synth (2026-04-07)
+
+**UI fixes:**
+- Oscillator section: added spacer column so SYNC button no longer overlaps Fine Tune knobs
+- Sequencer section greyed out entirely (sequencer programming not practical via MIDI)
+- Programme section pulled in via negative margins (`-8px` each side) to align row 2 right edge
+- Mod Matrix Select knob → dropdown (1-8) for cleaner slot picking
+- Transpose buttons greyed out (no NRPN, hardware-only)
+
+**Boot state:**
+- Bipolar knobs now start at 12 o'clock (their centre value) instead of fully left
+- Added `_restValue` to each control: bipolar = centre, unipolar = 0
+- New `allCtrls` registry covers NRPN-only controls too, so buttons start OFF
+
+**NRPN sync from synth (mod matrix etc. now animate on patch load):**
+- Pi: `synth_manager.get_sysex_offset_to_nrpn_map()` for NRPN-only params
+- Pi: `_broadcast_nrpn()` sends `{type:"nrpn", nrpn:N, value:V}` to all clients
+- C++: `NetworkTransport.onSynthNRPN` callback + `nrpnRing` in PluginProcessor
+- C++: editor drains `nrpnRing` and emits `nrpnUpdate` to the WebView
+- Panel: new `nrpnRegistry` keyed by NRPN, populated by all control builders
+- Panel: `handleModMatrixNRPN()` routes mod matrix updates by NRPN → slot/field
+  so incoming NRPN values land in the right slot even if a different one is displayed
+
+When the Pi is updated and the synth sends an edit buffer, mod matrix /
+unison / sync / fx clk sync etc. will animate to their actual values.
+
 ## v0.6.0 (build 82) — Centralised NRPN table + mod matrix + more hookups (2026-04-06)
 
 **Foolproof NRPN sync:**

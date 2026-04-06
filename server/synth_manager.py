@@ -50,6 +50,16 @@ class SynthDefinition:
                 result[offset] = (param["cc"], param.get("max", 127))
         return result
 
+    def get_sysex_offset_to_nrpn_map(self) -> dict[int, tuple[int, int]]:
+        """Returns {sysex_offset: (nrpn, native_max)} for all parameters with both.
+        Used to broadcast NRPN-only parameters (mod matrix, sync, unison, etc.)
+        from a sysex edit buffer dump so the panel UI can update them."""
+        result = {}
+        for offset, param in self._params_by_sysex_offset.items():
+            if param.get("nrpn") is not None and param.get("cc") is None:
+                result[offset] = (param["nrpn"], param.get("max", 127))
+        return result
+
     def scale_to_cc(self, param_id: str, native_value: int) -> int:
         """Scale a native parameter value to 0-127 CC range."""
         param = self._params_by_id.get(param_id)

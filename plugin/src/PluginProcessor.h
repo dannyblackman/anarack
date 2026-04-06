@@ -66,6 +66,13 @@ public:
     CCEvent ccRing[CC_RING_SIZE];
     std::atomic<int> ccRingWrite { 0 };
     std::atomic<int> ccRingRead { 0 };
+
+    // Ring buffer for NRPN values (for the panel's nrpnRegistry to update)
+    static constexpr int NRPN_RING_SIZE = 256;
+    struct NrpnEvent { uint16_t nrpn; uint16_t val; };
+    NrpnEvent nrpnRing[NRPN_RING_SIZE];
+    std::atomic<int> nrpnRingWrite { 0 };
+    std::atomic<int> nrpnRingRead { 0 };
     int ccMap[128];                               // ccMap[controllerCC] = synthCC, -1 = unmapped
     int ccValues[128];                            // current value per synth CC (for relative mode)
     int lastRawVal[128];                          // last raw value per controller CC (for 0/127 direction detection)
