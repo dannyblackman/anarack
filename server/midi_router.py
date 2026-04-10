@@ -823,31 +823,52 @@ async def main():
     # Open MIDI input from synth via raw ALSA device (not rtmidi sequencer).
     # rtmidi can't receive on the same ALSA port that's open for output — the
     # sequencer doesn't deliver data. Raw device access bypasses this limitation.
+    # Uses find_raw_midi_device() so reconnection after power-cycle works the same way.
     midi_in_fd = None
-    midi_in_dev = None
-    try:
-        import subprocess as _sp
-        # Find the raw MIDI device for the synth
-        amidi_out = _sp.run(["amidi", "-l"], capture_output=True, text=True).stdout
-        for line in amidi_out.strip().split("\n"):
-            if args.midi_port and args.midi_port.lower() in line.lower():
-                midi_in_dev = line.split()[1]  # e.g. "hw:3,0,0"
-                break
-        if midi_in_dev:
-            import os as _os
-            # Map hw:X,Y,Z to /dev/snd/midiCXDY
-            parts = midi_in_dev.replace("hw:", "").split(",")
-            raw_path = f"/dev/snd/midiC{parts[0]}D{parts[1] if len(parts) > 1 else '0'}"
-            midi_in_fd = _os.open(raw_path, _os.O_RDONLY | _os.O_NONBLOCK)
-            print(f"Bidirectional MIDI active (raw device: {raw_path})")
-        else:
-            print("WARNING: Could not find raw MIDI device for synth input")
-    except Exception as e:
-        print(f"WARNING: Raw MIDI input failed: {e}")
+
+    def find_raw_midi_device():
+        """Find the raw ALSA MIDI device for the synth."""
+        import subprocess as _sp, os as _os
+        try:
+            amidi_out = _sp.run(["amidi", "-l"], capture_output=True, text=True).stdout
+            for line in amidi_out.strip().split("\n"):
+                if args.midi_port and args.midi_port.lower() in line.lower():
+                    dev = line.split()[1]
+                    parts = dev.replace("hw:", "").split(",")
+                    raw_path = f"/dev/snd/midiC{parts[0]}D{parts[1] if len(parts) > 1 else '0'}"
+                    fd = _os.open(raw_path, _os.O_RDONLY | _os.O_NONBLOCK)
+                    return fd, raw_path
+        except Exception as e:
+            print(f"find_raw_midi_device: {e}")
+        return None, None
+
+    def reconnect_midi_output():
+        """Reconnect the MIDI output port after device reappears."""
+        try:
+            new_out = open_midi_port(args.midi_port)
+            router.midi_out = new_out
+            print(f"MIDI output reconnected")
+            # Re-request edit buffer to sync UI
+            router._loop.call_soon_threadsafe(
+                router._loop.call_later, 0.5, router.request_edit_buffer
+            )
+            return True
+        except Exception as e:
+            print(f"MIDI output reconnect failed: {e}")
+            return False
+
+    # Initial device open
+    midi_in_fd, _raw_path = find_raw_midi_device()
+    if midi_in_fd is not None:
+        print(f"Bidirectional MIDI active (raw device: {_raw_path})")
+    else:
+        print("WARNING: Could not find raw MIDI device for synth input (will retry)")
 
     async def poll_raw_midi():
-        """Read raw MIDI bytes from /dev/snd/midiCxDy and dispatch to router."""
+        """Read raw MIDI bytes from /dev/snd/midiCxDy and dispatch to router.
+        Reconnects automatically if the device disappears (e.g. power cycle)."""
         import os as _os, select as _sel
+        nonlocal midi_in_fd
         buf = bytearray()
         print("Raw MIDI polling started")
         while True:
@@ -883,6 +904,30 @@ async def main():
                                 else:
                                     del buf[0]  # skip stray data byte
                 else:
+                    # No device yet — poll for it to appear
+                    await asyncio.sleep(2)
+                    midi_in_fd, raw_path = find_raw_midi_device()
+                    if midi_in_fd is not None:
+                        print(f"MIDI device appeared: {raw_path}")
+                        reconnect_midi_output()
+            except OSError as e:
+                if e.errno == 19:  # No such device — synth was power-cycled
+                    print(f"MIDI device lost (power cycle?). Waiting for reconnect...")
+                    try:
+                        _os.close(midi_in_fd)
+                    except Exception:
+                        pass
+                    midi_in_fd = None
+                    buf.clear()
+                    # Poll for device to reappear
+                    while midi_in_fd is None:
+                        await asyncio.sleep(2)
+                        midi_in_fd, raw_path = find_raw_midi_device()
+                        if midi_in_fd is not None:
+                            print(f"MIDI device reconnected: {raw_path}")
+                            reconnect_midi_output()
+                else:
+                    print(f"Raw MIDI poll error: {e}")
                     await asyncio.sleep(0.1)
             except Exception as e:
                 print(f"Raw MIDI poll error: {e}")
@@ -917,7 +962,7 @@ async def main():
     print()
 
     # Start raw MIDI polling
-    midi_poll_task = asyncio.create_task(poll_raw_midi()) if midi_in_fd is not None else None
+    midi_poll_task = asyncio.create_task(poll_raw_midi())
 
     # Run until interrupted
     stop = asyncio.Event()
@@ -936,8 +981,9 @@ async def main():
     udp_transport.close()
     ws_server.close()
     await ws_server.wait_closed()
-    if midi_in:
-        midi_in.close_port()
+    if midi_in_fd is not None:
+        import os as _os
+        _os.close(midi_in_fd)
     midi_out.close_port()
     print(f"\nShutdown complete. Sent {router.message_count} MIDI messages.")
 
