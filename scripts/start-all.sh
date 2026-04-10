@@ -42,7 +42,15 @@ if ! jack_lsp >/dev/null 2>&1; then
     exit 1
 fi
 
-# Start Anarack server
+# Start Anarack services
 export PYTHONUNBUFFERED=1
 cd /home/pi/anarack
+
+# Pi Agent (power control + session management) in background
+venv/bin/python server/pi_agent.py \
+    --synth-config synths/sequential-prophet-rev2.json \
+    > /tmp/pi_agent.log 2>&1 &
+echo "Pi Agent started (PID $!)"
+
+# MIDI/Audio server (foreground — systemd monitors this process)
 exec venv/bin/python server/midi_router.py --midi-port 'Prophet Rev2'
