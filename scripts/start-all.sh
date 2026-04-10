@@ -52,5 +52,35 @@ venv/bin/python server/pi_agent.py \
     > /tmp/pi_agent.log 2>&1 &
 echo "Pi Agent started (PID $!)"
 
+# Wait for Pi Agent HTTP API to be ready
+echo 'Waiting for Pi Agent...'
+for i in $(seq 1 10); do
+    if curl -s http://localhost:8803/synths/prophet-rev2/power >/dev/null 2>&1; then
+        echo "Pi Agent ready after ${i}s"
+        break
+    fi
+    sleep 1
+done
+
+# Power on the Rev2 via Shelly and wait for boot
+echo 'Powering on Rev2...'
+curl -s -X POST http://localhost:8803/synths/prophet-rev2/power \
+    -H 'Content-Type: application/json' -d '{"state":"on"}'
+echo ''
+
+# Wait for Rev2 USB MIDI port to appear (up to 20s)
+echo 'Waiting for Rev2 MIDI port...'
+for i in $(seq 1 20); do
+    if arecordmidi -l 2>/dev/null | grep -q 'Prophet Rev2'; then
+        echo "Rev2 MIDI port found after ${i}s"
+        break
+    fi
+    sleep 1
+done
+
+if ! arecordmidi -l 2>/dev/null | grep -q 'Prophet Rev2'; then
+    echo 'WARNING: Rev2 MIDI port not found, starting midi_router anyway'
+fi
+
 # MIDI/Audio server (foreground — systemd monitors this process)
 exec venv/bin/python server/midi_router.py --midi-port 'Prophet Rev2'
