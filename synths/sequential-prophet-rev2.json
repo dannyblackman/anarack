@@ -3,6 +3,17 @@
   "name": "Sequential Prophet Rev2",
   "manufacturer": "Sequential",
   "midiChannel": 1,
+  "power": {
+    "controller": "shelly",
+    "address": "http://shellypluspluguk-048308de6c30.local",
+    "relay": 0,
+    "boot_delay_ms": 8000,
+    "boot_timeout_ms": 20000,
+    "off_duration_ms": 30000,
+    "idle_off_ms": 900000,
+    "ready_check": "delay",
+    "jack_port_match": "Prophet Rev2"
+  },
   "sysexDeviceId": 1,
   "sysexManufacturerId": [
     1,

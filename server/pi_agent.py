@@ -7,11 +7,12 @@ Runs alongside midi_router.py on the Pi. Handles:
   - Registration with Session API via WebSocket
   - Dynamic WireGuard peer management (add/remove plugin peers)
   - Heartbeat with current endpoint
+  - Power management for synths via Shelly smart plugs (HTTP on :8803)
 
 Usage:
     python pi_agent.py [--api-host localhost] [--api-ws-port 8802]
                        [--stun-host localhost] [--stun-port 8801]
-                       [--pi-id anarack-pi-01]
+                       [--pi-id anarack-pi-01] [--synth-config ../synths/sequential-prophet-rev2.json]
 """
 
 import argparse
@@ -30,6 +31,14 @@ try:
 except ImportError:
     log.error("websockets required: pip install websockets")
     raise
+
+try:
+    from aiohttp import web
+except ImportError:
+    log.error("aiohttp required: pip install aiohttp")
+    raise
+
+from power_manager import PowerManager
 
 
 def get_wg_pubkey(interface: str = "wg0") -> str:
@@ -110,6 +119,21 @@ def remove_wg_peer(pubkey: str, interface: str = "wg0"):
         log.error(f"Failed to remove WG peer: {e}")
 
 
+def load_synth_power_config(config_path: str) -> tuple[str, dict] | None:
+    """Load synth config and extract power block."""
+    try:
+        with open(config_path) as f:
+            synth = json.load(f)
+        if "power" in synth:
+            return synth["id"], synth["power"]
+        else:
+            log.info(f"No power config in {config_path}")
+            return None
+    except Exception as e:
+        log.error(f"Failed to load synth config {config_path}: {e}")
+        return None
+
+
 async def run_agent(args):
     pi_id = args.pi_id
     wg_pubkey = get_wg_pubkey()
@@ -121,6 +145,47 @@ async def run_agent(args):
         return
 
     log.info(f"Pi agent starting: id={pi_id}, pubkey={wg_pubkey[:16]}..., local_ip={local_ip}, wg_port={wg_port}")
+
+    # --- Power Manager ---
+    power_mgr = PowerManager()
+    if args.synth_config:
+        result = load_synth_power_config(args.synth_config)
+        if result:
+            synth_id, power_config = result
+            power_mgr.register_synth(synth_id, power_config)
+
+    # --- HTTP API for power control (port 8803) ---
+    async def handle_power_post(request):
+        synth_id = request.match_info["synth_id"]
+        try:
+            body = await request.json()
+        except Exception:
+            body = {}
+        state = body.get("state", "on")
+        if state == "on":
+            result = await power_mgr.power_on(synth_id)
+        elif state == "off":
+            result = await power_mgr.power_off(synth_id)
+        else:
+            result = {"ok": False, "error": f"Invalid state: {state}"}
+        status_code = 200 if result.get("ok") else 400
+        return web.json_response(result, status=status_code)
+
+    async def handle_power_get(request):
+        synth_id = request.match_info["synth_id"]
+        result = await power_mgr.status(synth_id)
+        status_code = 200 if result.get("ok") else 404
+        return web.json_response(result, status=status_code)
+
+    app = web.Application()
+    app.router.add_post("/synths/{synth_id}/power", handle_power_post)
+    app.router.add_get("/synths/{synth_id}/power", handle_power_get)
+
+    runner = web.AppRunner(app)
+    await runner.setup()
+    site = web.TCPSite(runner, "0.0.0.0", args.http_port)
+    await site.start()
+    log.info(f"Power control HTTP API listening on :{args.http_port}")
 
     # Track active sessions for peer cleanup
     active_sessions: dict[str, str] = {}  # session_id → plugin_pubkey
@@ -221,6 +286,8 @@ if __name__ == "__main__":
     parser.add_argument("--api-ws-port", type=int, default=8802, help="Session API WebSocket port")
     parser.add_argument("--stun-host", default="localhost", help="STUN service host")
     parser.add_argument("--stun-port", type=int, default=8801, help="STUN service port")
+    parser.add_argument("--http-port", type=int, default=8803, help="Power control HTTP port")
+    parser.add_argument("--synth-config", default=None, help="Path to synth JSON config with power block")
     args = parser.parse_args()
 
     try:
