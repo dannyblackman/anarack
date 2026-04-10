@@ -237,8 +237,14 @@ async def run_agent(args):
                             session_id = data["session_id"]
                             plugin_pubkey = data["plugin_pubkey"]
                             plugin_endpoint = data.get("plugin_endpoint", "")
+                            synth_id = data.get("synth_id", "prophet-rev2")
 
                             log.info(f"New session {session_id}: plugin={plugin_pubkey[:16]}...")
+
+                            # Power on synth if needed (waits for boot)
+                            if synth_id in power_mgr.synths:
+                                power_result = await power_mgr.session_started(synth_id)
+                                log.info(f"Power state for {synth_id}: {power_result}")
 
                             # Clean up any previous sessions first
                             for old_id, old_key in list(active_sessions.items()):
@@ -258,9 +264,13 @@ async def run_agent(args):
 
                         elif msg_type == "end_session":
                             session_id = data["session_id"]
+                            synth_id = data.get("synth_id", "prophet-rev2")
                             pubkey = active_sessions.pop(session_id, None)
                             if pubkey:
                                 remove_wg_peer(pubkey)
+                            # Start idle timer — will power off if no new session
+                            if synth_id in power_mgr.synths:
+                                await power_mgr.session_ended(synth_id)
 
                 await asyncio.gather(heartbeat(), handle_messages())
 

@@ -44,6 +44,8 @@ class SynthPowerState:
         self.last_off: float = 0
         self.last_activity: float = 0
         self.booting: bool = False
+        self.active_sessions: int = 0
+        self._idle_task: asyncio.Task | None = None
 
 
 class PowerManager:
@@ -247,7 +249,56 @@ class PowerManager:
         if synth:
             synth.last_activity = time.time()
 
+    async def session_started(self, synth_id: str) -> dict:
+        """Called when a plugin session begins. Powers on if needed, cancels idle timer."""
+        synth = self.synths.get(synth_id)
+        if not synth:
+            return {"ok": False, "error": f"Unknown synth: {synth_id}"}
+
+        # Cancel any pending idle-off timer
+        if synth._idle_task and not synth._idle_task.done():
+            synth._idle_task.cancel()
+            log.info(f"{synth_id}: idle timer cancelled (new session)")
+
+        synth.active_sessions += 1
+        synth.last_activity = time.time()
+
+        # Power on if not already on
+        if not synth.is_on and not synth.booting:
+            log.info(f"{synth_id}: powering on for new session")
+            return await self.power_on(synth_id)
+
+        return {"ok": True, "state": "on", "message": "Already on"}
+
+    async def session_ended(self, synth_id: str):
+        """Called when a plugin session ends. Starts idle timer if no sessions remain."""
+        synth = self.synths.get(synth_id)
+        if not synth:
+            return
+
+        synth.active_sessions = max(0, synth.active_sessions - 1)
+
+        if synth.active_sessions == 0 and synth.is_on:
+            idle_mins = synth.idle_off_ms / 60000
+            log.info(f"{synth_id}: no active sessions, idle timer started ({idle_mins:.0f} min)")
+            synth._idle_task = asyncio.create_task(self._idle_off(synth))
+
+    async def _idle_off(self, synth: SynthPowerState):
+        """Wait for idle period then power off."""
+        try:
+            await asyncio.sleep(synth.idle_off_ms / 1000)
+            if synth.active_sessions == 0 and synth.is_on:
+                log.info(f"{synth.synth_id}: idle timeout reached, powering off")
+                await self.power_off(synth.synth_id)
+            else:
+                log.info(f"{synth.synth_id}: idle timer expired but synth is active, skipping")
+        except asyncio.CancelledError:
+            pass
+
     async def close(self):
-        """Clean up HTTP session."""
+        """Clean up HTTP session and cancel timers."""
+        for synth in self.synths.values():
+            if synth._idle_task and not synth._idle_task.done():
+                synth._idle_task.cancel()
         if self._session and not self._session.closed:
             await self._session.close()
